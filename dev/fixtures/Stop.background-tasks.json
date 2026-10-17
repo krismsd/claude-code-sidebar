@@ -1,0 +1,30 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "383182",
+    "x-cc-pid": "382308",
+    "x-cc-tag": "s1test",
+    "x-wt-session": "fake-wt-s1"
+  },
+  "background_tasks": [
+    {
+      "agent_type": "general-purpose",
+      "description": "Count lines in README.md",
+      "id": "a8c13db353cf1070d",
+      "status": "running",
+      "type": "subagent"
+    }
+  ],
+  "cwd": "/home/user/cc-sidebar-sandbox/charlie",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "last_assistant_message": "Steps 1\u20134 are done. The subagent is still counting the lines in README.md, so I'm waiting for its result.",
+  "permission_mode": "auto",
+  "prompt_id": "06520f80-b03e-4a5f-bf78-af9d5b42d4e0",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-charlie/d60030c3-51ca-429b-bf09-a8efbfa2013a/scratchpad",
+  "session_crons": [],
+  "session_id": "d60030c3-51ca-429b-bf09-a8efbfa2013a",
+  "stop_hook_active": false,
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-charlie/d60030c3-51ca-429b-bf09-a8efbfa2013a.jsonl"
+}

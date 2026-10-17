@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# cc-tasks: list tasks from an issue tracker through Claude (SPEC §3.12). Read-only by
+# construction: --permission-mode dontAsk refuses every tool call that isn't listed.
+#   - claude.ai connectors (e.g. Atlassian) are deferred tools, reached via ToolSearch;
+#     allowed: the named connector tools (read-only defaults per connector).
+#   - CLI trackers (e.g. az boards) use permission rules such as "Bash(az boards query:*)":
+#     only matching commands may run. Run from the project folder (the app passes --cd).
+# No user settings are loaded, so no hooks fire.
+#   cc-tasks <connector|""> <query> [tool-or-rule ...]
+# Prints {"tasks":[{id,title,status,url,summary}, ...]} on success.
+set -euo pipefail
+connector="$1"; query="$2"; shift 2
+prefix="mcp__claude_ai_${connector// /_}"
+tools=("$@")
+if [ ${#tools[@]} -eq 0 ]; then
+  case "$connector" in
+    Atlassian) tools=(searchJiraIssuesUsingJql getAccessibleAtlassianResources atlassianUserInfo getJiraIssue) ;;
+    *) echo "no default read-only tools for connector '$connector': list them in projects.toml" >&2; exit 2 ;;
+  esac
+fi
+builtin=(); allowed=(); select=""
+for t in "${tools[@]}"; do
+  case "$t" in
+    *"("*) allowed+=("$t"); builtin+=("${t%%(*}") ;;                 # e.g. Bash(az boards query:*)
+    mcp__*) allowed+=("$t"); select="${select:+$select,}$t" ;;
+    *) allowed+=("${prefix}__$t"); select="${select:+$select,}${prefix}__$t" ;;
+  esac
+done
+steps=""
+if [ -n "$select" ]; then builtin+=(ToolSearch); allowed+=(ToolSearch); steps="First load the tools with ToolSearch (query: select:$select). "; fi
+builtin_list=$(printf '%s\n' "${builtin[@]}" | sort -u | paste -sd, -)
+schema='{"type":"object","properties":{"tasks":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"title":{"type":"string"},"status":{"type":"string"},"url":{"type":"string"},"summary":{"type":"string"}},"required":["id","title","url"]}}},"required":["tasks"]}'
+out=$(CC_SIDEBAR_INTERNAL=1 claude -p --model sonnet --no-session-persistence --setting-sources "" \
+  --tools "$builtin_list" --permission-mode dontAsk --allowedTools "${allowed[@]}" \
+  --output-format json --json-schema "$schema" \
+  "Read-only task lookup. Never create or change anything. ${steps}Find: $query. Return at most 25 as tasks: id = the tracker's key or number, title, status, url = a link to open it in a browser, summary = one short line." \
+  </dev/null)
+printf '%s' "$out" | jq -e '.structured_output | select(.tasks)' || {
+  printf '%s' "$out" | jq -r '"cc-tasks failed: \(.result // .subtype // "no output")"' >&2
+  exit 1
+}

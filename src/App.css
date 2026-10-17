@@ -1,0 +1,902 @@
+:root {
+  --bg: #f3f3f3;
+  --card: #ffffff;
+  --fg: #1b1b1b;
+  --muted: #6b6b6b;
+  --border: #dcdcdc;
+  --blue: #0067c0;
+  --amber: #b25e00;
+  --amber-bg: #fff4e0;
+  --green: #0f7b0f;
+  --red: #c42b1c;
+  --grey: #8a8a8a;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1c;
+    --card: #2b2b2b;
+    --fg: #f0f0f0;
+    --muted: #9a9a9a;
+    --border: #3a3a3a;
+    --blue: #4cc2ff;
+    --amber: #ffb347;
+    --amber-bg: #3d2e12;
+    --green: #6ccb5f;
+    --red: #ff99a4;
+    --grey: #8a8a8a;
+  }
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  box-sizing: border-box;
+  position: relative;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty,
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 11px;
+}
+
+/* ---- card ---- */
+.card {
+  background: var(--card);
+  border-radius: 6px;
+  border-left: 6px solid var(--project);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  padding: 0 10px 8px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.card:hover {
+  outline: 1px solid var(--project);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -10px 4px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--project) 14%, transparent);
+}
+
+.card-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emoji {
+  margin-right: 4px;
+}
+
+.label-tag {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.card-where,
+.card-activity,
+.card-recap {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-where {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.card-activity {
+  color: var(--blue);
+}
+
+.status-needs_permission .card-activity {
+  color: var(--amber);
+}
+
+.card-recap {
+  color: var(--muted);
+}
+
+/* ---- status chip ---- */
+.chip {
+  flex: none;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--grey);
+}
+
+.chip-working {
+  background: var(--blue);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.chip-needs_permission,
+.chip-needs_input {
+  background: var(--amber);
+}
+
+.chip-needs_permission {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.chip-idle {
+  background: var(--green);
+}
+
+.chip-error {
+  background: var(--red);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip-working,
+  .chip-needs_permission,
+  .chip-needs_input,
+  .chip-idle,
+  .chip-error {
+    color: #1b1b1b;
+  }
+}
+
+.status-needs_permission,
+.status-needs_input {
+  background: var(--amber-bg);
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 35%, transparent);
+  }
+}
+
+/* ---- badges ---- */
+.card-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.badge {
+  border: none;
+  background: none;
+  font-size: 15px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.closed-toggle,
+.link {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  padding: 4px 0;
+  font: inherit;
+}
+
+.link {
+  color: var(--blue);
+  font-size: 12px;
+}
+
+.toast {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 12px;
+}
+
+/* ---- alerts (M4) ---- */
+.card-alert {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+  font-size: 12px;
+  color: var(--red);
+}
+
+.alert-waiting,
+.alert-slow {
+  color: var(--amber);
+}
+
+.alert-compact {
+  color: var(--muted);
+}
+
+.card-alert-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.x {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.x:hover {
+  color: var(--fg);
+}
+
+.card.flash {
+  animation: card-flash 0.5s ease-in-out 8 alternate;
+}
+
+@keyframes card-flash {
+  from {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  to {
+    box-shadow:
+      0 0 0 3px var(--red),
+      0 0 18px 4px color-mix(in srgb, var(--red) 60%, transparent);
+  }
+}
+
+.status-needs_permission.flash {
+  animation-name: card-flash-amber;
+}
+
+@keyframes card-flash-amber {
+  from {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  to {
+    box-shadow:
+      0 0 0 3px var(--amber),
+      0 0 18px 4px color-mix(in srgb, var(--amber) 60%, transparent);
+  }
+}
+
+.badge.fresh {
+  animation: pop 0.5s ease-in-out 8 alternate;
+}
+
+@keyframes pop {
+  to {
+    transform: scale(1.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.flash,
+  .badge.fresh,
+  .chip-working,
+  .chip-needs_permission {
+    animation: none;
+  }
+  .card.flash {
+    box-shadow: 0 0 0 3px var(--red);
+  }
+}
+
+/* ---- Haiku recaps (M5) ---- */
+.card-recap.instant {
+  font-style: italic;
+}
+
+.recap-detail {
+  white-space: pre-line;
+  margin-bottom: 4px;
+}
+
+/* ---- actions (M6) ---- */
+button {
+  font: inherit;
+}
+
+.answer {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.answer button,
+.actions button,
+.other button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 4px;
+  padding: 2px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.answer .allow {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-weight: 600;
+}
+
+.answer .deny {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.actions .danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plus {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  line-height: 18px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.new-session {
+  margin: 8px;
+  padding: 8px;
+  background: var(--card);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+.new-session-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.recents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.recents button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--fg);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.recents button:hover {
+  background: var(--bg);
+}
+
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.recent-name {
+  flex: none;
+  font-weight: 600;
+}
+
+.recent-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.other {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.other input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* Cards must never shrink to fit: the list scrolls instead. */
+.cards > *,
+.project-cards > * {
+  flex-shrink: 0;
+}
+
+/* Session started without the claudes wrapper: no tag, so no focus/End. */
+.card-warning {
+  margin: 4px 0;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border-left: 3px solid var(--amber);
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.card-warning code {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+}
+
+/* ---- projects, stars, flyout (M8) ---- */
+.project {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.project.drop-target {
+  outline: 2px dashed var(--project);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.project-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--project) 22%, var(--card));
+  border-left: 6px solid var(--project);
+  cursor: grab;
+}
+
+.project-head.flash {
+  animation: card-flash 0.5s ease-in-out 8 alternate;
+}
+
+.project-name {
+  flex: 1;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--grey);
+  opacity: 0.5;
+}
+
+.dot.open {
+  background: var(--green);
+  opacity: 1;
+}
+
+.dot.working {
+  background: var(--blue);
+  opacity: 1;
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.dot.attention {
+  background: var(--amber);
+  opacity: 1;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.icon {
+  flex: none;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--fg);
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 18px;
+}
+
+.icon:hover {
+  border-color: var(--border);
+  background: var(--card);
+}
+
+.project-menu {
+  position: absolute;
+  right: 4px;
+  top: 30px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+}
+
+.project-menu button {
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.project-menu button:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.project-menu button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.project-menu .danger,
+.project-menu .danger:hover:not(:disabled) {
+  background: var(--red);
+  color: #fff;
+}
+
+.project-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 8px;
+}
+
+.empty-project {
+  padding: 2px 4px;
+}
+
+.card.is-closed {
+  opacity: 0.6;
+}
+
+.card.is-closed:hover {
+  opacity: 1;
+}
+
+.star {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.star.on {
+  color: var(--amber);
+}
+
+.card-head .card-title {
+  flex: 1;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.flyout {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  z-index: 30;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+  font-size: 12px;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flyout-recap {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ---- tasks (M8) ---- */
+.tasks {
+  margin-left: 8px;
+  padding: 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--project);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.tasks-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.task-error {
+  color: var(--red);
+}
+
+.task-filter {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 4px;
+  font: inherit;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.task-list button {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--fg);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.task-list button:hover {
+  background: var(--bg);
+}
+
+.task-id {
+  flex: none;
+  font-weight: 600;
+  color: var(--project);
+}
+
+.task-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-status {
+  flex: none;
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 5px;
+}
+
+/* ---- window menu, strip (M9) ---- */
+.window-menu {
+  position: absolute;
+  right: 8px;
+  top: 40px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+}
+
+.window-menu button {
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  padding: 5px 8px 5px 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  position: relative;
+}
+
+.window-menu button:hover {
+  background: var(--bg);
+}
+
+.window-menu button.checked::before {
+  content: "✓";
+  position: absolute;
+  left: 7px;
+}
+
+.menu-label {
+  padding: 6px 8px 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 6px 0;
+  box-sizing: border-box;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.strip-expand {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.strip-project {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--project) 35%, var(--card));
+  border-left: 3px solid var(--project);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.strip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grey);
+  opacity: 0.5;
+}
+
+.strip-project.open .strip-dot {
+  background: var(--green);
+  opacity: 1;
+}
+
+.strip-project.working .strip-dot {
+  background: var(--blue);
+  opacity: 1;
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.strip-project.attention .strip-dot {
+  background: var(--amber);
+  opacity: 1;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.strip-project.flash {
+  animation: card-flash 0.5s ease-in-out 8 alternate;
+}

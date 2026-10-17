@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# cc-recap: one-line Haiku recap of a Claude Code session (SPEC §3.5). Runs in WSL; the
+# sidebar calls it via `wsl.exe -e bash -l cc-recap <transcript.jsonl>`.
+# Output: one line (< 90 chars), a line "---", then 2-3 lines of detail.
+# --setting-sources "" loads no user settings, so no hooks fire for this call (no recursion);
+# CC_SIDEBAR_INTERNAL=1 is a second guard in case they ever do.
+t="$1"
+[ -r "$t" ] || { echo "no transcript: $t" >&2; exit 2; }
+# Condense the last 30 user/assistant entries: text, plus tool calls as "[Tool target]".
+ctx=$(jq -r '
+  select(.type=="user" or .type=="assistant") | .type as $who
+  | (.message.content | if type=="string" then [{type:"text",text:.}] else . end)
+  | map(
+      if .type=="text" then .text
+      elif .type=="tool_use" then "[\(.name) \((.input.file_path | select(.) | split("/") | last) // .input.command // .input.pattern // .input.description // "" | tostring | .[0:80])]"
+      else empty end)
+  | join(" ") | select(. != "" and (startswith("<") | not))
+  | "\($who): \(.[0:400])"' "$t" 2>/dev/null | tail -n 30)
+[ -n "$ctx" ] || { echo "empty transcript" >&2; exit 3; }
+printf '%s\n' "$ctx" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
+  --tools "" --strict-mcp-config --setting-sources "" \
+  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 1, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 2, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.'

@@ -1,0 +1,16 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "382698",
+    "x-cc-pid": "382308",
+    "x-cc-tag": "s1test",
+    "x-wt-session": "fake-wt-s1"
+  },
+  "cwd": "/home/user/cc-sidebar-sandbox/charlie",
+  "hook_event_name": "UserPromptSubmit",
+  "permission_mode": "auto",
+  "prompt": "Do these steps in order: 1) read app.py 2) add a function goodbye() returning \"bye\" to app.py 3) run the shell command: ls /nonexistent-dir-xyz (it will fail, that is expected) 4) run: cd /tmp && pwd 5) use a subagent (Task tool) to count the lines in README.md. Then reply in one short sentence.",
+  "prompt_id": "06520f80-b03e-4a5f-bf78-af9d5b42d4e0",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-charlie/d60030c3-51ca-429b-bf09-a8efbfa2013a/scratchpad",
+  "session_id": "d60030c3-51ca-429b-bf09-a8efbfa2013a",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-charlie/d60030c3-51ca-429b-bf09-a8efbfa2013a.jsonl"
+}

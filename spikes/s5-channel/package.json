@@ -1,0 +1,9 @@
+{
+  "name": "s5-channel",
+  "private": true,
+  "type": "module",
+  "description": "Spike S5: minimal Claude Code channel. Runs in WSL with WSL node.",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}

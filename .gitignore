@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-ssr/
+target/
+src-tauri/target/
+src-tauri/gen/schemas/
+.shots/
+spikes/**/target/
+spikes/**/node_modules/
+*.log
+*.local
+.env
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+spikes/**/captured/

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# claudes: start Claude Code tagged for cc-sidebar (SPEC §3.1). Use instead of `claude`.
+# (Not named `cc`: that is the C compiler, and ~/.local/bin comes first on PATH.)
+# - CC_SIDEBAR_TAG: short random id, also put in the tab title as "[cc:<tag>] <project>" so the
+#   sidebar can find and focus this Windows Terminal tab.
+# - CC_SIDEBAR_PID: this shell's PID, which becomes claude's PID via exec (liveness, kill).
+# - CC_SIDEBAR_SETTINGS (optional): extra settings file, e.g. dev/hooks.json for test sessions.
+tag=$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+export CC_SIDEBAR_TAG="$tag" CC_SIDEBAR_PID=$$ CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1
+printf '\033]0;[cc:%s] %s\007' "$tag" "${root##*/}"
+# CC_SIDEBAR_PROMPT_FILE (optional): first prompt, e.g. a task picked in the sidebar. Read
+# and deleted here so the text never goes through wt.exe's command line.
+if [ -n "${CC_SIDEBAR_PROMPT_FILE:-}" ] && [ -r "$CC_SIDEBAR_PROMPT_FILE" ]; then
+  prompt=$(cat "$CC_SIDEBAR_PROMPT_FILE"); rm -f "$CC_SIDEBAR_PROMPT_FILE"
+  unset CC_SIDEBAR_PROMPT_FILE
+  set -- "$@" "$prompt"
+fi
+if [ -n "${CC_SIDEBAR_SETTINGS:-}" ]; then
+  exec claude --settings "$CC_SIDEBAR_SETTINGS" "$@"
+fi
+exec claude "$@"

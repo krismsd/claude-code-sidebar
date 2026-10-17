@@ -1,0 +1,16 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "384847",
+    "x-cc-pid": "384011",
+    "x-cc-tag": "s3test",
+    "x-wt-session": "a99cb4e1-8397-4db9-88d8-b0146b73eeb6"
+  },
+  "cwd": "/home/user/cc-sidebar-sandbox/alpha",
+  "hook_event_name": "Notification",
+  "message": "Claude needs your permission",
+  "notification_type": "permission_prompt",
+  "prompt_id": "6066f65b-c21e-43bf-ac8c-09ac3233f371",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-alpha/3a3d2595-bf5d-4ce3-97a5-ba75065207cf/scratchpad",
+  "session_id": "3a3d2595-bf5d-4ce3-97a5-ba75065207cf",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-alpha/3a3d2595-bf5d-4ce3-97a5-ba75065207cf.jsonl"
+}

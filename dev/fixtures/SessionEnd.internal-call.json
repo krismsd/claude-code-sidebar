@@ -1,0 +1,13 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "386275",
+    "x-cc-internal": "1",
+    "x-wt-session": "a99cb4e1-8397-4db9-88d8-b0146b73eeb6"
+  },
+  "cwd": "/tmp",
+  "hook_event_name": "SessionEnd",
+  "prompt_id": "326d4eaa-61f5-4b5b-8601-b346d7c1f83d",
+  "reason": "other",
+  "session_id": "2d534b51-3800-4508-b201-2222a9352547",
+  "transcript_path": "/home/user/.claude/projects/-tmp/2d534b51-3800-4508-b201-2222a9352547.jsonl"
+}

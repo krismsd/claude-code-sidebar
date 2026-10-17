@@ -1,0 +1,37 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "384251",
+    "x-cc-pid": "384011",
+    "x-cc-tag": "s3test",
+    "x-wt-session": "a99cb4e1-8397-4db9-88d8-b0146b73eeb6"
+  },
+  "cwd": "/home/user/cc-sidebar-sandbox/alpha",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "permission_mode": "default",
+  "permission_suggestions": [
+    {
+      "destination": "session",
+      "directories": [
+        "/home/user/cc-sidebar-sandbox/alpha"
+      ],
+      "type": "addDirectories"
+    },
+    {
+      "destination": "session",
+      "mode": "acceptEdits",
+      "type": "setMode"
+    }
+  ],
+  "prompt_id": "a532f4a8-1f1e-48da-8bee-eeb450016d63",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-alpha/3a3d2595-bf5d-4ce3-97a5-ba75065207cf/scratchpad",
+  "session_id": "3a3d2595-bf5d-4ce3-97a5-ba75065207cf",
+  "tool_input": {
+    "command": "touch allowed.txt",
+    "description": "Create empty allowed.txt file"
+  },
+  "tool_name": "Bash",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-alpha/3a3d2595-bf5d-4ce3-97a5-ba75065207cf.jsonl"
+}

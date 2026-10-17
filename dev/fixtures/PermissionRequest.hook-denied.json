@@ -1,0 +1,37 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "384548",
+    "x-cc-pid": "384011",
+    "x-cc-tag": "s3test",
+    "x-wt-session": "a99cb4e1-8397-4db9-88d8-b0146b73eeb6"
+  },
+  "cwd": "/home/user/cc-sidebar-sandbox/alpha",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "permission_mode": "default",
+  "permission_suggestions": [
+    {
+      "destination": "session",
+      "directories": [
+        "/home/user/cc-sidebar-sandbox/alpha"
+      ],
+      "type": "addDirectories"
+    },
+    {
+      "destination": "session",
+      "mode": "acceptEdits",
+      "type": "setMode"
+    }
+  ],
+  "prompt_id": "5bcfca85-3954-447a-93d7-08a39ae5742a",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-alpha/3a3d2595-bf5d-4ce3-97a5-ba75065207cf/scratchpad",
+  "session_id": "3a3d2595-bf5d-4ce3-97a5-ba75065207cf",
+  "tool_input": {
+    "command": "touch denied.txt",
+    "description": "Create empty denied.txt file"
+  },
+  "tool_name": "Bash",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-alpha/3a3d2595-bf5d-4ce3-97a5-ba75065207cf.jsonl"
+}

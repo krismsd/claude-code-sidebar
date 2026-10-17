@@ -1,0 +1,14 @@
+{
+  "_headers": {
+    "x-cc-pid": "403766",
+    "x-cc-tag": "5caabd",
+    "x-wsl-distro": "Ubuntu",
+    "x-wt-session": "03b79629-24b5-445f-8d76-85c1d502b7cc"
+  },
+  "cwd": "/home/user/cc-sidebar-sandbox/bravo",
+  "hook_event_name": "SessionEnd",
+  "reason": "other",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-bravo/d6e8df7d-82a7-429b-828a-74833d9a670b/scratchpad",
+  "session_id": "d6e8df7d-82a7-429b-828a-74833d9a670b",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-bravo/d6e8df7d-82a7-429b-828a-74833d9a670b.jsonl"
+}

@@ -1,0 +1,16 @@
+{
+  "_headers": {
+    "x-cc-hook-ppid": "388213",
+    "x-cc-pid": "382308",
+    "x-cc-tag": "s1test",
+    "x-wt-session": "fake-wt-s1"
+  },
+  "cwd": "/home/user/cc-sidebar-sandbox/charlie",
+  "hook_event_name": "SessionStart",
+  "model": "claude-opus-5-5",
+  "prompt_id": "ae26bf61-94ee-41ff-9ae8-527cd883cdad",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-cc-sidebar-sandbox-charlie/d60030c3-51ca-429b-bf09-a8efbfa2013a/scratchpad",
+  "session_id": "d60030c3-51ca-429b-bf09-a8efbfa2013a",
+  "source": "compact",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-charlie/d60030c3-51ca-429b-bf09-a8efbfa2013a.jsonl"
+}

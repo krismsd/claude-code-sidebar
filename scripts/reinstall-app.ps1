@@ -1,0 +1,15 @@
+# Upgrade the installed cc-sidebar from the latest NSIS bundle and restart it. Waits for the old
+# process to exit (otherwise the silent installer reports success without replacing the exe)
+# and fails if the installed exe isn't the freshly built one.
+$built = Get-Item "C:\dev\cc-sidebar\src-tauri\target\release\cc-sidebar.exe"
+$setup = Get-ChildItem "C:\dev\cc-sidebar\src-tauri\target\release\bundle\nsis\*-setup.exe" | Sort-Object LastWriteTime | Select-Object -Last 1
+Stop-Process -Name cc-sidebar -ErrorAction SilentlyContinue
+while (Get-Process cc-sidebar -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }
+Start-Sleep 2
+$p = Start-Process $setup.FullName -ArgumentList "/S" -PassThru -Wait
+$installed = Get-Item "$env:LOCALAPPDATA\cc-sidebar\cc-sidebar.exe"
+if ($p.ExitCode -ne 0 -or $installed.Length -ne $built.Length -or $installed.LastWriteTime -lt $built.LastWriteTime.AddMinutes(-1)) {
+  "FAILED: installer exit $($p.ExitCode); installed $($installed.LastWriteTime) vs built $($built.LastWriteTime)"; exit 1
+}
+Start-Process $installed.FullName
+"reinstalled ($($installed.LastWriteTime))"

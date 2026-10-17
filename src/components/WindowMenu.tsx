@@ -4,12 +4,14 @@ import type { Monitor } from "../lib/types";
 
 interface Props {
   floating: boolean;
+  /** Configured monitor: 0 = primary, n = nth from the left. */
+  monitor: number;
   onClose: () => void;
   onError: (e: unknown) => void;
 }
 
-/** ⚙ menu: docked/floating, which monitor, settings files. */
-export function WindowMenu({ floating, onClose, onError }: Props) {
+/** ⚙ menu: where the sidebar sits (docked on a monitor, or floating) and settings files. */
+export function WindowMenu({ floating, monitor, onClose, onError }: Props) {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -37,22 +39,26 @@ export function WindowMenu({ floating, onClose, onError }: Props) {
 
   return (
     <div className="window-menu" ref={ref}>
-      <div className="menu-label">Window</div>
-      <button className={floating ? "" : "checked"} onClick={() => set({ mode: "docked" })}>
-        Docked (reserves its space)
-      </button>
+      <div className="menu-label">Position</div>
+      {monitors.map((m) => {
+        const current = !floating && (monitor === m.number || (monitor === 0 && m.primary));
+        return (
+          <button
+            key={m.number}
+            className={current ? "checked" : ""}
+            onClick={() => set({ mode: "docked", monitor: m.number })}
+          >
+            Docked on {monitors.length > 1 ? `monitor ${m.number}` : "this monitor"}
+            <span className="menu-note">
+              {m.width}×{m.height} · {m.scale_percent}%{m.primary ? " · primary" : ""}
+            </span>
+          </button>
+        );
+      })}
       <button className={floating ? "checked" : ""} onClick={() => set({ mode: "floating" })}>
         Floating window
+        <span className="menu-note">movable, reserves no space</span>
       </button>
-      {monitors.length > 0 && <div className="menu-label">Monitor</div>}
-      {monitors.map((m) => (
-        <button key={m.number} onClick={() => set({ monitor: m.number })}>
-          {m.number} · {m.width}×{m.height} · {m.scale_percent}%{m.primary ? " · primary" : ""}
-        </button>
-      ))}
-      {monitors.length > 1 && (
-        <button onClick={() => set({ monitor: 0 })}>Primary (follows it)</button>
-      )}
       <div className="menu-label">Settings</div>
       <button onClick={() => (invoke("open_settings_file").catch(onError), onClose())}>
         config.toml…

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Session } from "../lib/types";
-import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed } from "../lib/format";
+import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
   session: Session;
@@ -66,7 +66,13 @@ export function SessionCard({
         >
           {s.starred ? "★" : "☆"}
         </button>
-        <span className="card-title">{label || (s.tag ? `#${s.tag}` : "session")}</span>
+        <span
+          className="card-title"
+          title={label ? `${sessionName(s)} · ${label}` : sessionName(s)}
+        >
+          <span className="card-name">{sessionName(s)}</span>
+          {label && <span className="card-branch"> · {label}</span>}
+        </span>
         <span className={`chip chip-${s.status}`}>
           {closed ? closedLabel(s) : STATUS_LABEL[s.status]} · {elapsed(s.status_since, now)}
         </span>

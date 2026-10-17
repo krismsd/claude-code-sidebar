@@ -106,6 +106,15 @@ pub struct Session {
     /// What it's doing right now, e.g. "Editing auth.ts".
     pub current_tool: Option<String>,
     pub last_prompt: Option<String>,
+    /// The first real prompt (truncated): the session's name until a title exists.
+    #[serde(default)]
+    pub first_prompt: Option<String>,
+    /// Session name: a custom/ai title from the transcript, else a short Haiku title.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// SessionStart source of the current run (startup, resume, clear, compact).
+    #[serde(default)]
+    pub start_source: Option<String>,
     /// Instant recap: first sentence of the last assistant message.
     pub recap: Option<String>,
     /// Haiku recap of the latest turn (SPEC §3.5); replaces `recap` on the card when present.
@@ -157,6 +166,9 @@ impl Session {
             last_event_at: now,
             current_tool: None,
             last_prompt: None,
+            first_prompt: None,
+            title: None,
+            start_source: None,
             recap: None,
             recap_haiku: None,
             recap_detail: None,
@@ -209,13 +221,24 @@ impl Session {
     }
 
     /// A Haiku recap arrived for Stop number `seq`; ignored if a newer Stop happened since.
-    pub fn set_haiku_recap(&mut self, seq: u64, line: String, detail: Option<String>) -> bool {
+    pub fn set_haiku_recap(&mut self, seq: u64, recap: crate::recap::Recap) -> bool {
         if seq != self.stop_seq {
             return false;
         }
-        self.recap_haiku = Some(line);
-        self.recap_detail = detail;
+        self.recap_haiku = Some(recap.line);
+        self.recap_detail = recap.detail;
+        if recap.title.is_some() {
+            self.title = recap.title;
+        }
         true
+    }
+
+    /// A brand-new (or /clear-ed) session that ended before anything was asked: nothing to
+    /// resume, so its card goes. Resumed sessions have history and starred ones are kept.
+    pub fn is_unused(&self) -> bool {
+        !self.starred
+            && self.first_prompt.is_none()
+            && matches!(self.start_source.as_deref(), Some("startup" | "clear"))
     }
 
     pub fn dismiss_alert(&mut self, id: u64) {
@@ -278,6 +301,9 @@ impl Session {
 
         match &hook.event {
             Event::SessionStart { source } => {
+                if source.as_deref() != Some("compact") {
+                    self.start_source = source.clone();
+                }
                 match source.as_deref() {
                     // After compaction the session carries on with whatever it was doing.
                     Some("compact") => {}
@@ -302,6 +328,9 @@ impl Session {
                 // Background subagent hand-backs arrive as prompts; they aren't the user's.
                 if !prompt.trim_start().starts_with("<agent-message") {
                     self.last_prompt = Some(truncate(prompt, 200));
+                    if self.first_prompt.is_none() {
+                        self.first_prompt = Some(truncate(prompt, 60));
+                    }
                 }
                 self.pending_permission = None;
                 self.current_tool = None;
@@ -539,6 +568,44 @@ impl Session {
             _ => 2,
         }
     }
+}
+
+/// Names found in a transcript (JSONL text): the latest title Claude Code recorded (a
+/// `custom-title` the user set beats an `ai-title`), and the first real user prompt.
+pub fn transcript_names(jsonl: &str) -> (Option<String>, Option<String>) {
+    let (mut custom, mut ai, mut first) = (None, None, None);
+    for line in jsonl.lines() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let s = |k: &str| v.get(k).and_then(|x| x.as_str()).map(str::to_string);
+        match v.get("type").and_then(|t| t.as_str()) {
+            Some("custom-title") => custom = s("customTitle").or_else(|| s("title")).or(custom),
+            Some("ai-title") => ai = s("aiTitle").or(ai),
+            Some("user")
+                if first.is_none() && v.get("isMeta").and_then(|m| m.as_bool()) != Some(true) =>
+            {
+                let c = &v["message"]["content"];
+                let text = c.as_str().map(str::to_string).or_else(|| {
+                    c.as_array()?.iter().find_map(|p| {
+                        (p["type"] == "text").then(|| p["text"].as_str().unwrap_or("").to_string())
+                    })
+                });
+                // Skip slash-command wrappers, hand-backs and other injected messages.
+                first = text
+                    .filter(|t| !t.trim().is_empty() && !t.trim_start().starts_with('<'))
+                    .map(|t| truncate(&t, 60));
+            }
+            _ => {}
+        }
+    }
+    (
+        custom
+            .or(ai)
+            .filter(|t| !t.is_empty())
+            .map(|t| truncate(&t, 60)),
+        first,
+    )
 }
 
 /// First sentence (or line) of an assistant message, for the instant recap.

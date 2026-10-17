@@ -55,6 +55,9 @@ impl Store {
             .entry(id.clone())
             .or_insert_with(|| Session::new(id, now));
         s.apply(hook, now, &self.thresholds);
+        if matches!(hook.event, Event::SessionEnd { .. }) && s.is_unused() {
+            self.sessions.remove(id);
+        }
         true
     }
 
@@ -66,6 +69,11 @@ impl Store {
         };
         let now = s.last_event_at;
         s.project = Some(project.clone());
+        self.track(project, now);
+    }
+
+    /// Track a project (new ones go to the bottom) or refresh its name/colour.
+    pub fn track(&mut self, project: Project, now: Ms) {
         let base = Project {
             worktree: None,
             branch: None,
@@ -81,6 +89,38 @@ impl Store {
                 project: base,
                 added_at: now,
             }),
+        }
+    }
+
+    /// Sessions with no name yet but a transcript, to backfill from it.
+    pub fn unnamed(&self) -> Vec<(String, String, Option<String>)> {
+        self.sessions
+            .values()
+            .filter(|s| s.title.is_none() && s.first_prompt.is_none())
+            .filter_map(|s| {
+                Some((
+                    s.session_id.clone(),
+                    s.transcript_path.clone()?,
+                    s.distro.clone(),
+                ))
+            })
+            .collect()
+    }
+
+    /// Fill in names read from a transcript, without overwriting what's already known.
+    pub fn set_names(
+        &mut self,
+        session_id: &str,
+        title: Option<String>,
+        first_prompt: Option<String>,
+    ) {
+        if let Some(s) = self.sessions.get_mut(session_id) {
+            if s.title.is_none() {
+                s.title = title;
+            }
+            if s.first_prompt.is_none() {
+                s.first_prompt = first_prompt;
+            }
         }
     }
 
@@ -141,12 +181,11 @@ impl Store {
         &mut self,
         session_id: &str,
         seq: u64,
-        line: String,
-        detail: Option<String>,
+        recap: crate::recap::Recap,
     ) -> bool {
         self.sessions
             .get_mut(session_id)
-            .is_some_and(|s| s.set_haiku_recap(seq, line, detail))
+            .is_some_and(|s| s.set_haiku_recap(seq, recap))
     }
 
     pub fn permission_holdable(&mut self, session_id: &str, answerable: bool) {
@@ -212,6 +251,8 @@ impl Store {
                 s.mark_lost(now);
             }
         }
+        self.sessions
+            .retain(|_, s| !(s.status == Status::Closed && s.is_unused()));
     }
 
     pub fn get(&self, session_id: &str) -> Option<&Session> {

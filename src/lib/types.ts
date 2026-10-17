@@ -47,6 +47,9 @@ export interface Session {
   last_event_at: number;
   current_tool: string | null;
   last_prompt: string | null;
+  first_prompt: string | null;
+  title: string | null;
+  start_source: string | null;
   recap: string | null;
   recap_haiku: string | null;
   recap_detail: string | null;
@@ -82,6 +85,8 @@ export interface UiState {
   collapsed: boolean;
   floating: boolean;
   left_edge: boolean;
+  /** 0 = primary, n = nth monitor from the left. */
+  monitor: number;
 }
 
 export interface Monitor {

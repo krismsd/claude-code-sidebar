@@ -194,6 +194,27 @@ pub fn recent_projects(
     v
 }
 
+/// Resolve a WSL folder the user picked into its project (repo root), checking it exists.
+pub fn project_at(
+    path: &str,
+    cfg: &Config,
+    overrides: &Overrides,
+) -> Result<project::Project, String> {
+    let path = path.trim().trim_end_matches('/');
+    let path = if path.is_empty() { "/" } else { path };
+    if !path.starts_with('/') {
+        return Err("Use a WSL path such as /home/you/dev/project".into());
+    }
+    if !project::windows_path(&cfg.distro, path).is_dir() {
+        return Err(format!("{path} doesn't exist"));
+    }
+    Ok(project::resolve(
+        path,
+        |l| project::windows_path(&cfg.distro, l),
+        overrides,
+    ))
+}
+
 /// Start a new session in `path` (a WSL path that must exist).
 #[cfg(windows)]
 pub fn new_session(path: &str, cfg: &Config, overrides: &Overrides) -> Result<(), String> {

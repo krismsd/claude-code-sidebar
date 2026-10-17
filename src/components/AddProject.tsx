@@ -3,12 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Recent } from "../lib/types";
 
 interface Props {
+  /** Roots already in the sidebar: left out of the recents. */
+  tracked: Set<string>;
   onClose: () => void;
   onMessage: (msg: string) => void;
 }
 
-/** "+" panel (SPEC §3.11): recent projects, or any WSL folder. */
-export function NewSession({ onClose, onMessage }: Props) {
+/** "+" panel: add a project to the sidebar, from recent ones or any WSL folder. */
+export function AddProject({ tracked, onClose, onMessage }: Props) {
   const [recents, setRecents] = useState<Recent[] | null>(null);
   const [path, setPath] = useState("");
 
@@ -21,15 +23,16 @@ export function NewSession({ onClose, onMessage }: Props) {
       });
   }, [onMessage]);
 
-  const start = async (p: string) => {
+  const add = async (p: string) => {
     try {
-      await invoke("new_session", { path: p });
-      onMessage("Starting a new session…");
+      const name = await invoke<string>("track_project", { path: p });
+      onMessage(`Added ${name}. Use its + to start a session.`);
       onClose();
     } catch (e) {
       onMessage(String(e));
     }
   };
+  const fresh = recents?.filter((r) => !tracked.has(r.path)) ?? null;
 
   const browse = async () => {
     const picked = await invoke<string | null>("pick_folder");
@@ -39,17 +42,19 @@ export function NewSession({ onClose, onMessage }: Props) {
   return (
     <div className="new-session">
       <div className="new-session-head">
-        <span>New session</span>
+        <span>Add project</span>
         <button className="x" onClick={onClose} title="Close">
           ✕
         </button>
       </div>
-      {recents === null && <p className="muted small">Loading recent projects…</p>}
-      {recents?.length === 0 && <p className="muted small">No recent projects.</p>}
+      {fresh === null && <p className="muted small">Loading recent projects…</p>}
+      {fresh?.length === 0 && (
+        <p className="muted small">No other recent projects. Pick a folder below.</p>
+      )}
       <ul className="recents">
-        {recents?.map((r) => (
+        {fresh?.map((r) => (
           <li key={r.path}>
-            <button onClick={() => start(r.path)} title={r.path}>
+            <button onClick={() => add(r.path)} title={r.path}>
               <span className="dot" style={{ background: r.color }} />
               <span className="recent-name">{r.name}</span>
               <span className="muted small recent-path">{r.path}</span>
@@ -61,20 +66,20 @@ export function NewSession({ onClose, onMessage }: Props) {
         className="other"
         onSubmit={(e) => {
           e.preventDefault();
-          if (path.trim()) start(path.trim());
+          if (path.trim()) add(path.trim());
         }}
       >
         <input
           value={path}
           onChange={(e) => setPath(e.target.value)}
-          placeholder="Other: /home/you/dev/project"
+          placeholder="Folder: /home/you/dev/project"
           spellCheck={false}
         />
         <button type="button" onClick={browse} title="Browse…">
           …
         </button>
         <button type="submit" disabled={!path.trim()}>
-          Start
+          Add
         </button>
       </form>
     </div>

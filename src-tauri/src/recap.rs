@@ -41,18 +41,40 @@ pub fn wait_for(now: Ms, last_run: Option<Ms>, min_interval_ms: Ms) -> Ms {
     last_run.map_or(0, |t| (t + min_interval_ms).saturating_sub(now))
 }
 
-/// Split cc-recap output into (line, detail).
-pub fn parse(out: &str) -> Option<(String, Option<String>)> {
+/// A Haiku recap: one line, optional detail, optional session title.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Recap {
+    pub line: String,
+    pub detail: Option<String>,
+    pub title: Option<String>,
+}
+
+/// Parse cc-recap output: an optional `TITLE: …` line, the recap line, `---`, then detail.
+pub fn parse(out: &str) -> Option<Recap> {
     let out = out.replace('`', "").replace("**", "");
     let mut parts = out.splitn(2, "\n---");
     let head = parts.next()?;
-    let line = head.lines().map(str::trim).find(|l| !l.is_empty())?;
-    let line = line
-        .trim_matches(|c| c == '"' || c == '*' || c == '`')
-        .trim();
-    if line.is_empty() || line == "---" {
-        return None;
+    let clean = |l: &str| {
+        l.trim()
+            .trim_matches(|c| c == '"' || c == '*')
+            .trim()
+            .to_string()
+    };
+    let mut title = None;
+    let mut line = None;
+    for l in head.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        if let Some(t) = l
+            .strip_prefix("TITLE:")
+            .or_else(|| l.strip_prefix("Title:"))
+        {
+            title = Some(clean(t))
+                .filter(|t| !t.is_empty())
+                .map(|t| crate::events::truncate(&t, 60));
+        } else if line.is_none() {
+            line = Some(clean(l));
+        }
     }
+    let line = line.filter(|l| !l.is_empty() && l != "---")?;
     let detail = parts
         .next()
         .map(|d| {
@@ -63,7 +85,11 @@ pub fn parse(out: &str) -> Option<(String, Option<String>)> {
                 .join("\n")
         })
         .filter(|d| !d.is_empty());
-    Some((crate::events::truncate(line, 110), detail))
+    Some(Recap {
+        line: crate::events::truncate(&line, 110),
+        detail,
+        title,
+    })
 }
 
 impl Recapper {
@@ -146,16 +172,12 @@ impl Recapper {
             }
         };
         let text = String::from_utf8_lossy(&out.stdout);
-        let Some((line, detail)) = parse(&text) else {
+        let Some(recap) = parse(&text) else {
             log::warn!("recap {id}: unparseable output: {}", text.trim());
             return false;
         };
         log::info!("recap {id} in {:.1}s", started.elapsed().as_secs_f32());
-        let applied = ctx
-            .store
-            .lock()
-            .unwrap()
-            .set_haiku_recap(id, seq, line, detail);
+        let applied = ctx.store.lock().unwrap().set_haiku_recap(id, seq, recap);
         if applied {
             publish(ctx);
         }
@@ -175,20 +197,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_line_and_detail() {
-        let (l, d) =
-            parse("Described the repo\n---\napp.py has two functions.\nREADME is a title.\n")
-                .unwrap();
-        assert_eq!(l, "Described the repo");
+    fn parses_line_detail_and_title() {
+        let r = parse("TITLE: Shout helper for app.py\nDescribed the repo\n---\napp.py has two functions.\nREADME is a title.\n").unwrap();
+        assert_eq!(r.title.as_deref(), Some("Shout helper for app.py"));
+        assert_eq!(r.line, "Described the repo");
         assert_eq!(
-            d.as_deref(),
+            r.detail.as_deref(),
             Some("app.py has two functions.\nREADME is a title.")
         );
-        let (l, d) = parse("\n\"Fixed the login bug\"\n").unwrap();
-        assert_eq!(l, "Fixed the login bug");
-        assert_eq!(d, None);
+        let r = parse("\n\"Fixed the login bug\"\n").unwrap();
+        assert_eq!(
+            (r.line.as_str(), r.title, r.detail),
+            ("Fixed the login bug", None, None)
+        );
         assert!(parse("").is_none());
-        assert!(parse("---\nonly detail").is_none());
+        assert!(parse("TITLE: only a title\n---\ndetail").is_none());
     }
 
     #[test]

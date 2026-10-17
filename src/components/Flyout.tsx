@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import type { Session, SessionAction } from "../lib/types";
-import { ALERT_EMOJI } from "../lib/format";
+import { ALERT_EMOJI, sessionName } from "../lib/format";
 import { flyoutPosition } from "../lib/view";
 
 interface Props {
@@ -27,6 +27,7 @@ export function Flyout({ session: s, anchor, onEnter, onLeave, onAction, onDismi
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
     >
+      <div className="flyout-title">{sessionName(s)}</div>
       {(s.recap_haiku ?? s.recap) && <div className="flyout-recap">{s.recap_haiku ?? s.recap}</div>}
       {s.recap_detail && <div className="recap-detail">{s.recap_detail}</div>}
       {s.last_prompt && (
@@ -67,9 +68,7 @@ export function Flyout({ session: s, anchor, onEnter, onLeave, onAction, onDismi
             {confirmEnd ? "Really end?" : "End"}
           </button>
         )}
-        <button onClick={() => onAction(s, "folder")}>Folder</button>
-        <button onClick={() => onAction(s, "vscode")}>VS Code</button>
-        {closed && <button onClick={() => onDismiss(s)}>Remove</button>}
+        {closed && <button onClick={() => onDismiss(s)}>Remove from sidebar</button>}
       </div>
     </div>
   );

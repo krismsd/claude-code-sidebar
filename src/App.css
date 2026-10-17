@@ -900,3 +900,33 @@ button {
 .strip-project.flash {
   animation: card-flash 0.5s ease-in-out 8 alternate;
 }
+
+/* ---- M10 ---- */
+.card-name {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.card-branch {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.card-head .card-title {
+  font-size: 12px;
+}
+
+.flyout-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.flyout-recap {
+  font-weight: 500;
+}
+
+.menu-note {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+}

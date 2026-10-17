@@ -80,6 +80,8 @@ pub struct UiState {
     pub collapsed: bool,
     pub floating: bool,
     pub left_edge: bool,
+    /// Configured monitor: 0 = primary, n = nth from the left.
+    pub monitor: usize,
 }
 
 pub fn ui_state(ctx: &Ctx) -> UiState {
@@ -99,6 +101,7 @@ pub fn ui_state(ctx: &Ctx) -> UiState {
         collapsed: ctx.prefs.lock().unwrap().collapsed,
         floating: cfg.floating(),
         left_edge: cfg.edge.eq_ignore_ascii_case("left"),
+        monitor: cfg.monitor,
     }
 }
 
@@ -197,6 +200,9 @@ async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String
     if matches!(hook.event, Event::Stop { .. }) {
         ctx.recapper.on_stop(&ctx, &hook.common.session_id);
     }
+    if matches!(hook.event, Event::SessionStart { .. }) {
+        backfill_names(&ctx);
+    }
 
     // Questions for the user aren't allow/deny decisions: answer only in the terminal.
     if let Event::PermissionRequest { tool_name, .. } = &hook.event
@@ -287,6 +293,28 @@ pub fn refresh_all_projects(ctx: &Ctx) {
         for (id, cwd, distro) in todo {
             let p = project::resolve(&cwd, |l| project::windows_path(&distro, l), &overrides);
             ctx.store.lock().unwrap().set_project(&id, p);
+        }
+        publish(&ctx);
+    });
+}
+
+/// Name sessions that have none yet from their transcripts (read over \\\\wsl.localhost): sessions
+/// from before names existed, or ones the app first sees mid-way.
+pub fn backfill_names(ctx: &Ctx) {
+    let todo = ctx.store.lock().unwrap().unnamed();
+    if todo.is_empty() {
+        return;
+    }
+    let ctx = ctx.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let default_distro = ctx.config.read().unwrap().distro.clone();
+        for (id, path, distro) in todo {
+            let file = project::windows_path(distro.as_deref().unwrap_or(&default_distro), &path);
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            let (title, first) = crate::session::transcript_names(&text);
+            ctx.store.lock().unwrap().set_names(&id, title, first);
         }
         publish(&ctx);
     });

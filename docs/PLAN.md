@@ -116,6 +116,14 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Collapse to a slim docked status strip (30 DIP: expand button + one status dot per project, flashing on new alerts). Header » / strip « / tray "Collapse / expand"; remembered in `ui.json`. Verified: other windows reflow into the freed space.
 - [x] Floating window mode: a normal movable, resizable window instead of the AppBar (config + ⚙ menu). Unregisters the AppBar (no reserved space), header is a drag region, frameless resize from the edges; position/size saved in `ui.json` and restored on restart (verified). `config::set_value` edits single keys in config.toml, keeping comments.
 
+## M10: Feedback round 3 (2026-10-17)
+- [x] Session flyout: no Folder/VS Code (they're on the project menu); End and Remove only.
+- [x] Session names: custom title > Claude Code's `ai-title` (from the transcript) > a 3-6 word Haiku title (cc-recap's new `TITLE:` line) > first prompt. `claudes` disables Claude Code's own titling (needed for the `[cc:tag]` tab title), hence the Haiku title. Existing sessions are backfilled from their transcripts at startup and on SessionStart.
+- [x] Durations show the largest unit only (5h, not 5h 36m).
+- [x] A new (or /clear-ed) session that closes before any prompt is removed; resumed and starred ones stay.
+- [x] ⚙ menu: one Position list (docked on monitor N, or floating).
+- [x] Header + is now Add project (tracks a folder's project, no session); recents leave out tracked projects. Sessions start from a project's own +.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

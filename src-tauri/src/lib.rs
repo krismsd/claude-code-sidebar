@@ -247,6 +247,21 @@ async fn new_session(ctx: State<'_, Ctx>, path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?
 }
 
+/// "Add project": track a folder's project with no session yet (SPEC §3.12).
+#[cfg(windows)]
+#[tauri::command]
+fn track_project(ctx: State<'_, Ctx>, path: String) -> Result<String, String> {
+    let (cfg, overrides) = (
+        ctx.config.read().unwrap().clone(),
+        ctx.overrides.read().unwrap().clone(),
+    );
+    let p = actions::project_at(&path, &cfg, &overrides)?;
+    let name = p.name.clone();
+    ctx.store.lock().unwrap().track(p, server::now_ms());
+    server::publish(&ctx);
+    Ok(name)
+}
+
 /// Windows folder picker, returned as a WSL path (None if cancelled or not mappable).
 #[cfg(windows)]
 #[tauri::command]
@@ -342,6 +357,8 @@ pub fn run() {
             #[cfg(windows)]
             new_session,
             #[cfg(windows)]
+            track_project,
+            #[cfg(windows)]
             pick_folder
         ])
         .setup(move |app| {
@@ -372,6 +389,7 @@ pub fn run() {
                 .scan(&ctx.store.lock().unwrap(), true);
             server::apply_config(&ctx);
             server::refresh_all_projects(&ctx);
+            server::backfill_names(&ctx);
             #[cfg(windows)]
             {
                 register_hotkey(app.handle(), &ctx);

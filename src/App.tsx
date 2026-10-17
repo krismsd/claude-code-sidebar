@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { Session, SessionAction, UiState } from "./lib/types";
 import { ProjectSection, type CardHandlers } from "./components/ProjectSection";
 import { Flyout } from "./components/Flyout";
-import { NewSession } from "./components/NewSession";
+import { AddProject } from "./components/AddProject";
 import { Strip } from "./components/Strip";
 import { WindowMenu } from "./components/WindowMenu";
 import { freshKeys, groupSessions } from "./lib/view";
@@ -169,7 +169,7 @@ function App() {
         <span {...drag}>cc-sidebar</span>
         <span className="header-right">
           <span className="muted small">{openCount} open</span>
-          <button className="plus" title="New session" onClick={() => setCreating(!creating)}>
+          <button className="plus" title="Add project" onClick={() => setCreating(!creating)}>
             +
           </button>
           <button
@@ -192,11 +192,18 @@ function App() {
       {windowMenu && (
         <WindowMenu
           floating={state.floating}
+          monitor={state.monitor}
           onClose={() => setWindowMenu(false)}
           onError={report}
         />
       )}
-      {creating && <NewSession onClose={() => setCreating(false)} onMessage={setToast} />}
+      {creating && (
+        <AddProject
+          tracked={new Set(state.projects.map((t) => t.project.root))}
+          onClose={() => setCreating(false)}
+          onMessage={setToast}
+        />
+      )}
       <div className="cards" onScroll={() => setFlyout(null)}>
         {state.projects.length === 0 && other.length === 0 && (
           <p className="empty">No projects yet. Start a session, or use + above.</p>

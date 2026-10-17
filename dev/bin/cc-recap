@@ -17,6 +17,14 @@ ctx=$(jq -r '
   | join(" ") | select(. != "" and (startswith("<") | not))
   | "\($who): \(.[0:400])"' "$t" 2>/dev/null | tail -n 30)
 [ -n "$ctx" ] || { echo "empty transcript" >&2; exit 3; }
-printf '%s\n' "$ctx" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
+# A title Claude Code already has wins: one set by the user (custom-title), else its ai-title.
+known=$(jq -r 'select(.type=="custom-title") | (.customTitle // .title // empty)' "$t" 2>/dev/null | tail -n 1)
+[ -n "$known" ] || known=$(jq -r 'select(.type=="ai-title") | (.aiTitle // empty)' "$t" 2>/dev/null | tail -n 1)
+out=$(printf '%s\n' "$ctx" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
   --tools "" --strict-mcp-config --setting-sources "" \
-  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 1, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 2, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.'
+  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 0, "TITLE: " and a 3-6 word name for the session (its overall goal, like a tab title, no quotes); line 1, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 2, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.')
+if [ -n "$known" ]; then
+  printf '%s\n' "$out" | sed "s|^TITLE:.*|TITLE: ${known//|/ }|"
+else
+  printf '%s\n' "$out"
+fi

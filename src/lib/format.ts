@@ -30,15 +30,20 @@ export function closedLabel(s: Session): string {
   return CLOSED_REASON[s.closed_reason ?? ""] ?? "closed";
 }
 
-/** "42s", "5m", "3h 12m", "2d". */
+/** Largest unit only: "42s", "5m", "3h", "2d". */
 export function elapsed(fromMs: number, nowMs: number): string {
   const s = Math.max(0, Math.floor((nowMs - fromMs) / 1000));
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
+  if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
+}
+
+/** What to call a session: its title, else its first prompt, else "New session". */
+export function sessionName(s: Session): string {
+  return s.title ?? s.first_prompt ?? "New session";
 }
 
 export function projectName(s: Session): string {

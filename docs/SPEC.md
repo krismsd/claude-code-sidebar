@@ -156,7 +156,9 @@ These still appear (hooks are global after install) but have no tag, PID or chan
 
 `%APPDATA%\cc-sidebar\config.toml`: edge, monitor, width, port, WSL distro, hold window, stale thresholds, sounds, recap runner. Hot-reloaded.
 
-### 3.11 New session (2026-10-17)
+### 3.11 Add project (2026-10-17; was "new session")
+
+The header **+** adds a project (tracked, no session) from recents not already in the sidebar, or any folder; sessions start from the project's own **+**. Original design:
 
 A "+" button in the sidebar header opens a project picker:
 

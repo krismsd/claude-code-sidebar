@@ -330,6 +330,12 @@ fn closed_sessions_stay_until_dismissed_or_pruned() {
         &fx_with("SessionStart", serde_json::json!({"session_id": "b"})),
         0,
     );
+    for id in ["a", "b"] {
+        st.apply(
+            &fx_with("UserPromptSubmit", serde_json::json!({"session_id": id})),
+            0,
+        );
+    }
     st.apply(
         &fx_with(
             "SessionEnd.tab-closed",
@@ -468,12 +474,26 @@ fn haiku_recap_applies_only_to_its_turn() {
     let mut s = Session::new(SID, 0);
     s.apply(&ours("Stop"), 1, &th());
     let seq = s.stop_seq;
-    assert!(s.set_haiku_recap(seq, "Added goodbye()".into(), Some("detail".into())));
+    assert!(s.set_haiku_recap(
+        seq,
+        crate::recap::Recap {
+            line: "Added goodbye()".into(),
+            detail: Some("detail".into()),
+            title: Some("Goodbye helper".into())
+        }
+    ));
     assert_eq!(s.recap_haiku.as_deref(), Some("Added goodbye()"));
     // Next turn: the old Haiku recap goes, and a late result for the old turn is ignored.
     s.apply(&ours("Stop"), 2, &th());
     assert_eq!(s.recap_haiku, None);
-    assert!(!s.set_haiku_recap(seq, "stale".into(), None));
+    assert!(!s.set_haiku_recap(
+        seq,
+        crate::recap::Recap {
+            line: "stale".into(),
+            detail: None,
+            title: None
+        }
+    ));
     assert_eq!(s.recap_haiku, None);
 }
 
@@ -545,6 +565,10 @@ fn resuming_with_claudes_takes_the_new_identity() {
 fn with_project(st: &mut Store, id: &str, root: &str, now: u64) {
     st.apply(
         &fx_with("SessionStart", serde_json::json!({"session_id": id})),
+        now,
+    );
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": id})),
         now,
     );
     let name = root.rsplit('/').next().unwrap().to_string();
@@ -674,4 +698,101 @@ fn ask_user_question_is_not_a_permission_decision() {
         &th(),
     );
     assert_eq!(s.status, Status::NeedsInput);
+}
+
+#[test]
+fn unused_new_sessions_disappear_when_closed() {
+    let mut st = Store::default();
+    // Started and closed without a prompt: gone.
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "new"})),
+        0,
+    );
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "new"})),
+        1,
+    );
+    assert!(st.get("new").is_none());
+    // Prompted once: kept (resumable), and named by its first prompt until a title exists.
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "used"})),
+        0,
+    );
+    st.apply(
+        &fx_with(
+            "UserPromptSubmit",
+            serde_json::json!({"session_id": "used"}),
+        ),
+        1,
+    );
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "used"})),
+        2,
+    );
+    let used = st.get("used").unwrap();
+    assert!(
+        used.first_prompt
+            .as_deref()
+            .unwrap()
+            .starts_with("Do these steps in order")
+    );
+    // Resumed and closed without a new prompt: still has history, kept.
+    st.apply(
+        &fx_with(
+            "SessionStart",
+            serde_json::json!({"session_id": "old", "source": "resume"}),
+        ),
+        0,
+    );
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "old"})),
+        1,
+    );
+    assert!(st.get("old").is_some());
+    // Starred: kept. Process gone without SessionEnd: same rule.
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "star"})),
+        0,
+    );
+    st.toggle_star("star");
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "star"})),
+        1,
+    );
+    assert!(st.get("star").is_some());
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "crash"})),
+        0,
+    );
+    st.pids_dead(&[382308], 5);
+    assert!(st.get("crash").is_none());
+    assert!(st.get("star").is_some() && st.get("used").is_some() && st.get("old").is_some());
+}
+
+#[test]
+fn names_from_transcripts() {
+    use crate::session::transcript_names;
+    let t = [
+        r#"{"type":"user","isMeta":true,"message":{"content":"<local-command-caveat>"}}"#,
+        r#"{"type":"user","message":{"content":"<command-name>/clear</command-name>"}}"#,
+        r#"{"type":"user","message":{"content":[{"type":"text","text":"Add a shout() helper to app.py"}]}}"#,
+        r#"{"type":"ai-title","aiTitle":"Shout helper"}"#,
+        r#"{"type":"user","message":{"content":"and a docstring"}}"#,
+        r#"{"type":"ai-title","aiTitle":"Shout helper with docs"}"#,
+        "not json",
+    ]
+    .join("\n");
+    assert_eq!(
+        transcript_names(&t),
+        (
+            Some("Shout helper with docs".into()),
+            Some("Add a shout() helper to app.py".into())
+        )
+    );
+    let custom = format!(
+        "{t}\n{}",
+        r#"{"type":"custom-title","customTitle":"My name"}"#
+    );
+    assert_eq!(transcript_names(&custom).0.as_deref(), Some("My name"));
+    assert_eq!(transcript_names(""), (None, None));
 }

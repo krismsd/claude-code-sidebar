@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
 import { arrange, flyoutPosition, freshKeys, groupSessions, projectStatus } from "./view";
-import { elapsed } from "./format";
+import { elapsed, sessionName } from "./format";
 
 let n = 0;
 function session(over: Partial<Session> = {}): Session {
@@ -32,6 +32,9 @@ function session(over: Partial<Session> = {}): Session {
     last_event_at: 0,
     current_tool: null,
     last_prompt: null,
+    first_prompt: null,
+    title: null,
+    start_source: null,
     recap: null,
     recap_haiku: null,
     recap_detail: null,
@@ -101,6 +104,7 @@ describe("groupSessions", () => {
       collapsed: false,
       floating: false,
       left_edge: false,
+      monitor: 0,
     };
     const { byRoot, other } = groupSessions(state);
     expect(byRoot.get("/p/a")).toEqual([a]);
@@ -122,9 +126,20 @@ describe("elapsed", () => {
   it("formats durations", () => {
     expect(elapsed(0, 42_000)).toBe("42s");
     expect(elapsed(0, 5 * 60_000)).toBe("5m");
-    expect(elapsed(0, (3 * 60 + 12) * 60_000)).toBe("3h 12m");
+    expect(elapsed(0, (3 * 60 + 12) * 60_000)).toBe("3h");
+    expect(elapsed(0, (5 * 60 + 36) * 60_000)).toBe("5h");
     expect(elapsed(0, 3 * 3_600_000)).toBe("3h");
     expect(elapsed(0, 50 * 3_600_000)).toBe("2d");
     expect(elapsed(10, 0)).toBe("0s");
+  });
+});
+
+describe("sessionName", () => {
+  it("prefers the title, then the first prompt", () => {
+    expect(sessionName(session())).toBe("New session");
+    expect(sessionName(session({ first_prompt: "Fix the login bug" }))).toBe("Fix the login bug");
+    expect(sessionName(session({ first_prompt: "Fix it", title: "Login fixes" }))).toBe(
+      "Login fixes",
+    );
   });
 });

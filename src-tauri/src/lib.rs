@@ -9,6 +9,8 @@ mod alerts;
 #[cfg(windows)]
 mod appbar;
 mod config;
+#[cfg(windows)]
+mod desktop;
 pub mod events;
 #[cfg(windows)]
 mod focus;
@@ -415,7 +417,14 @@ pub fn run() {
                         server::set_collapsed(&ctx, !collapsed);
                     }
                     "settings" => open_settings(app),
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        // Give the reserved space back first, so desktop icons can be restored.
+                        #[cfg(windows)]
+                        appbar::release(windows::Win32::Foundation::HWND(
+                            app.state::<Ctx>().hwnd as *mut _,
+                        ));
+                        app.exit(0)
+                    }
                     _ => {}
                 })
                 .build(app)?;
@@ -425,6 +434,17 @@ pub fn run() {
             tauri::async_runtime::spawn(server::watch_config(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())
+        })
+        // Closed by Windows or another program (e.g. `taskkill`, an installer): give the
+        // reserved space back and restore desktop icons first, like Quit in the tray.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                #[cfg(windows)]
+                appbar::release(windows::Win32::Foundation::HWND(
+                    window.state::<Ctx>().hwnd as *mut _,
+                ));
+                window.app_handle().exit(0);
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

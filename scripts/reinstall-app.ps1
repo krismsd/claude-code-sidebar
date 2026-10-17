@@ -3,7 +3,14 @@
 # and fails if the installed exe isn't the freshly built one.
 $built = Get-Item "C:\dev\cc-sidebar\src-tauri\target\release\cc-sidebar.exe"
 $setup = Get-ChildItem "C:\dev\cc-sidebar\src-tauri\target\release\bundle\nsis\*-setup.exe" | Sort-Object LastWriteTime | Select-Object -Last 1
-Stop-Process -Name cc-sidebar -ErrorAction SilentlyContinue
+# Ask it to close (it gives the reserved space back and restores desktop icons first);
+# force-kill only if it doesn't go within 15 s, since a killed AppBar scatters desktop icons.
+if (Get-Process cc-sidebar -ErrorAction SilentlyContinue) {
+  taskkill.exe /IM cc-sidebar.exe | Out-Null
+  $deadline = (Get-Date).AddSeconds(15)
+  while ((Get-Process cc-sidebar -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300 }
+  Stop-Process -Name cc-sidebar -ErrorAction SilentlyContinue
+}
 while (Get-Process cc-sidebar -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }
 Start-Sleep 2
 $p = Start-Process $setup.FullName -ArgumentList "/S" -PassThru -Wait

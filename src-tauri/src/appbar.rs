@@ -148,21 +148,65 @@ fn target_monitor(n: usize) -> Option<Monitor> {
 }
 
 /// Take over the window: subclass it and apply `p`. Call once, after the window exists.
+/// Reserving the space makes Explorer re-lay out the desktop, so icons are kept in place.
 pub fn attach(hwnd: HWND, p: Placement) {
-    *PLACEMENT.lock().unwrap() = Some(p);
     unsafe {
         let _ = SetWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID, 0);
     }
-    apply(hwnd);
+    change(hwnd, p);
 }
 
 /// Change placement at runtime (config reload, collapse, mode switch). Safe from any thread:
-/// the work happens on the window's thread.
+/// the docking happens on the window's thread.
 pub fn configure(hwnd: HWND, p: Placement) {
-    *PLACEMENT.lock().unwrap() = Some(p);
-    unsafe {
-        let _ = PostMessageW(Some(hwnd), REDOCK_MSG, WPARAM(0), LPARAM(0));
+    let old = PLACEMENT.lock().unwrap().clone();
+    // Only these change the reserved screen space (and so the desktop's layout).
+    let reserves = |p: &Placement| (p.floating, p.floating || p.left_edge, p.width, p.monitor);
+    if old.as_ref().is_some_and(|o| reserves(o) == reserves(&p)) {
+        *PLACEMENT.lock().unwrap() = Some(p);
+        unsafe {
+            let _ = PostMessageW(Some(hwnd), REDOCK_MSG, WPARAM(0), LPARAM(0));
+        }
+    } else {
+        change(hwnd, p);
     }
+}
+
+/// Apply `p`, keeping desktop icons where they were (see `desktop`).
+fn change(hwnd: HWND, p: Placement) {
+    let raw = hwnd.0 as isize;
+    let docked = !p.floating;
+    crate::desktop::keep_icons(
+        move || {
+            *PLACEMENT.lock().unwrap() = Some(p);
+            unsafe {
+                let _ = PostMessageW(Some(HWND(raw as *mut _)), REDOCK_MSG, WPARAM(0), LPARAM(0));
+            }
+        },
+        move || docked.then(|| window_rect(raw)).flatten(),
+    );
+}
+
+fn window_rect(raw: isize) -> Option<RECT> {
+    let mut r = RECT::default();
+    unsafe { GetWindowRect(HWND(raw as *mut _), &mut r).ok().map(|_| r) }
+}
+
+/// Before quitting: give the reserved space back and wait until desktop icons are restored.
+pub fn release(hwnd: HWND) {
+    if !REGISTERED.load(Ordering::Relaxed) {
+        return;
+    }
+    let raw = hwnd.0 as isize;
+    crate::desktop::keep_icons_blocking(
+        move || unsafe {
+            if REGISTERED.swap(false, Ordering::Relaxed) {
+                let mut abd = data(HWND(raw as *mut _));
+                SHAppBarMessage(ABM_REMOVE, &mut abd);
+            }
+        },
+        || None,
+    );
 }
 
 fn apply(hwnd: HWND) {

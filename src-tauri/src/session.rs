@@ -447,7 +447,7 @@ impl Session {
                 self.recap_haiku = None;
                 self.recap_detail = None;
                 if let Some(msg) = last_assistant_message {
-                    self.recap = Some(first_sentence(msg));
+                    self.recap = Some(recap_text(msg));
                 }
                 self.background_running = background_tasks
                     .iter()
@@ -608,7 +608,22 @@ pub fn transcript_names(jsonl: &str) -> (Option<String>, Option<String>) {
     )
 }
 
-/// First sentence (or line) of an assistant message, for the instant recap.
+/// The instant recap: the start of the last assistant message as plain text (Markdown code,
+/// emphasis and heading markers dropped, lines joined), up to ~400 characters. The card shows
+/// up to five lines of it.
+pub fn recap_text(msg: &str) -> String {
+    let plain: Vec<String> = msg
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.starts_with("```"))
+        .map(|l| l.replace("**", "").replace('`', ""))
+        .map(|l| l.trim_start_matches(['#', '>']).trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect();
+    truncate(&plain.join(" "), 400)
+}
+
+/// First sentence (or line) of an assistant message.
 pub fn first_sentence(msg: &str) -> String {
     // Plain text for the card: drop Markdown code and emphasis markers.
     let msg = msg.replace("**", "").replace('`', "");

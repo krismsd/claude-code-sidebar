@@ -106,7 +106,14 @@ export function SessionCard({
       )}
       {(s.recap_haiku ?? s.recap) && (
         <div className={`card-recap${s.recap_haiku ? "" : " instant"}`}>
-          {s.recap_haiku ?? s.recap}
+          {s.recap_haiku ? (
+            <>
+              <span className="recap-line">{s.recap_haiku}</span>
+              {s.recap_detail && `\n${s.recap_detail}`}
+            </>
+          ) : (
+            s.recap
+          )}
         </div>
       )}
       {(s.alerts.length > 1 || s.subagents_running + s.background_running > 0) && (

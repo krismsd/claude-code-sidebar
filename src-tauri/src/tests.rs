@@ -1,6 +1,6 @@
 //! State machine tests driven by real hook payloads captured in dev/fixtures/ (M1 spikes).
 use crate::events::{Event, Hook, HookMeta};
-use crate::session::{AlertKind, Session, Status, Thresholds, first_sentence};
+use crate::session::{AlertKind, Session, Status, Thresholds, first_sentence, recap_text};
 use crate::store::Store;
 use serde_json::Value;
 
@@ -795,4 +795,14 @@ fn names_from_transcripts() {
     );
     assert_eq!(transcript_names(&custom).0.as_deref(), Some("My name"));
     assert_eq!(transcript_names(""), (None, None));
+}
+
+#[test]
+fn instant_recap_keeps_more_of_the_message() {
+    let msg = "## Done\n\nI added **shout()** to `app.py`.\n\n- It upper-cases\n- It adds !\n\n```py\ncode\n```\nNext: tests.";
+    assert_eq!(
+        recap_text(msg),
+        "Done I added shout() to app.py. - It upper-cases - It adds ! code Next: tests."
+    );
+    assert!(recap_text(&"word ".repeat(200)).chars().count() <= 400);
 }

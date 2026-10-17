@@ -129,6 +129,9 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Closing the app politely (tray Quit, `taskkill` without /F, installers) releases the space and restores icons before exiting. `reinstall-app.ps1` closes it politely and force-kills only after 15 s: a force-killed AppBar can't restore, and the repeated force-kills during development are what scattered the user's icons.
 - [x] Verified by the user: icons return to the right places on collapse/expand. The brief flash (Explorer moves them, then they're put back ~0.5 s later) is hidden by pausing the desktop icon view's painting (WM_SETREDRAW on its SysListView32) from just before the change until the first restore; a guard always resumes painting.
 
+## M12: Taller cards (2026-10-18)
+- [x] The card's recap shows up to 5 lines (CSS line clamp): the Haiku line followed by its detail, or, before Haiku answers, the start of the last reply (instant recap now keeps ~400 characters of plain text instead of one sentence).
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

@@ -142,6 +142,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - 2026-10-17: a session last run via `claudes`, then resumed with plain `claude`, showed up and then went to Closed ("process gone") after ~30 s. Resume keeps the session_id, plain `claude` sends no PID, and the card kept the old run's tag/PID, so liveness saw the dead PID. Fixed: SessionStart (a new process) now replaces tag, PID and WT session with whatever it reports, including none. Verified with a sandbox session past a liveness check.
 
 ## Backlog (not started; see the next-steps list in chat 2026-10-17)
+- Desktop icon flash on collapse/expand (2026-10-18): shorter since painting is paused, but still visible. Likely causes: Explorer repaints the desktop (wallpaper window / list view) on the work-area change before or around the WM_SETREDRAW pause, or the first restore pass (0.5 s) comes after Explorer's own repaint. Ideas: restore as soon as a position change is detected (poll every ~50 ms) instead of after a fixed delay; also pause the parent SHELLDLL_DefView / Progman; check whether the icons move before the AppBar change takes effect.
 - Silent sessions: show running `claude` processes that send no hooks as greyed cards.
 - Recap cost controls (only after longer turns, or on demand).
 - Send-prompt if the org enables Channels.

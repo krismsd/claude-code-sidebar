@@ -7,7 +7,10 @@
 //! COM objects are apartment-bound, so a snapshot is taken and restored on one worker thread.
 use std::sync::mpsc;
 use std::time::Duration;
-use windows::Win32::Foundation::{POINT, RECT};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
+use windows::Win32::Graphics::Gdi::{
+    RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow,
+};
 use windows::Win32::System::Com::{
     CLSCTX_LOCAL_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
     CoUninitialize, IServiceProvider,
@@ -19,12 +22,97 @@ use windows::Win32::UI::Shell::{
     SVSI_POSITIONITEM, SWC_DESKTOP, SWFO_NEEDDISPATCH, ShellWindows,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, FindWindowExW, FindWindowW, SMTO_ABORTIFHUNG, SendMessageTimeoutW, WM_SETREDRAW,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
-use windows::core::Interface;
+use windows::core::{BOOL, Interface, w};
 
 /// How long Explorer takes to re-lay out the desktop after a work-area change: restore after
 /// the first delay, and once more after the second in case it reflowed late.
+/// The desktop's icon view (the "FolderView" list view inside SHELLDLL_DefView, which lives
+/// under Progman or, once the wallpaper has been animated, under one of the WorkerW windows).
+fn desktop_list_view() -> Option<HWND> {
+    unsafe fn in_parent(parent: HWND) -> Option<HWND> {
+        unsafe {
+            let defview = FindWindowExW(Some(parent), None, w!("SHELLDLL_DefView"), None).ok()?;
+            FindWindowExW(Some(defview), None, w!("SysListView32"), None).ok()
+        }
+    }
+    unsafe extern "system" fn each(top: HWND, out: LPARAM) -> BOOL {
+        unsafe {
+            match in_parent(top) {
+                Some(lv) => {
+                    *(out.0 as *mut Option<HWND>) = Some(lv);
+                    BOOL(0)
+                }
+                None => BOOL(1),
+            }
+        }
+    }
+    unsafe {
+        if let Some(lv) = FindWindowW(w!("Progman"), None)
+            .ok()
+            .and_then(|p| in_parent(p))
+        {
+            return Some(lv);
+        }
+        let mut found: Option<HWND> = None;
+        let _ = EnumWindows(Some(each), LPARAM(&mut found as *mut _ as isize));
+        found
+    }
+}
+
+/// Stops the desktop icons repainting while Explorer shuffles them and we put them back, so
+/// the user only sees the final layout. Repainting always resumes on drop.
+struct Frozen(Option<HWND>);
+
+impl Frozen {
+    fn new() -> Frozen {
+        let lv = desktop_list_view();
+        if let Some(h) = lv {
+            redraw(h, false);
+        }
+        Frozen(lv)
+    }
+
+    fn thaw(&mut self) {
+        if let Some(h) = self.0.take() {
+            redraw(h, true);
+            unsafe {
+                let _ = RedrawWindow(
+                    Some(h),
+                    None,
+                    None,
+                    RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW,
+                );
+            }
+        }
+    }
+}
+
+impl Drop for Frozen {
+    fn drop(&mut self) {
+        self.thaw();
+    }
+}
+
+/// WM_SETREDRAW to Explorer's window, never waiting long on it.
+fn redraw(h: HWND, on: bool) {
+    unsafe {
+        let _ = SendMessageTimeoutW(
+            h,
+            WM_SETREDRAW,
+            WPARAM(on as usize),
+            LPARAM(0),
+            SMTO_ABORTIFHUNG,
+            500,
+            None,
+        );
+    }
+}
+
 const SETTLE: [Duration; 2] = [Duration::from_millis(500), Duration::from_millis(1200)];
 
 /// Icon positions (desktop list-view coordinates) with the item IDs they belong to.
@@ -155,6 +243,8 @@ where
         if let Err(e) = &snap {
             log::warn!("desktop icons: couldn't read positions: {e}");
         }
+        // Freeze painting only if we can put the icons back.
+        let mut frozen = snap.is_ok().then(Frozen::new);
         let _ = ready_tx.send(());
         if go_rx.recv().is_ok()
             && let Ok((view, snap)) = &snap
@@ -162,6 +252,10 @@ where
             for (i, delay) in SETTLE.iter().enumerate() {
                 std::thread::sleep(*delay);
                 let (moved, kept_off) = restore(view, snap, avoid());
+                // Show the restored layout after the first pass; a late second pass is rare.
+                if let Some(f) = frozen.as_mut() {
+                    f.thaw();
+                }
                 log::info!(
                     "desktop icons: pass {}: {} of {} put back, {} left (would be under the sidebar)",
                     i + 1,

@@ -127,7 +127,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 ## M11: Desktop icons (2026-10-18)
 - [x] Any change to the reserved space (collapse/expand, docked/floating, edge, width, monitor, start, quit) made Explorer re-lay out the whole desktop; with "Align to grid" the icons scattered (not just ones near the sidebar). `desktop.rs` snapshots every icon position (IShellWindows → IShellBrowser → IFolderView) right before such a change and puts them back after (two passes, 0.5 s and 1.7 s), skipping icons whose spot is now under the sidebar. Explorer re-snaps restored icons a few pixels onto its grid, so ±12 px counts as in place.
 - [x] Closing the app politely (tray Quit, `taskkill` without /F, installers) releases the space and restores icons before exiting. `reinstall-app.ps1` closes it politely and force-kills only after 15 s: a force-killed AppBar can't restore, and the repeated force-kills during development are what scattered the user's icons.
-- [x] Verified by the user: icons return to the right places on collapse/expand. A brief flash remains (Explorer moves them, then they're put back ~0.5 s later).
+- [x] Verified by the user: icons return to the right places on collapse/expand. The brief flash (Explorer moves them, then they're put back ~0.5 s later) is hidden by pausing the desktop icon view's painting (WM_SETREDRAW on its SysListView32) from just before the change until the first restore; a guard always resumes painting.
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

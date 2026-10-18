@@ -91,7 +91,8 @@ pub struct Session {
     pub pid: Option<u32>,
     pub wt_session: Option<String>,
     pub distro: Option<String>,
-    /// The session's project directory (the payload `cwd`; it does not follow `cd`).
+    /// The directory the session was started in, which decides its project. The payload `cwd`
+    /// follows the session's `cd`s, so this is recovered from the transcript path (`start_dir`).
     pub cwd: Option<String>,
     /// Where Claude's shell is now, from CwdChanged.
     pub shell_cwd: Option<String>,
@@ -294,8 +295,15 @@ impl Session {
         if c.model.is_some() {
             self.model = c.model.clone();
         }
-        if c.cwd.is_some() {
-            self.cwd = c.cwd.clone();
+        if let Some(cwd) = &c.cwd {
+            match start_dir(cwd, self.transcript_path.as_deref()) {
+                Some(dir) => self.cwd = Some(dir),
+                // No transcript to go by: a new process starts where it was launched.
+                None if self.cwd.is_none() || matches!(hook.event, Event::SessionStart { .. }) => {
+                    self.cwd = Some(cwd.clone())
+                }
+                None => {}
+            }
         }
         self.last_event_at = now;
         // Any sign of life brings a closed session back (e.g. it was resumed).
@@ -581,6 +589,27 @@ impl Session {
 
 /// Names found in a transcript (JSONL text): the latest title Claude Code recorded (a
 /// `custom-title` the user set beats an `ai-title`), and the first real user prompt.
+/// Claude Code keeps a session's transcript in `~/.claude/projects/<dir>/`, where `<dir>` is the
+/// directory it was started in with every non-alphanumeric character turned into `-`. The hook
+/// `cwd` follows the session's `cd`s, so the start directory is `cwd` or the ancestor of it whose
+/// name matches. None if nothing matches (no transcript yet, or a name too long to compare).
+pub fn start_dir(cwd: &str, transcript_path: Option<&str>) -> Option<String> {
+    let dir = transcript_path?.rsplit('/').nth(1)?;
+    let encode = |p: &str| -> String {
+        p.chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect()
+    };
+    let mut candidate = cwd.trim_end_matches('/');
+    while !candidate.is_empty() {
+        if encode(candidate) == dir {
+            return Some(candidate.to_string());
+        }
+        candidate = &candidate[..candidate.rfind('/')?];
+    }
+    None
+}
+
 pub fn transcript_names(jsonl: &str) -> (Option<String>, Option<String>) {
     let (mut custom, mut ai, mut first) = (None, None, None);
     for line in jsonl.lines() {

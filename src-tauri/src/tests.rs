@@ -301,6 +301,39 @@ fn cwd_changes() {
 }
 
 #[test]
+fn project_dir_ignores_cd_into_subfolders() {
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("UserPromptSubmit"), 1, &th());
+    // Claude cd'd into a nested repo: the payload cwd follows, the transcript path doesn't.
+    let sub = "/home/user/cc-sidebar-sandbox/charlie/api/src";
+    s.apply(
+        &fx_with("Stop", serde_json::json!({ "session_id": SID, "cwd": sub })),
+        2,
+        &th(),
+    );
+    assert_eq!(
+        s.cwd.as_deref(),
+        Some("/home/user/cc-sidebar-sandbox/charlie")
+    );
+    assert_eq!(
+        crate::session::start_dir(
+            sub,
+            Some("/x/.claude/projects/-home-user-dev-my-app/1.jsonl")
+        ),
+        None,
+        "no matching ancestor"
+    );
+    assert_eq!(
+        crate::session::start_dir(
+            "/home/user/dev/my.app/web",
+            Some("/x/.claude/projects/-home-user-dev-my-app/1.jsonl")
+        )
+        .as_deref(),
+        Some("/home/user/dev/my.app")
+    );
+}
+
+#[test]
 fn store_drops_internal_events_and_orders() {
     let mut st = Store::default();
     assert!(!st.apply(&fx("SessionEnd.internal-call"), 1));

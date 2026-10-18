@@ -166,6 +166,10 @@ Each spike can be a throwaway binary or script under `spikes/`.
 
   Validation happens on the server (enums, width 200–900, hex colours, task query, hotkey parse).
 
+## Fixes (2026-10-19)
+
+- [x] A session's project followed Claude's `cd`: the hook `cwd` changes with it, and a cd into a nested repo (e.g. folder-of-repos projects) re-filed the session under an auto-tracked sub-project. Its project dir is now the start dir, recovered from the transcript folder name (`session::start_dir`: the cwd or the ancestor whose `-`-encoded name matches), and saved sessions are repaired on load.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

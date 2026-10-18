@@ -309,6 +309,14 @@ impl Store {
     pub fn restore(&mut self, saved: Vec<Session>, now: Ms) {
         for s in saved {
             let mut s = s.restored();
+            // Saved before the start directory was tracked, the cwd may have followed a `cd`.
+            if let Some(dir) = s
+                .cwd
+                .as_deref()
+                .and_then(|c| crate::session::start_dir(c, s.transcript_path.as_deref()))
+            {
+                s.cwd = Some(dir);
+            }
             if s.status != Status::Closed && s.pid.is_none() {
                 s.mark_lost(now);
             }

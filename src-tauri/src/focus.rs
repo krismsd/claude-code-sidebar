@@ -148,7 +148,7 @@ fn resume(s: &Session, cfg: &Config) -> Result<(), String> {
 }
 
 /// Open a new WT tab running the launcher (the `claudes` wrapper) in `cwd`:
-/// `wt.exe -w 0 new-tab … wsl.exe -d <distro> --cd <cwd> -e bash -lc "env … <launcher> <args>"`.
+/// `wt.exe -w <window> new-tab … wsl.exe -d <distro> --cd <cwd> -e bash -lc "env … <launcher> <args> || true"`.
 /// wt.exe splits its command line on `;`, so nothing we pass may contain one.
 pub fn launch(
     cfg: &Config,
@@ -165,7 +165,10 @@ pub fn launch(
         .chain(extra_env.iter().copied())
         .map(|(k, v)| format!("{k}={v} "))
         .collect();
-    let cmd = format!("env {env}{} {args}", cfg.launcher);
+    // `|| true`: Claude Code is the tab's only process, and Windows Terminal only closes a tab
+    // by itself on a clean exit, so a session ended from the sidebar (SIGTERM, exit 143) would
+    // leave a dead tab. (No `;` allowed: wt.exe splits on it.)
+    let cmd = format!("env {env}{} {args} || true", cfg.launcher);
     let title = format!("[cc] {name}");
     let argv = [
         "-w",

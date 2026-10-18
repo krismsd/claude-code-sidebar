@@ -11,8 +11,12 @@ interface Props {
   onDismissAlert: (s: Session, alertId: number) => void;
   onAnswer: (s: Session, allow: boolean) => void;
   onStar: (s: Session) => void;
-  /** Hover in/out, with the card element so the flyout can sit next to it. */
+  /** Hover in/out, with the card element so the expanded copy can be drawn over it. */
   onHover: (s: Session, el: HTMLElement | null) => void;
+  /** Right-click: the session menu at the cursor. */
+  onMenu: (s: Session, x: number, y: number) => void;
+  /** The hover copy: full recap and details below the usual content. */
+  expanded?: boolean;
 }
 
 const stop =
@@ -22,7 +26,8 @@ const stop =
     f();
   };
 
-/** Compact session card. Its height never changes on hover: details live in the flyout. */
+/** Session card. Compact in the list (its height never changes); the hover overlay draws the
+ * same card `expanded` on top of it, so the top part lines up exactly. */
 export function SessionCard({
   session: s,
   now,
@@ -32,6 +37,8 @@ export function SessionCard({
   onAnswer,
   onStar,
   onHover,
+  onMenu,
+  expanded = false,
 }: Props) {
   const isFresh = (alertId: number) => fresh.has(`${s.session_id}:${alertId}`);
   const flashing =
@@ -57,6 +64,10 @@ export function SessionCard({
       onClick={() => onActivate(s)}
       onMouseEnter={(e) => onHover(s, e.currentTarget)}
       onMouseLeave={() => onHover(s, null)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onMenu(s, e.clientX, e.clientY);
+      }}
     >
       <header className="card-head">
         <button
@@ -66,10 +77,7 @@ export function SessionCard({
         >
           {s.starred ? "★" : "☆"}
         </button>
-        <span
-          className="card-title"
-          title={label ? `${sessionName(s)} · ${label}` : sessionName(s)}
-        >
+        <span className="card-title">
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
@@ -105,7 +113,7 @@ export function SessionCard({
         </div>
       )}
       {(s.recap_haiku ?? s.recap) && (
-        <div className={`card-recap${s.recap_haiku ? "" : " instant"}`}>
+        <div className={`card-recap${s.recap_haiku ? "" : " instant"}${expanded ? " full" : ""}`}>
           {s.recap_haiku ? (
             <>
               <span className="recap-line">{s.recap_haiku}</span>
@@ -134,6 +142,33 @@ export function SessionCard({
               ⧗ {s.subagents_running + s.background_running} in background
             </span>
           )}
+        </div>
+      )}
+      {expanded && (
+        <div className="card-more">
+          {s.last_prompt && (
+            <div>
+              <span className="muted">You: </span>
+              {s.last_prompt}
+            </div>
+          )}
+          {s.alerts.length > 1 &&
+            s.alerts.map((a) => (
+              <div key={a.id}>
+                {ALERT_EMOJI[a.kind]} {a.text}
+              </div>
+            ))}
+          <div className="muted small">
+            {[
+              s.tag && `#${s.tag}`,
+              s.model,
+              s.permission_mode,
+              s.shell_cwd && s.shell_cwd !== s.cwd && `shell in ${s.shell_cwd}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+          <div className="muted small">Right-click for more</div>
         </div>
       )}
     </article>

@@ -12,6 +12,7 @@ export interface CardHandlers {
   onAnswer: (s: Session, allow: boolean) => void;
   onStar: (s: Session) => void;
   onHover: (s: Session, el: HTMLElement | null) => void;
+  onMenu: (s: Session, x: number, y: number) => void;
 }
 
 interface Props {

@@ -59,15 +59,3 @@ export function groupSessions(state: UiState): {
   }
   return { byRoot, other };
 }
-
-/** Flyout position: below the card if there's room (or more room than above), else above. */
-export function flyoutPosition(
-  anchor: { top: number; bottom: number },
-  viewportHeight: number,
-): { top?: number; bottom?: number; maxHeight: number } {
-  const below = viewportHeight - anchor.bottom;
-  const above = anchor.top;
-  return below >= 240 || below >= above
-    ? { top: anchor.bottom + 4, maxHeight: below - 12 }
-    : { bottom: viewportHeight - anchor.top + 4, maxHeight: above - 12 };
-}

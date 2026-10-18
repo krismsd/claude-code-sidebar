@@ -78,6 +78,17 @@ fn open_projects_file(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Name a session in the sidebar ("" clears it). Closed sessions get it written to their
+/// transcript right away; open ones when they close.
+#[tauri::command]
+fn rename_session(ctx: State<'_, Ctx>, session_id: String, name: String) {
+    let closed = ctx.store.lock().unwrap().rename(&session_id, &name);
+    server::publish(&ctx);
+    if closed.is_some() {
+        server::sync_titles(&ctx, std::time::Duration::ZERO);
+    }
+}
+
 #[tauri::command]
 fn toggle_star(ctx: State<'_, Ctx>, session_id: String) {
     if ctx.store.lock().unwrap().toggle_star(&session_id) {
@@ -343,6 +354,7 @@ pub fn run() {
             #[cfg(windows)]
             start_task,
             toggle_star,
+            rename_session,
             move_project,
             close_project,
             dismiss_alert,

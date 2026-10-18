@@ -806,3 +806,49 @@ fn instant_recap_keeps_more_of_the_message() {
     );
     assert!(recap_text(&"word ".repeat(200)).chars().count() <= 400);
 }
+
+#[test]
+fn renaming_sessions() {
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "a"})),
+        0,
+    );
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "a"})),
+        1,
+    );
+    // Open: named in the sidebar, nothing to write yet.
+    assert!(st.rename("a", "  Login bug  ").is_none());
+    assert_eq!(
+        st.get("a").unwrap().user_title.as_deref(),
+        Some("Login bug")
+    );
+    assert!(st.unsynced_titles().is_empty());
+    // Closed: now it's due for the transcript, once.
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "a"})),
+        2,
+    );
+    assert_eq!(st.unsynced_titles().len(), 1);
+    st.mark_title_synced("a");
+    assert!(st.unsynced_titles().is_empty());
+    // Renaming a closed session asks for an immediate write; "" clears the name.
+    assert!(st.rename("a", "Login fix").is_some());
+    assert!(st.rename("a", "").is_none());
+    assert_eq!(st.get("a").unwrap().user_title, None);
+}
+
+#[test]
+fn title_records_append_on_a_fresh_line() {
+    let dir = std::env::temp_dir().join(format!("cc-sidebar-title-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("t.jsonl");
+    std::fs::write(&f, "{\"type\":\"user\"}").unwrap(); // no trailing newline
+    crate::server::append_title(&f, "sid", "My name").unwrap();
+    let text = std::fs::read_to_string(&f).unwrap();
+    let (title, _) = crate::session::transcript_names(&text);
+    assert_eq!(title.as_deref(), Some("My name"));
+    assert_eq!(text.lines().count(), 3);
+    let _ = std::fs::remove_dir_all(&dir);
+}

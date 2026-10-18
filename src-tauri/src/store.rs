@@ -124,6 +124,33 @@ impl Store {
         }
     }
 
+    /// Set (or clear, with "") the sidebar name. Returns the session if it's closed and the
+    /// name needs writing to its transcript now.
+    pub fn rename(&mut self, session_id: &str, name: &str) -> Option<Session> {
+        let s = self.sessions.get_mut(session_id)?;
+        let name = name.trim();
+        s.user_title = (!name.is_empty()).then(|| crate::events::truncate(name, 80));
+        s.user_title_synced = false;
+        (s.status == Status::Closed && s.user_title.is_some()).then(|| s.clone())
+    }
+
+    /// Closed sessions whose sidebar name still has to be written to the transcript.
+    pub fn unsynced_titles(&self) -> Vec<Session> {
+        self.sessions
+            .values()
+            .filter(|s| {
+                s.status == Status::Closed && s.user_title.is_some() && !s.user_title_synced
+            })
+            .cloned()
+            .collect()
+    }
+
+    pub fn mark_title_synced(&mut self, session_id: &str) {
+        if let Some(s) = self.sessions.get_mut(session_id) {
+            s.user_title_synced = true;
+        }
+    }
+
     pub fn toggle_star(&mut self, session_id: &str) -> bool {
         self.sessions.get_mut(session_id).is_some_and(|s| {
             s.starred = !s.starred;

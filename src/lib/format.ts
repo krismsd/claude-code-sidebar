@@ -41,9 +41,9 @@ export function elapsed(fromMs: number, nowMs: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-/** What to call a session: its title, else its first prompt, else "New session". */
+/** What to call a session: the name given in the sidebar, its title, its first prompt. */
 export function sessionName(s: Session): string {
-  return s.title ?? s.first_prompt ?? "New session";
+  return s.user_title ?? s.title ?? s.first_prompt ?? "New session";
 }
 
 export function projectName(s: Session): string {

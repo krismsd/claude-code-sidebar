@@ -203,6 +203,9 @@ async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String
     if matches!(hook.event, Event::SessionStart { .. }) {
         backfill_names(&ctx);
     }
+    if matches!(hook.event, Event::SessionEnd { .. }) {
+        sync_titles(&ctx, Duration::from_secs(4));
+    }
 
     // Questions for the user aren't allow/deny decisions: answer only in the terminal.
     if let Event::PermissionRequest { tool_name, .. } = &hook.event
@@ -318,6 +321,44 @@ pub fn backfill_names(ctx: &Ctx) {
         }
         publish(&ctx);
     });
+}
+
+/// Write sidebar names of closed sessions into their transcripts as `custom-title` records
+/// (what `claude --name` / `/rename` write), so Claude Code's /resume picker shows them. Waits
+/// a few seconds first: an exiting Claude Code re-writes its own title on the way out.
+pub fn sync_titles(ctx: &Ctx, delay: Duration) {
+    let ctx = ctx.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(delay).await;
+        let todo = ctx.store.lock().unwrap().unsynced_titles();
+        let distro = ctx.config.read().unwrap().distro.clone();
+        for s in todo {
+            let (Some(path), Some(name)) = (&s.transcript_path, &s.user_title) else {
+                continue;
+            };
+            let file = project::windows_path(s.distro.as_deref().unwrap_or(&distro), path);
+            match append_title(&file, &s.session_id, name) {
+                Ok(()) => ctx.store.lock().unwrap().mark_title_synced(&s.session_id),
+                Err(e) => log::warn!("rename {}: {e}", s.session_id),
+            }
+        }
+    });
+}
+
+/// Append the two records `claude --name` writes (Claude Code reads the latest).
+pub fn append_title(file: &std::path::Path, session_id: &str, name: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    let records = [
+        serde_json::json!({ "type": "custom-title", "customTitle": name, "sessionId": session_id }),
+        serde_json::json!({ "type": "agent-name", "agentName": name, "sessionId": session_id }),
+    ];
+    let mut f = std::fs::OpenOptions::new().append(true).open(file)?;
+    // Start on a fresh line even if the file doesn't end with one.
+    let text: String = records.iter().map(|r| format!("{r}\n")).collect();
+    let needs_newline = std::fs::read(file)
+        .map(|b| b.last().is_some_and(|c| *c != b'\n'))
+        .unwrap_or(false);
+    f.write_all(format!("{}{text}", if needs_newline { "\n" } else { "" }).as_bytes())
 }
 
 /// IPv4 address of the Windows side of the WSL NAT network ("vEthernet (WSL …)").

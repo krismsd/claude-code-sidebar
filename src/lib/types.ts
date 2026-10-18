@@ -49,6 +49,8 @@ export interface Session {
   last_prompt: string | null;
   first_prompt: string | null;
   title: string | null;
+  user_title: string | null;
+  user_title_synced: boolean;
   start_source: string | null;
   recap: string | null;
   recap_haiku: string | null;

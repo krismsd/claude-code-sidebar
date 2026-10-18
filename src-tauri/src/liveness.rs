@@ -32,6 +32,7 @@ pub async fn run(ctx: Ctx) {
         if !dead.is_empty() {
             ctx.store.lock().unwrap().pids_dead(&dead, now_ms());
             publish(&ctx);
+            crate::server::sync_titles(&ctx, Duration::from_secs(1));
         }
     }
 }

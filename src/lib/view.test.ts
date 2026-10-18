@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
-import { arrange, flyoutPosition, freshKeys, groupSessions, projectStatus } from "./view";
+import { arrange, freshKeys, groupSessions, projectStatus } from "./view";
 import { elapsed, sessionName } from "./format";
 
 let n = 0;
@@ -34,6 +34,8 @@ function session(over: Partial<Session> = {}): Session {
     last_prompt: null,
     first_prompt: null,
     title: null,
+    user_title: null,
+    user_title_synced: false,
     start_source: null,
     recap: null,
     recap_haiku: null,
@@ -112,16 +114,6 @@ describe("groupSessions", () => {
   });
 });
 
-describe("flyoutPosition", () => {
-  it("opens below when there is room, above near the bottom", () => {
-    expect(flyoutPosition({ top: 100, bottom: 200 }, 1000)).toEqual({ top: 204, maxHeight: 788 });
-    expect(flyoutPosition({ top: 800, bottom: 900 }, 1000)).toEqual({
-      bottom: 204,
-      maxHeight: 788,
-    });
-  });
-});
-
 describe("elapsed", () => {
   it("formats durations", () => {
     expect(elapsed(0, 42_000)).toBe("42s");
@@ -141,5 +133,6 @@ describe("sessionName", () => {
     expect(sessionName(session({ first_prompt: "Fix it", title: "Login fixes" }))).toBe(
       "Login fixes",
     );
+    expect(sessionName(session({ title: "Login fixes", user_title: "Mine" }))).toBe("Mine");
   });
 });

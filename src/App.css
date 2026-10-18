@@ -528,7 +528,7 @@ button {
   font-size: 11px;
 }
 
-/* ---- projects, stars, flyout (M8) ---- */
+/* ---- projects, stars (M8) ---- */
 .project {
   display: flex;
   flex-direction: column;
@@ -690,30 +690,6 @@ button {
   font-weight: 500;
   font-size: 12px;
   color: var(--muted);
-}
-
-.flyout {
-  position: fixed;
-  left: 8px;
-  right: 8px;
-  z-index: 30;
-  overflow-y: auto;
-  padding: 8px 10px;
-  background: var(--card);
-  border: 1px solid;
-  border-left-width: 4px;
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
-  font-size: 12px;
-  line-height: 1.4;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.flyout-recap {
-  font-weight: 600;
-  font-size: 13px;
 }
 
 /* ---- tasks (M8) ---- */
@@ -927,17 +903,95 @@ button {
   font-size: 12px;
 }
 
-.flyout-title {
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.flyout-recap {
-  font-weight: 500;
-}
-
 .menu-note {
   display: block;
   font-size: 10px;
   color: var(--muted);
+}
+
+/* ---- hover card + session menu (M13) ---- */
+.hover-card {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none; /* hover keeps following the cards underneath */
+}
+
+.hover-card .card {
+  box-shadow:
+    0 0 0 1px var(--project),
+    0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+.card-recap.full {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+}
+
+.card-more {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.session-menu {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  max-width: 220px;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+}
+
+.session-menu button {
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.session-menu button:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.session-menu button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.session-menu .danger,
+.session-menu .danger:hover:not(:disabled) {
+  background: var(--red);
+  color: #fff;
+}
+
+.session-menu .rename {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+}
+
+.session-menu input {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
 }

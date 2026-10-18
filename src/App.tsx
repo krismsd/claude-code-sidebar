@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Session, SessionAction, UiState } from "./lib/types";
+import type { Session, UiState } from "./lib/types";
 import { ProjectSection, type CardHandlers } from "./components/ProjectSection";
-import { Flyout } from "./components/Flyout";
+import { SessionCard } from "./components/SessionCard";
+import { SessionMenu } from "./components/SessionMenu";
 import { AddProject } from "./components/AddProject";
 import { Strip } from "./components/Strip";
 import { WindowMenu } from "./components/WindowMenu";
@@ -21,8 +22,31 @@ const OUTCOME_MESSAGE: Partial<Record<Outcome, string>> = {
 };
 
 const FLASH_MS = 4000;
-const FLYOUT_OPEN_MS = 300;
-const FLYOUT_CLOSE_MS = 200;
+const HOVER_OPEN_MS = 300;
+/** Between leaving one card and entering the next, so the overlay doesn't blink. */
+const HOVER_CLOSE_MS = 60;
+
+/** The hovered card drawn expanded, exactly over the original (SPEC §3.12). It ignores the
+ * mouse, so hover still follows the cards underneath: moving below the original card's bottom
+ * edge hovers the next card. Shifted up only if it would run off the bottom of the window. */
+function HoverCard({ rect, children }: { rect: DOMRect; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = window.innerHeight - el.offsetHeight - 6;
+    el.style.top = `${Math.max(6, Math.min(rect.top, max))}px`;
+  });
+  return (
+    <div
+      ref={ref}
+      className="hover-card"
+      style={{ top: rect.top, left: rect.left, width: rect.width }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
@@ -64,7 +88,8 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [windowMenu, setWindowMenu] = useState(false);
-  const [flyout, setFlyout] = useState<{ id: string; rect: DOMRect } | null>(null);
+  const [hover, setHover] = useState<{ id: string; rect: DOMRect } | null>(null);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const now = useNow();
@@ -86,28 +111,39 @@ function App() {
 
   const report = useCallback((e: unknown) => setToast(String(e)), []);
 
-  // Flyout: opens after a short hover; while one is open, moving to another card switches it
-  // straight away; leaving gives a moment to move onto the flyout itself.
-  const keepFlyout = () => clearTimeout(closeTimer.current);
-  const dropFlyout = () => {
-    clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setFlyout(null), FLYOUT_CLOSE_MS);
-  };
+  // Hover: the expanded card opens after a short pause; while one is open, moving to another
+  // card switches straight away.
   const onHover = (s: Session, el: HTMLElement | null) => {
     clearTimeout(openTimer.current);
-    if (!el) return dropFlyout();
-    keepFlyout();
+    clearTimeout(closeTimer.current);
+    if (!el) {
+      closeTimer.current = setTimeout(() => setHover(null), HOVER_CLOSE_MS);
+      return;
+    }
     const next = { id: s.session_id, rect: el.getBoundingClientRect() };
-    if (flyout) setFlyout(next);
-    else openTimer.current = setTimeout(() => setFlyout(next), FLYOUT_OPEN_MS);
+    if (hover) setHover(next);
+    else openTimer.current = setTimeout(() => setHover(next), HOVER_OPEN_MS);
   };
+
+  // Our own right-click menu replaces the browser's (text boxes keep theirs).
+  useEffect(() => {
+    const block = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+    };
+    document.addEventListener("contextmenu", block);
+    return () => document.removeEventListener("contextmenu", block);
+  }, []);
 
   const cards: CardHandlers = {
     now,
     fresh,
     onHover,
+    onMenu: (s, x, y) => {
+      setHover(null);
+      setMenu({ id: s.session_id, x, y });
+    },
     onActivate: async (s) => {
-      setFlyout(null);
+      setHover(null);
       try {
         const outcome = await invoke<Outcome>("activate_session", { sessionId: s.session_id });
         setToast(OUTCOME_MESSAGE[outcome] ?? null);
@@ -125,7 +161,7 @@ function App() {
   if (!state) return <main className="sidebar" />;
 
   const setCollapsed = (collapsed: boolean) => {
-    setFlyout(null);
+    setHover(null);
     invoke("set_collapsed", { collapsed }).catch(report);
   };
   if (state.collapsed)
@@ -143,7 +179,8 @@ function App() {
 
   const { byRoot, other } = groupSessions(state);
   const openCount = state.sessions.filter((s) => s.status !== "closed").length;
-  const flyoutSession = flyout && state.sessions.find((s) => s.session_id === flyout.id);
+  const hovered = hover && state.sessions.find((s) => s.session_id === hover.id);
+  const menuSession = menu && state.sessions.find((s) => s.session_id === menu.id);
 
   const sectionProps = {
     cards,
@@ -204,7 +241,7 @@ function App() {
           onMessage={setToast}
         />
       )}
-      <div className="cards" onScroll={() => setFlyout(null)}>
+      <div className="cards" onScroll={() => setHover(null)}>
         {state.projects.length === 0 && other.length === 0 && (
           <p className="empty">No projects yet. Start a session, or use + above.</p>
         )}
@@ -221,19 +258,25 @@ function App() {
           <ProjectSection project={null} sessions={other} hasTasks={false} {...sectionProps} />
         )}
       </div>
-      {flyout && flyoutSession && (
-        <Flyout
-          session={flyoutSession}
-          anchor={flyout.rect}
-          onEnter={keepFlyout}
-          onLeave={dropFlyout}
-          onAction={(s: Session, action: SessionAction) =>
-            invoke("session_action", { sessionId: s.session_id, action }).catch(report)
+      {hover && hovered && !menu && (
+        <HoverCard rect={hover.rect}>
+          <SessionCard session={hovered} {...cards} expanded />
+        </HoverCard>
+      )}
+      {menu && menuSession && (
+        <SessionMenu
+          session={menuSession}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          onMessage={setToast}
+          onRename={(s, name) =>
+            invoke("rename_session", { sessionId: s.session_id, name }).catch(report)
           }
-          onDismiss={(s: Session) => {
-            setFlyout(null);
-            invoke("dismiss_session", { sessionId: s.session_id }).catch(report);
-          }}
+          onEnd={(s) =>
+            invoke("session_action", { sessionId: s.session_id, action: "end" }).catch(report)
+          }
+          onRemove={(s) => invoke("dismiss_session", { sessionId: s.session_id }).catch(report)}
         />
       )}
       {toast && <div className="toast">{toast}</div>}

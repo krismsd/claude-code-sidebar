@@ -135,6 +135,11 @@ Each spike can be a throwaway binary or script under `spikes/`.
 ## Fixes (2026-10-18)
 - [x] Clicking a card left keyboard focus on the WT tab strip (UIA `Select()` focuses the tab item), so typing didn't reach the terminal. Now the tab is only selected if it isn't already active, and after switching, focus goes to the tab's visible `TermControl`. Verified: focus is the terminal and typed text reaches the right session, both when switching and when clicking the active tab.
 
+## M13: Right-click menu, hover overlay, rename (2026-10-18)
+- [x] Session right-click menu: Rename…, Copy session ID, End session (open, two-step), Remove from sidebar (closed). The webview's own context menu is suppressed (text boxes keep theirs).
+- [x] Hover: the flyout is replaced by the same card drawn expanded exactly over the original (full recap, last prompt, all alerts, details). It has `pointer-events: none`, so hover follows the cards underneath: moving below the original card's bottom edge hovers the next card, and clicks on ☆ / Allow / Deny pass through to the real buttons (the top part lines up). Shifted up only if it would run off the window.
+- [x] Rename: `--name` / `/rename` store a `custom-title` (+ `agent-name`) record in the transcript, and a running Claude Code re-writes its own title periodically. So: closed sessions get the records appended immediately (verified: resuming shows the new name in Claude Code's prompt box); open sessions get a sidebar name now and the records ~4 s after they close (so the exiting process can't overwrite them). Not live-tested for open sessions (unit-tested).
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

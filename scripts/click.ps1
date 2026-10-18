@@ -1,6 +1,7 @@
 # Left-click at physical screen coordinates (for UI tests), then restore the cursor position.
 # -MoveOnly: just move the cursor there (to test hover) and leave it. -Stay: click and leave it there.
-param([Parameter(Mandatory = $true)][int]$X, [Parameter(Mandatory = $true)][int]$Y, [switch]$MoveOnly, [switch]$Stay)
+# -Right: right-click.
+param([Parameter(Mandatory = $true)][int]$X, [Parameter(Mandatory = $true)][int]$Y, [switch]$MoveOnly, [switch]$Stay, [switch]$Right)
 Add-Type -Namespace Native -Name Mouse -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
 [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
@@ -13,6 +14,7 @@ $p = New-Object Native.Mouse+POINT; [Native.Mouse]::GetCursorPos([ref]$p) | Out-
 [Native.Mouse]::SetCursorPos($X, $Y) | Out-Null
 if ($MoveOnly) { exit 0 }
 Start-Sleep -Milliseconds 100
-[Native.Mouse]::mouse_event(0x2, 0, 0, 0, [UIntPtr]::Zero); [Native.Mouse]::mouse_event(0x4, 0, 0, 0, [UIntPtr]::Zero)
+if ($Right) { [Native.Mouse]::mouse_event(0x8, 0, 0, 0, [UIntPtr]::Zero); [Native.Mouse]::mouse_event(0x10, 0, 0, 0, [UIntPtr]::Zero) }
+else { [Native.Mouse]::mouse_event(0x2, 0, 0, 0, [UIntPtr]::Zero); [Native.Mouse]::mouse_event(0x4, 0, 0, 0, [UIntPtr]::Zero) }
 Start-Sleep -Milliseconds 300
 if (-not $Stay) { [Native.Mouse]::SetCursorPos($p.X, $p.Y) | Out-Null }

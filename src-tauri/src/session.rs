@@ -112,6 +112,13 @@ pub struct Session {
     /// Session name: a custom/ai title from the transcript, else a short Haiku title.
     #[serde(default)]
     pub title: Option<String>,
+    /// Name given in the sidebar (wins over everything). Written into the transcript as a
+    /// `custom-title` when the session is closed, so Claude Code's /resume shows it too.
+    #[serde(default)]
+    pub user_title: Option<String>,
+    /// `user_title` has been written to the transcript.
+    #[serde(default)]
+    pub user_title_synced: bool,
     /// SessionStart source of the current run (startup, resume, clear, compact).
     #[serde(default)]
     pub start_source: Option<String>,
@@ -168,6 +175,8 @@ impl Session {
             last_prompt: None,
             first_prompt: None,
             title: None,
+            user_title: None,
+            user_title_synced: false,
             start_source: None,
             recap: None,
             recap_haiku: None,

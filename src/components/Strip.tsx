@@ -1,7 +1,8 @@
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { Session, Tracked, Usage } from "../lib/types";
-import { usageLevel, usageNow } from "../lib/format";
-import { projectStatus } from "../lib/view";
+import { usageLevel, usageNow, sessionName, STATUS_LABEL } from "../lib/format";
+import { arrange, freshKeys } from "../lib/view";
 
 interface Props {
   projects: Tracked[];
@@ -12,59 +13,93 @@ interface Props {
   usage: Usage | null;
   now: number;
   onExpand: () => void;
+  onActivate: (s: Session) => void;
 }
 
-/** Collapsed sidebar: an expand button and one status dot per project. */
-export function Strip({
-  projects,
-  sessions,
-  fresh,
-  leftEdge,
-  floating,
-  usage,
-  now,
-  onExpand,
-}: Props) {
+const ATTENTION = new Set(["needs_permission", "needs_input", "error"]);
+const PEEK_OPEN_MS = 300;
+const PEEK_CLOSE_MS = 80;
+
+/** Collapsed sidebar: an expand button, one marker per open or starred session (in project
+ * order), and the usage bars. Hovering a marker shows its card in the peek window. */
+export function Strip(props: Props) {
+  const { projects, sessions, fresh, leftEdge, floating, usage, now, onExpand, onActivate } = props;
   const drag = floating ? { "data-tauri-drag-region": true } : {};
+  const open = useRef(false);
+  const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const hover = (s: Session, el: HTMLElement | null) => {
+    clearTimeout(openTimer.current);
+    clearTimeout(closeTimer.current);
+    if (!el) {
+      closeTimer.current = setTimeout(() => {
+        open.current = false;
+        invoke("peek_hide");
+      }, PEEK_CLOSE_MS);
+      return;
+    }
+    const top = el.getBoundingClientRect().top;
+    const show = () => {
+      open.current = true;
+      invoke("peek_show", { sessionId: s.session_id, top });
+    };
+    if (open.current) show();
+    else openTimer.current = setTimeout(show, PEEK_OPEN_MS);
+  };
+
+  const shown = projects.flatMap(
+    ({ project }) => arrange(sessions.filter((s) => s.project?.root === project.root)).visible,
+  );
+  const session = usageNow(usage?.five_hour ?? null, now);
+  const week = usageNow(usage?.seven_day ?? null, now);
+  const pct = (v: typeof session) => (!v ? "–" : v.reset ? "reset" : `${Math.round(v.percent)}%`);
+
   return (
     <main className="strip" {...drag}>
       <button className="strip-expand" title="Expand the sidebar" onClick={onExpand}>
         {leftEdge ? "»" : "«"}
       </button>
-      {projects.map(({ project }) => {
-        const mine = sessions.filter((s) => s.project?.root === project.root);
-        const { open, state, flashing } = projectStatus(mine, fresh);
+      {shown.map((s) => {
+        const state =
+          ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact")
+            ? "attention"
+            : s.status === "working"
+              ? "working"
+              : s.status === "closed"
+                ? "closed"
+                : "open";
+        const flashing = freshKeys(s).some((k) => fresh.has(k));
         return (
           <button
-            key={project.root}
-            className={`strip-project ${state}${flashing ? " flash" : ""}`}
-            style={{ "--project": project.color } as CSSProperties}
-            title={`${project.name}: ${open} open${state === "attention" ? " · needs you" : state === "working" ? " · working" : ""}`}
-            onClick={onExpand}
+            key={s.session_id}
+            className={`strip-session ${state}${flashing ? " flash" : ""}`}
+            style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
+            aria-label={`${sessionName(s)}: ${STATUS_LABEL[s.status]}`}
+            onMouseEnter={(e) => hover(s, e.currentTarget)}
+            onMouseLeave={() => hover(s, null)}
+            onClick={() => {
+              hover(s, null);
+              onActivate(s);
+            }}
           >
             <span className="strip-dot" />
+            {s.starred && <span className="strip-star">★</span>}
           </button>
         );
       })}
-      {usage &&
-        (() => {
-          const session = usageNow(usage.five_hour, now);
-          const week = usageNow(usage.seven_day, now);
-          const label = (v: typeof session) =>
-            !v ? "–" : v.reset ? "reset" : `${Math.round(v.percent)}%`;
-          return (
-            <div className="strip-usage" title={`Session ${label(session)} · week ${label(week)}`}>
-              {[session, week].map((v, i) => (
-                <span key={i} className={`strip-usage-bar${v?.reset ? " stale" : ""}`}>
-                  <span
-                    className={`usage-fill ${usageLevel(v?.percent ?? 0)}`}
-                    style={{ height: `${Math.min(100, v?.percent ?? 0)}%` }}
-                  />
-                </span>
-              ))}
-            </div>
-          );
-        })()}
+      {usage && (
+        <div className="strip-usage" title={`Session ${pct(session)} · week ${pct(week)}`}>
+          {[session, week].map((v, i) => (
+            <span key={i} className={`strip-usage-bar${v?.reset ? " stale" : ""}`}>
+              <span
+                className={`usage-fill ${usageLevel(v?.percent ?? 0)}`}
+                style={{ height: `${Math.min(100, v?.percent ?? 0)}%` }}
+              />
+            </span>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

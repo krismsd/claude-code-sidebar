@@ -176,6 +176,7 @@ function App() {
         usage={state.usage}
         now={now}
         onExpand={() => setCollapsed(false)}
+        onActivate={cards.onActivate}
       />
     );
   const drag = state.floating ? { "data-tauri-drag-region": true } : {};

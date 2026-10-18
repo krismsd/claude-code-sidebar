@@ -168,7 +168,7 @@ export function SessionCard({
               .filter(Boolean)
               .join(" · ")}
           </div>
-          <div className="muted small">Right-click for more</div>
+          <div className="muted small right-click-hint">Right-click for more</div>
         </div>
       )}
     </article>

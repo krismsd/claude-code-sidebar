@@ -15,6 +15,7 @@ pub mod events;
 #[cfg(windows)]
 mod focus;
 mod liveness;
+pub mod peek;
 pub mod project;
 mod recap;
 mod server;
@@ -88,6 +89,28 @@ fn rename_session(ctx: State<'_, Ctx>, session_id: String, name: String) {
     if closed.is_some() {
         server::sync_titles(&ctx, std::time::Duration::ZERO);
     }
+}
+
+/// Collapsed strip: show / size / hide the peek card for a session (see `peek`).
+#[tauri::command]
+fn peek_show(
+    app: tauri::AppHandle,
+    ctx: State<'_, Ctx>,
+    session_id: String,
+    top: f64,
+) -> Result<(), String> {
+    let left = ctx.config.read().unwrap().edge.eq_ignore_ascii_case("left");
+    peek::show(&app, &session_id, top, left)
+}
+
+#[tauri::command]
+fn peek_resize(app: tauri::AppHandle, height: f64) -> Result<(), String> {
+    peek::resize(&app, height)
+}
+
+#[tauri::command]
+fn peek_hide(app: tauri::AppHandle) {
+    peek::hide(&app);
 }
 
 #[tauri::command]
@@ -292,7 +315,8 @@ async fn pick_folder(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<Optio
 }
 
 #[tauri::command]
-fn set_collapsed(ctx: State<'_, Ctx>, collapsed: bool) {
+fn set_collapsed(app: tauri::AppHandle, ctx: State<'_, Ctx>, collapsed: bool) {
+    peek::hide(&app);
     server::set_collapsed(&ctx, collapsed);
 }
 
@@ -355,6 +379,9 @@ pub fn run() {
             #[cfg(windows)]
             start_task,
             toggle_star,
+            peek_show,
+            peek_resize,
+            peek_hide,
             rename_session,
             move_project,
             close_project,
@@ -403,6 +430,8 @@ pub fn run() {
                 .lock()
                 .unwrap()
                 .scan(&ctx.store.lock().unwrap(), true);
+            #[cfg(windows)]
+            peek::init(app.handle());
             server::apply_config(&ctx);
             server::refresh_all_projects(&ctx);
             server::backfill_names(&ctx);
@@ -453,7 +482,9 @@ pub fn run() {
         // Closed by Windows or another program (e.g. `taskkill`, an installer): give the
         // reserved space back and restore desktop icons first, like Quit in the tray.
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if let tauri::WindowEvent::CloseRequested { .. } = event
+                && window.label() == "main"
+            {
                 #[cfg(windows)]
                 appbar::release(windows::Win32::Foundation::HWND(
                     window.state::<Ctx>().hwnd as *mut _,

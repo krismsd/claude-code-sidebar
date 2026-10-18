@@ -22,6 +22,21 @@
         "resizable": false,
         "shadow": false,
         "dragDropEnabled": false
+      },
+      {
+        "label": "peek",
+        "title": "cc-sidebar peek",
+        "url": "index.html?view=peek",
+        "width": 320,
+        "height": 200,
+        "visible": false,
+        "decorations": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": true,
+        "dragDropEnabled": false
       }
     ],
     "security": {

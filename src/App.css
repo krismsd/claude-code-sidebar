@@ -917,7 +917,8 @@ button {
 }
 
 /* Closed cards are faded in the list, but the expanded copy must be readable. */
-.hover-card .card.is-closed {
+.hover-card .card.is-closed,
+.peek .card.is-closed {
   opacity: 1;
 }
 
@@ -1088,4 +1089,69 @@ button {
 
 .strip-usage-bar.stale {
   opacity: 0.5;
+}
+
+/* ---- strip sessions + peek window (M15) ---- */
+.strip-session {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--project) 35%, var(--card));
+  border-left: 3px solid var(--project);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+
+.strip-session .strip-dot {
+  background: var(--green);
+  opacity: 1;
+}
+
+.strip-session.closed {
+  opacity: 0.55;
+}
+
+.strip-session.closed .strip-dot {
+  background: var(--grey);
+}
+
+.strip-session.working .strip-dot {
+  background: var(--blue);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.strip-session.attention .strip-dot {
+  background: var(--amber);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.strip-session.flash {
+  animation: card-flash 0.5s ease-in-out 8 alternate;
+}
+
+.strip-star {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 9px;
+  color: var(--amber);
+}
+
+.peek {
+  padding: 0;
+}
+
+.peek .card {
+  border-radius: 0 6px 6px 0;
+  box-shadow: none;
+}
+
+.peek .right-click-hint {
+  display: none;
 }

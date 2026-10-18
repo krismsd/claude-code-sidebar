@@ -144,6 +144,11 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Footer with the subscription limits `/usage` shows: 5-hour session and 7-day week, % used and reset time; amber ≥70 %, red ≥90 %, "Limit reached" / "Using extra usage" notes; two mini bars on the collapsed strip.
 - Source: every `claude -p --output-format stream-json` call emits a `rate_limit_event` (`rate_limit_info.unifiedWindows.{five_hour,seven_day}.{utilization,resetsAt}`; documented as an Agent SDK message type, seen live with camelCase fields). `cc-recap` now runs in stream-json and adds a `USAGE:` line, so numbers refresh after every turn at no cost; `cc-usage` makes one tiny Haiku call at startup (`usage_command`, "" to skip). Considered: statusLine `rate_limits` (documented, but needs a change to the global statusLine config); the OAuth usage endpoint (undocumented, rejected).
 
+## M15: Strip sessions, peek, closing tabs (2026-10-18)
+- [x] Ending a session left its tab showing "process exited with code 143": Claude Code is the only process in tabs the sidebar opens, and WT only auto-closes on a clean exit. Launched commands end with `|| true`. Verified: End closes the tab (and the window if it was the last tab). Tabs the user opened themselves just return to their shell.
+- [x] Collapsed strip lists open + starred sessions (project order), with project colour, status dot, ★ for starred and the alert flash; click = focus/resume.
+- [x] Hovering a strip marker shows the session's expanded card in a separate `peek` window beside the strip (the strip is too narrow to draw it): same bundle with `?view=peek`, WS_EX_NOACTIVATE + SW_SHOWNOACTIVATE so it never takes focus, sized to the card, kept on screen. A 150 ms cursor watchdog hides it when the cursor leaves the sidebar (the webview misses quick exits). Tauri's own hide() was a no-op for a window shown through Win32, so it's hidden with ShowWindow too.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

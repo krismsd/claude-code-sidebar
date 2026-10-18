@@ -73,13 +73,44 @@ fn focus_tab(needle: &str) -> Result<bool, uiautomation::Error> {
             if !tab.get_name().unwrap_or_default().contains(needle) {
                 continue;
             }
-            tab.get_pattern::<UISelectionItemPattern>()?.select()?;
+            // Selecting a tab moves keyboard focus to the tab strip, so only select it if it
+            // isn't already the active tab, and then hand focus back to its terminal.
+            let item = tab.get_pattern::<UISelectionItemPattern>()?;
+            let switched = !item.is_selected().unwrap_or(false);
+            if switched {
+                item.select()?;
+            }
             let hwnd: isize = w.get_native_window_handle()?.into();
             bring_forward(hwnd);
+            if switched {
+                focus_terminal(&ua, &w);
+            }
             return Ok(true);
         }
     }
     Ok(false)
+}
+
+/// Give keyboard focus to the visible terminal pane (`TermControl`) of a WT window. The new
+/// tab's pane can take a moment to appear after switching, so retry briefly.
+fn focus_terminal(ua: &UIAutomation, window: &uiautomation::UIElement) {
+    for _ in 0..10 {
+        let panes = ua
+            .create_matcher()
+            .from(window.clone())
+            .classname("TermControl")
+            .timeout(0)
+            .find_all()
+            .unwrap_or_default();
+        if let Some(p) = panes
+            .into_iter()
+            .find(|p| !p.is_offscreen().unwrap_or(true))
+        {
+            let _ = p.set_focus();
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 }
 
 #[cfg(windows)]

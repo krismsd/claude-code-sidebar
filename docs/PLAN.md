@@ -132,6 +132,9 @@ Each spike can be a throwaway binary or script under `spikes/`.
 ## M12: Taller cards (2026-10-18)
 - [x] The card's recap shows up to 5 lines (CSS line clamp): the Haiku line followed by its detail, or, before Haiku answers, the start of the last reply (instant recap now keeps ~400 characters of plain text instead of one sentence).
 
+## Fixes (2026-10-18)
+- [x] Clicking a card left keyboard focus on the WT tab strip (UIA `Select()` focuses the tab item), so typing didn't reach the terminal. Now the tab is only selected if it isn't already active, and after switching, focus goes to the tab's visible `TermControl`. Verified: focus is the terminal and typed text reaches the right session, both when switching and when clicking the active tab.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

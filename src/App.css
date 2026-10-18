@@ -916,6 +916,11 @@ button {
   pointer-events: none; /* hover keeps following the cards underneath */
 }
 
+/* Closed cards are faded in the list, but the expanded copy must be readable. */
+.hover-card .card.is-closed {
+  opacity: 1;
+}
+
 .hover-card .card {
   box-shadow:
     0 0 0 1px var(--project),

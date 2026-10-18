@@ -8,7 +8,7 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$HOME/.local/bin"
 dry=""; [ "${1:-}" = "--dry-run" ] && dry="--dry-run"
 
-for f in claudes cc-hook cc-recap cc-tasks; do
+for f in claudes cc-hook cc-recap cc-tasks cc-usage; do
   if [ -n "$dry" ]; then echo "would install $bin/$f"; else install -D -m 755 "$repo/dev/bin/$f" "$bin/$f"; fi
 done
 command -v jq >/dev/null || echo "warning: jq not found (cc-recap needs it)" >&2

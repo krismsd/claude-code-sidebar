@@ -1000,3 +1000,88 @@ button {
   background: var(--bg);
   color: var(--fg);
 }
+
+/* ---- usage footer (M14) ---- */
+.usage {
+  flex: none;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.usage-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 32px 84px;
+  align-items: center;
+  gap: 6px;
+}
+
+.usage-row.stale {
+  opacity: 0.5;
+}
+
+.usage-label {
+  color: var(--muted);
+}
+
+.usage-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.usage-fill {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: 3px;
+}
+
+.usage-fill.high {
+  background: var(--amber);
+}
+
+.usage-fill.critical {
+  background: var(--red);
+}
+
+.usage-pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-reset {
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.usage-warn {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.strip-usage {
+  margin-top: auto;
+  display: flex;
+  gap: 3px;
+  height: 40px;
+}
+
+.strip-usage-bar {
+  width: 6px;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--border);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.strip-usage-bar .usage-fill {
+  width: 100%;
+}

@@ -39,6 +39,9 @@ pub struct Config {
     pub recap_command: String,
     /// Minimum seconds between Haiku recaps of one session.
     pub recap_min_interval_s: u64,
+    /// Fetches usage limits once at startup (one tiny Haiku call), run inside WSL ("" = off;
+    /// they still update with each recap).
+    pub usage_command: String,
     /// Lists a project's tasks via Claude + a claude.ai connector (SPEC §3.12), run inside WSL.
     pub tasks_command: String,
     /// Start cc-sidebar when you sign in to Windows (installed builds only).
@@ -79,6 +82,7 @@ impl Default for Config {
             jump_hotkey: "Ctrl+Alt+J".into(),
             recap_command: "cc-recap".into(),
             recap_min_interval_s: 30,
+            usage_command: "cc-usage".into(),
             tasks_command: "cc-tasks".into(),
             autostart: false,
         }
@@ -101,6 +105,7 @@ toasts = "when_hidden"    # Windows toasts for alerts: "when_hidden" (full-scree
 jump_hotkey = "Ctrl+Alt+J" # focus the session waiting on you longest ("" to disable)
 recap_command = "cc-recap" # Haiku recap after each turn, run inside WSL ("" to disable)
 recap_min_interval_s = 30  # at most one Haiku recap per session this often
+usage_command = "cc-usage" # usage limits at startup: one tiny Haiku call ("" to skip)
 tasks_command = "cc-tasks" # lists project tasks via Claude + connectors (see projects.toml)
 autostart = false          # start cc-sidebar when you sign in to Windows
 

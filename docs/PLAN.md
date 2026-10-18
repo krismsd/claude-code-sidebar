@@ -140,6 +140,10 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Hover: the flyout is replaced by the same card drawn expanded exactly over the original (full recap, last prompt, all alerts, details). It has `pointer-events: none`, so hover follows the cards underneath: moving below the original card's bottom edge hovers the next card, and clicks on ☆ / Allow / Deny pass through to the real buttons (the top part lines up). Shifted up only if it would run off the window.
 - [x] Rename: `--name` / `/rename` store a `custom-title` (+ `agent-name`) record in the transcript, and a running Claude Code re-writes its own title periodically. So: closed sessions get the records appended immediately (verified: resuming shows the new name in Claude Code's prompt box); open sessions get a sidebar name now and the records ~4 s after they close (so the exiting process can't overwrite them). Verified for open sessions too: the user renamed this session while open, closed and reopened it, and the name stuck.
 
+## M14: Usage limits footer (2026-10-18)
+- [x] Footer with the subscription limits `/usage` shows: 5-hour session and 7-day week, % used and reset time; amber ≥70 %, red ≥90 %, "Limit reached" / "Using extra usage" notes; two mini bars on the collapsed strip.
+- Source: every `claude -p --output-format stream-json` call emits a `rate_limit_event` (`rate_limit_info.unifiedWindows.{five_hour,seven_day}.{utilization,resetsAt}`; documented as an Agent SDK message type, seen live with camelCase fields). `cc-recap` now runs in stream-json and adds a `USAGE:` line, so numbers refresh after every turn at no cost; `cc-usage` makes one tiny Haiku call at startup (`usage_command`, "" to skip). Considered: statusLine `rate_limits` (documented, but needs a change to the global statusLine config); the OAuth usage endpoint (undocumented, rejected).
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

@@ -171,7 +171,11 @@ impl Recapper {
                 return false;
             }
         };
-        let text = String::from_utf8_lossy(&out.stdout);
+        let raw = String::from_utf8_lossy(&out.stdout);
+        let (text, usage) = crate::usage::split_recap_output(&raw);
+        if let Some(json) = usage {
+            crate::server::set_usage(ctx, &json);
+        }
         let Some(recap) = parse(&text) else {
             log::warn!("recap {id}: unparseable output: {}", text.trim());
             return false;

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# cc-usage: print the account's usage limits (the numbers /usage shows) as rate_limit_info JSON.
+# Every `claude -p` call reports them in a rate_limit_event; this makes the smallest possible
+# call (Haiku, no tools, no MCP servers, no user settings, nothing saved). The sidebar runs it
+# once at startup; after that the numbers ride along with each Haiku recap (cc-recap).
+CC_SIDEBAR_INTERNAL=1 claude -p "Reply with: ok" --model haiku --no-session-persistence \
+  --tools "" --strict-mcp-config --setting-sources "" --output-format stream-json --verbose \
+  </dev/null 2>/dev/null | jq -c 'select(.type=="rate_limit_event") | .rate_limit_info' | tail -n 1

@@ -53,3 +53,16 @@ export function projectName(s: Session): string {
 export function projectKey(s: Session): string {
   return s.project?.root ?? s.cwd ?? s.session_id;
 }
+
+/** "3:20 pm" today, else "Tue 9:00 am". */
+export function resetTime(ms: number, now: number): string {
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase();
+  const sameDay = new Date(now).toDateString() === d.toDateString();
+  return sameDay ? time : `${d.toLocaleDateString([], { weekday: "short" })} ${time}`;
+}
+
+/** Bar colour for a usage percentage. */
+export function usageLevel(percent: number): "ok" | "high" | "critical" {
+  return percent >= 90 ? "critical" : percent >= 70 ? "high" : "ok";
+}

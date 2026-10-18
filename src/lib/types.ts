@@ -89,6 +89,23 @@ export interface UiState {
   left_edge: boolean;
   /** 0 = primary, n = nth monitor from the left. */
   monitor: number;
+  usage: Usage | null;
+}
+
+export interface UsageWindow {
+  /** 0–100 */
+  percent: number;
+  /** epoch ms */
+  resets_at: number | null;
+}
+
+/** Subscription usage limits (what /usage shows). */
+export interface Usage {
+  five_hour: UsageWindow | null;
+  seven_day: UsageWindow | null;
+  status: string;
+  using_overage: boolean;
+  updated_at: number;
 }
 
 export interface Monitor {

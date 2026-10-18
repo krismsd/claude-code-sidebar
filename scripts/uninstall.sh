@@ -9,6 +9,6 @@ bin="$HOME/.local/bin"
 dry=""; [ "${1:-}" = "--dry-run" ] && dry="--dry-run"
 
 python3 "$repo/scripts/cc_hooks.py" uninstall $dry
-for f in claudes cc-hook cc-recap cc-tasks; do
+for f in claudes cc-hook cc-recap cc-tasks cc-usage; do
   if [ -n "$dry" ]; then echo "would remove $bin/$f"; else rm -f "$bin/$f"; fi
 done

@@ -7,6 +7,7 @@ import { SessionCard } from "./components/SessionCard";
 import { SessionMenu } from "./components/SessionMenu";
 import { AddProject } from "./components/AddProject";
 import { Strip } from "./components/Strip";
+import { UsageFooter } from "./components/UsageFooter";
 import { WindowMenu } from "./components/WindowMenu";
 import { freshKeys, groupSessions } from "./lib/view";
 import "./App.css";
@@ -172,6 +173,7 @@ function App() {
         fresh={fresh}
         leftEdge={state.left_edge}
         floating={state.floating}
+        usage={state.usage}
         onExpand={() => setCollapsed(false)}
       />
     );
@@ -279,6 +281,7 @@ function App() {
           onRemove={(s) => invoke("dismiss_session", { sessionId: s.session_id }).catch(report)}
         />
       )}
+      <UsageFooter usage={state.usage} now={now} />
       {toast && <div className="toast">{toast}</div>}
     </main>
   );

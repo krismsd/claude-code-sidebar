@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
-import type { Session, Tracked } from "../lib/types";
+import type { Session, Tracked, Usage } from "../lib/types";
+import { usageLevel } from "../lib/format";
 import { projectStatus } from "../lib/view";
 
 interface Props {
@@ -8,11 +9,12 @@ interface Props {
   fresh: Set<string>;
   leftEdge: boolean;
   floating: boolean;
+  usage: Usage | null;
   onExpand: () => void;
 }
 
 /** Collapsed sidebar: an expand button and one status dot per project. */
-export function Strip({ projects, sessions, fresh, leftEdge, floating, onExpand }: Props) {
+export function Strip({ projects, sessions, fresh, leftEdge, floating, usage, onExpand }: Props) {
   const drag = floating ? { "data-tauri-drag-region": true } : {};
   return (
     <main className="strip" {...drag}>
@@ -34,6 +36,21 @@ export function Strip({ projects, sessions, fresh, leftEdge, floating, onExpand 
           </button>
         );
       })}
+      {usage && (
+        <div
+          className="strip-usage"
+          title={`Session ${Math.round(usage.five_hour?.percent ?? 0)}% · week ${Math.round(usage.seven_day?.percent ?? 0)}%`}
+        >
+          {[usage.five_hour, usage.seven_day].map((w, i) => (
+            <span key={i} className="strip-usage-bar">
+              <span
+                className={`usage-fill ${usageLevel(w?.percent ?? 0)}`}
+                style={{ height: `${Math.min(100, w?.percent ?? 0)}%` }}
+              />
+            </span>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

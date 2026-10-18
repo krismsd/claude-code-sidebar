@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
 import { arrange, freshKeys, groupSessions, projectStatus } from "./view";
-import { elapsed, sessionName } from "./format";
+import { elapsed, sessionName, usageLevel } from "./format";
 
 let n = 0;
 function session(over: Partial<Session> = {}): Session {
@@ -107,6 +107,7 @@ describe("groupSessions", () => {
       floating: false,
       left_edge: false,
       monitor: 0,
+      usage: null,
     };
     const { byRoot, other } = groupSessions(state);
     expect(byRoot.get("/p/a")).toEqual([a]);
@@ -134,5 +135,18 @@ describe("sessionName", () => {
       "Login fixes",
     );
     expect(sessionName(session({ title: "Login fixes", user_title: "Mine" }))).toBe("Mine");
+  });
+});
+
+describe("usageLevel", () => {
+  it("goes amber at 70% and red at 90%", () => {
+    expect([0, 69.9, 70, 89.9, 90, 100].map(usageLevel)).toEqual([
+      "ok",
+      "ok",
+      "high",
+      "high",
+      "critical",
+      "critical",
+    ]);
   });
 });

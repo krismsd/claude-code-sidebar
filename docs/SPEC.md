@@ -177,6 +177,10 @@ Decisions (2026-10-17): stable project order with drag to reorder; trackers via 
 - **Card details:** after a ~300 ms hover, the card is drawn expanded exactly over itself (an overlay that ignores the mouse), so hover keeps following the real cards; moving to another card swaps it immediately. Card height never changes. Session actions live in a right-click menu (rename, copy ID, end, remove).
 - **Tasks from an issue tracker:** per-project `[project.tasks]` in `projects.toml`: `connector` (claude.ai connector name, e.g. "Atlassian"), `query` (plain English, e.g. "Jira issues in project ACME assigned to me that aren't done") and optional `tools` (allowed MCP tool names; defaults per connector are read-only). `cc-tasks` runs `claude -p` with only those tools allowed (`--permission-mode dontAsk`, no built-in tools) and returns JSON `[{id, title, status, url, summary}]`. Picking a task starts a session in the project with a first prompt built from the task (passed via `CC_SIDEBAR_PROMPT_FILE`, so no quoting goes through wt.exe). Trackers without a connector (e.g. Azure DevOps) go through a CLI instead: `tools` holds permission rules such as `Bash(az boards query:*)`, and `cc-tasks` runs from the project folder. Write commands are refused (dontAsk); Claude Code still allows plain read-only commands.
 
+### 3.13 Usage limits (M14)
+
+A footer shows the account's 5-hour and weekly usage (% and reset time), read from the `rate_limit_event` that every `claude -p` stream-json call emits: refreshed by each Haiku recap, plus one tiny call at startup (`cc-usage`). Past a reset time the row dims until the next update.
+
 ## 4. Testing denials
 
 Prefer a harmless, deterministic trigger: add a test-only auto-mode rule in `dev/hooks.json` (see the "Configure auto mode" docs) that denies any command containing `CC_SIDEBAR_DENY_TEST`, then ask the test session to run `echo CC_SIDEBAR_DENY_TEST`. Verified in S4: the `autoMode.soft_deny` prose rule (read from `--settings`) denies it and emits `PermissionDenied`. It is a classifier judgement, not a regex, but it fired reliably. A plain `permissions.deny` match does not emit `PermissionDenied`.

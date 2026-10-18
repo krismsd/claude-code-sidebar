@@ -36,6 +36,8 @@ pub struct Ctx {
     pub holds: Holds,
     /// Collapsed state and floating window position (ui.json).
     pub prefs: Arc<Mutex<crate::ui::UiPrefs>>,
+    /// Latest subscription usage limits, if known.
+    pub usage: Arc<Mutex<Option<crate::usage::Usage>>>,
 }
 
 static HOLD_SEQ: AtomicU64 = AtomicU64::new(1);
@@ -82,6 +84,7 @@ pub struct UiState {
     pub left_edge: bool,
     /// Configured monitor: 0 = primary, n = nth from the left.
     pub monitor: usize,
+    pub usage: Option<crate::usage::Usage>,
 }
 
 pub fn ui_state(ctx: &Ctx) -> UiState {
@@ -102,6 +105,7 @@ pub fn ui_state(ctx: &Ctx) -> UiState {
         floating: cfg.floating(),
         left_edge: cfg.edge.eq_ignore_ascii_case("left"),
         monitor: cfg.monitor,
+        usage: ctx.usage.lock().unwrap().clone(),
     }
 }
 
@@ -359,6 +363,43 @@ pub fn append_title(file: &std::path::Path, session_id: &str, name: &str) -> std
         .map(|b| b.last().is_some_and(|c| *c != b'\n'))
         .unwrap_or(false);
     f.write_all(format!("{}{text}", if needs_newline { "\n" } else { "" }).as_bytes())
+}
+
+/// New usage numbers (a `rate_limit_info` JSON object): keep them and update the UI.
+pub fn set_usage(ctx: &Ctx, json: &str) {
+    match crate::usage::parse(json, now_ms()) {
+        Some(u) => {
+            *ctx.usage.lock().unwrap() = Some(u);
+            publish(ctx);
+        }
+        None => log::warn!("usage: couldn't read {json}"),
+    }
+}
+
+/// At startup: one tiny `claude -p` call (`cc-usage`) so the usage footer has numbers before
+/// the first recap. Later updates come with each recap.
+pub async fn probe_usage(ctx: Ctx) {
+    let (cmd_name, distro) = {
+        let cfg = ctx.config.read().unwrap();
+        (cfg.usage_command.clone(), cfg.distro.clone())
+    };
+    if cmd_name.is_empty() {
+        return;
+    }
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let mut cmd = tokio::process::Command::new("wsl.exe");
+    cmd.args(["-d", &distro, "-e", "bash", "-lc", &cmd_name]);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    match tokio::time::timeout(Duration::from_secs(60), cmd.output()).await {
+        Ok(Ok(out)) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            if let Some(line) = text.lines().rev().find(|l| l.trim_start().starts_with('{')) {
+                set_usage(&ctx, line);
+            }
+        }
+        _ => log::warn!("usage: {cmd_name} failed"),
+    }
 }
 
 /// IPv4 address of the Windows side of the WSL NAT network ("vEthernet (WSL …)").

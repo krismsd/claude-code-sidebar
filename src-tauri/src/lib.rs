@@ -24,6 +24,7 @@ mod tasks;
 #[cfg(test)]
 mod tests;
 mod ui;
+mod usage;
 
 use server::{Ctx, Shared};
 
@@ -395,6 +396,7 @@ pub fn run() {
                 recapper: recap::Recapper::default(),
                 holds: Default::default(),
                 prefs: Arc::new(Mutex::new(prefs)),
+                usage: Default::default(),
             };
             // Restored alerts are old news: mark them seen without a sound.
             ctx.notifier
@@ -444,6 +446,7 @@ pub fn run() {
             tauri::async_runtime::spawn(server::run(ctx.clone()));
             tauri::async_runtime::spawn(server::ticker(ctx.clone()));
             tauri::async_runtime::spawn(server::watch_config(ctx.clone()));
+            tauri::async_runtime::spawn(server::probe_usage(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())
         })

@@ -1085,3 +1085,7 @@ button {
 .strip-usage-bar .usage-fill {
   width: 100%;
 }
+
+.strip-usage-bar.stale {
+  opacity: 0.5;
+}

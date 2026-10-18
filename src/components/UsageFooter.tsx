@@ -1,5 +1,5 @@
 import type { Usage, UsageWindow } from "../lib/types";
-import { elapsed, resetTime, usageLevel } from "../lib/format";
+import { elapsed, resetTime, usageLevel, usageNow } from "../lib/format";
 
 interface Props {
   usage: Usage | null;
@@ -7,16 +7,17 @@ interface Props {
 }
 
 function Row({ label, w, now }: { label: string; w: UsageWindow | null; now: number }) {
-  if (!w) return null;
-  const done = w.resets_at !== null && w.resets_at <= now;
+  const v = usageNow(w, now);
+  if (!w || !v) return null;
+  const done = v.reset;
   const pct = Math.round(w.percent);
   return (
     <div className={`usage-row${done ? " stale" : ""}`}>
       <span className="usage-label">{label}</span>
       <span className="usage-bar">
         <span
-          className={`usage-fill ${usageLevel(w.percent)}`}
-          style={{ width: `${done ? 0 : Math.min(100, w.percent)}%` }}
+          className={`usage-fill ${usageLevel(v.percent)}`}
+          style={{ width: `${Math.min(100, v.percent)}%` }}
         />
       </span>
       <span className="usage-pct">{done ? "–" : `${pct}%`}</span>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
 import { arrange, freshKeys, groupSessions, projectStatus } from "./view";
-import { elapsed, sessionName, usageLevel } from "./format";
+import { elapsed, sessionName, usageLevel, usageNow } from "./format";
 
 let n = 0;
 function session(over: Partial<Session> = {}): Session {
@@ -148,5 +148,15 @@ describe("usageLevel", () => {
       "critical",
       "critical",
     ]);
+  });
+});
+
+describe("usageNow", () => {
+  it("drops the old percentage once the window has reset", () => {
+    const w = { percent: 8, resets_at: 1000 };
+    expect(usageNow(w, 999)).toEqual({ percent: 8, reset: false });
+    expect(usageNow(w, 1000)).toEqual({ percent: 0, reset: true });
+    expect(usageNow({ percent: 5, resets_at: null }, 1e15)).toEqual({ percent: 5, reset: false });
+    expect(usageNow(null, 0)).toBeNull();
   });
 });

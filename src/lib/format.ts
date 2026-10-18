@@ -1,4 +1,4 @@
-import type { AlertKind, Session, Status } from "./types";
+import type { AlertKind, Session, Status, UsageWindow } from "./types";
 
 export const STATUS_LABEL: Record<Status, string> = {
   starting: "new",
@@ -65,4 +65,15 @@ export function resetTime(ms: number, now: number): string {
 /** Bar colour for a usage percentage. */
 export function usageLevel(percent: number): "ok" | "high" | "critical" {
   return percent >= 90 ? "critical" : percent >= 70 ? "high" : "ok";
+}
+
+/** A usage window as of `now`: once its reset time has passed the old percentage no longer
+ * applies (shown as reset until the next update). Shared by the footer and the strip. */
+export function usageNow(
+  w: UsageWindow | null,
+  now: number,
+): { percent: number; reset: boolean } | null {
+  if (!w) return null;
+  const reset = w.resets_at !== null && w.resets_at <= now;
+  return { percent: reset ? 0 : w.percent, reset };
 }

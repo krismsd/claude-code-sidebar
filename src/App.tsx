@@ -174,6 +174,7 @@ function App() {
         leftEdge={state.left_edge}
         floating={state.floating}
         usage={state.usage}
+        now={now}
         onExpand={() => setCollapsed(false)}
       />
     );

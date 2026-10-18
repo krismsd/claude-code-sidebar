@@ -125,3 +125,52 @@ export interface Task {
   url: string;
   summary: string;
 }
+
+// Mirrors src-tauri/src/config.rs and project.rs (settings window).
+export interface Config {
+  mode: "docked" | "floating";
+  monitor: number;
+  edge: "right" | "left";
+  width: number;
+  distro: string;
+  launcher: string;
+  launch_env: Record<string, string>;
+  terminal_window: string;
+  waiting_minutes: number;
+  slow_minutes: number;
+  closed_retention_days: number;
+  sounds: Record<string, string>;
+  toasts: "when_hidden" | "always" | "never";
+  jump_hotkey: string;
+  recap_command: string;
+  recap_min_interval_s: number;
+  usage_command: string;
+  tasks_command: string;
+  autostart: boolean;
+}
+
+export interface TasksConfig {
+  connector?: string;
+  query: string;
+  tools?: string[];
+  prompt?: string | null;
+}
+
+/** One `[[project]]` in projects.toml. */
+export interface ProjectOverride {
+  path: string;
+  name?: string | null;
+  color?: string | null;
+  emoji?: string | null;
+  label?: string | null;
+  tasks?: TasksConfig | null;
+}
+
+export interface Settings {
+  config: Config;
+  projects: ProjectOverride[];
+  tracked: { root: string; name: string; color: string }[];
+  palette: string[];
+  config_path: string;
+  projects_path: string;
+}

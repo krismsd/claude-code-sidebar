@@ -195,7 +195,7 @@ function App() {
     onProjectAction: (root: string, action: "folder" | "vscode") =>
       invoke("project_action", { root, action }).catch(report),
     onCloseProject: (root: string) => invoke("close_project", { root }).catch(report),
-    onSetupTasks: () => invoke("open_projects_file").catch(report),
+    onSetupTasks: () => invoke("open_settings", { tab: "projects" }).catch(report),
     onMessage: setToast,
     onDropProject: (dragged: string, onto: string) =>
       invoke("move_project", {

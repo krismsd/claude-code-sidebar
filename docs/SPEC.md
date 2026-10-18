@@ -156,6 +156,8 @@ These still appear (hooks are global after install) but have no tag, PID or chan
 
 `%APPDATA%\cc-sidebar\config.toml`: edge, monitor, width, port, WSL distro, hold window, stale thresholds, sounds, recap runner. Hot-reloaded.
 
+Edited from a **settings window** (⚙ → Settings…, or the tray), with General, Alerts, Projects and Advanced tabs. It covers config.toml and projects.toml (per-project name, label, emoji, colour and task source). Save writes only what changed into the files, keeping their comments; the file watcher applies it as it would a hand edit. The files stay the source of truth and can still be edited by hand.
+
 ### 3.11 Add project (2026-10-17; was "new session")
 
 The header **+** adds a project (tracked, no session) from recents not already in the sidebar, or any folder; sessions start from the project's own **+**. Original design:

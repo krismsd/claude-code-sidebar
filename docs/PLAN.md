@@ -149,6 +149,23 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Collapsed strip lists open + starred sessions (project order), with project colour, status dot, ★ for starred and the alert flash; click = focus/resume.
 - [x] Hovering a strip marker shows the session's expanded card in a separate `peek` window beside the strip (the strip is too narrow to draw it): same bundle with `?view=peek`, WS_EX_NOACTIVATE + SW_SHOWNOACTIVATE so it never takes focus, sized to the card, kept on screen. A 150 ms cursor watchdog hides it when the cursor leaves the sidebar (the webview misses quick exits). Tauri's own hide() was a no-op for a window shown through Win32, so it's hidden with ShowWindow too.
 
+## M16: Settings window (2026-10-18)
+
+- [x] A "settings" window (`index.html?view=settings`, created on demand), opened from ⚙ → Settings… and the tray; "Set up tasks…" opens it on the Projects tab.
+- [x] Tabs:
+  - **General:** docked or floating, monitor, edge, width, start with Windows, terminal window, retention.
+  - **Alerts:** thresholds, toasts, a hotkey recorder, sounds with a ▶ preview and a .wav picker.
+  - **Projects:** overrides plus the task source (connector or CLI).
+  - **Advanced:** WSL distro, launcher, launch env, helper commands, links to open the raw files.
+- [x] `settings.rs` merges the window's values into the files with toml_edit:
+  - unchanged values keep their exact text, and changed ones keep their trailing comment;
+  - values are compared as values, not as text;
+  - projects are matched by `path`;
+  - unknown top-level keys survive;
+  - an unchanged file isn't rewritten.
+
+  Validation happens on the server (enums, width 200–900, hex colours, task query, hotkey parse).
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

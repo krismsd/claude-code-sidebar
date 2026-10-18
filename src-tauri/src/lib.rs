@@ -20,6 +20,7 @@ pub mod project;
 mod recap;
 mod server;
 pub mod session;
+mod settings;
 pub mod store;
 mod tasks;
 #[cfg(test)]
@@ -341,15 +342,88 @@ fn list_monitors() -> Vec<appbar::Monitor> {
 
 #[tauri::command]
 fn open_settings_file(app: tauri::AppHandle) {
-    open_settings(&app);
-}
-
-fn open_settings(app: &tauri::AppHandle) {
     let _ = config::Config::load(); // creates the file if it doesn't exist yet
     if let Some(p) = config::path() {
         use tauri_plugin_opener::OpenerExt;
         let _ = app.opener().open_path(p.to_string_lossy(), None::<&str>);
     }
+}
+
+/// The settings window (`index.html?view=settings`), created on first use. Async: on Windows a
+/// window built from a synchronous command can deadlock.
+#[tauri::command]
+async fn open_settings(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
+    show_settings(&app, tab.as_deref()).map_err(|e| e.to_string())
+}
+
+/// Show the settings window, optionally on one tab ("general", "alerts", "projects", …).
+fn show_settings(app: &tauri::AppHandle, tab: Option<&str>) -> tauri::Result<()> {
+    use tauri::Emitter;
+    if let Some(w) = app.get_webview_window("settings") {
+        if let Some(t) = tab {
+            let _ = app.emit_to("settings", "settings-tab", t);
+        }
+        let _ = w.unminimize();
+        return w.set_focus();
+    }
+    let url = match tab {
+        Some(t) => format!("index.html?view=settings&tab={t}"),
+        None => "index.html?view=settings".into(),
+    };
+    tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
+        .title("cc-sidebar settings")
+        .inner_size(680.0, 640.0)
+        .min_inner_size(560.0, 420.0)
+        .center()
+        .build()?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_settings(ctx: State<'_, Ctx>) -> settings::Settings {
+    let roots: Vec<String> = ctx
+        .store
+        .lock()
+        .unwrap()
+        .projects()
+        .iter()
+        .map(|t| t.project.root.clone())
+        .collect();
+    settings::load(&roots)
+}
+
+/// Write the settings window's changes; the file watcher applies them.
+#[tauri::command]
+fn save_settings(config: config::Config, projects: Vec<project::Override>) -> Result<(), String> {
+    #[cfg(windows)]
+    if !config.jump_hotkey.is_empty() {
+        use std::str::FromStr;
+        tauri_plugin_global_shortcut::Shortcut::from_str(&config.jump_hotkey)
+            .map_err(|e| format!("Hotkey \"{}\": {e}", config.jump_hotkey))?;
+    }
+    settings::validate(&config)?;
+    settings::validate_projects(&projects)?;
+    settings::save_projects(&projects)?;
+    settings::save_config(&config)
+}
+
+/// A .wav file for an alert sound.
+#[tauri::command]
+async fn pick_sound(app: tauri::AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    app.dialog()
+        .file()
+        .set_title("Alert sound")
+        .add_filter("Sounds", &["wav"])
+        .set_directory(r"C:\Windows\Media")
+        .blocking_pick_file()
+        .map(|p| p.to_string())
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn play_sound(sound: String) {
+    alerts::play(&sound);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -372,6 +446,12 @@ pub fn run() {
             set_collapsed,
             set_window,
             open_settings_file,
+            open_settings,
+            get_settings,
+            save_settings,
+            pick_sound,
+            #[cfg(windows)]
+            play_sound,
             #[cfg(windows)]
             list_monitors,
             list_tasks,
@@ -459,7 +539,9 @@ pub fn run() {
                         let collapsed = ctx.prefs.lock().unwrap().collapsed;
                         server::set_collapsed(&ctx, !collapsed);
                     }
-                    "settings" => open_settings(app),
+                    "settings" => {
+                        let _ = show_settings(app, None);
+                    }
                     "quit" => {
                         // Give the reserved space back first, so desktop icons can be restored.
                         #[cfg(windows)]

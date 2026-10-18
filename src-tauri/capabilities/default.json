@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the sidebar and its peek window",
+  "description": "Capability for the sidebar, its peek window and the settings window",
   "windows": [
     "main",
-    "peek"
+    "peek",
+    "settings"
   ],
   "permissions": [
     "core:default",

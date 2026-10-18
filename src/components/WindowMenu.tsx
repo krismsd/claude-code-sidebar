@@ -10,7 +10,7 @@ interface Props {
   onError: (e: unknown) => void;
 }
 
-/** ⚙ menu: where the sidebar sits (docked on a monitor, or floating) and settings files. */
+/** ⚙ menu: where the sidebar sits (docked on a monitor, or floating) and the settings window. */
 export function WindowMenu({ floating, monitor, onClose, onError }: Props) {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const ref = useRef<HTMLDivElement>(null);
@@ -60,12 +60,7 @@ export function WindowMenu({ floating, monitor, onClose, onError }: Props) {
         <span className="menu-note">movable, reserves no space</span>
       </button>
       <div className="menu-label">Settings</div>
-      <button onClick={() => (invoke("open_settings_file").catch(onError), onClose())}>
-        config.toml…
-      </button>
-      <button onClick={() => (invoke("open_projects_file").catch(onError), onClose())}>
-        projects.toml…
-      </button>
+      <button onClick={() => (invoke("open_settings").catch(onError), onClose())}>Settings…</button>
     </div>
   );
 }

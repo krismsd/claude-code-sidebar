@@ -26,34 +26,38 @@ pub struct Project {
 }
 
 /// One `[[project]]` entry in `%APPDATA%\cc-sidebar\projects.toml`.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Override {
     /// Linux path of the repo root this applies to.
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub emoji: Option<String>,
     /// Short label shown next to the name; `client` is accepted too (older files).
-    #[serde(alias = "client")]
+    #[serde(alias = "client", skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     /// Where this project's tasks come from (SPEC §3.12).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tasks: Option<TasksConfig>,
 }
 
 /// `[project.tasks]`: list tasks through Claude and a claude.ai connector.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TasksConfig {
     /// claude.ai connector name, e.g. "Atlassian"; empty for CLI trackers (see `tools`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub connector: String,
     /// Plain English, e.g. "Jira issues in project ACME assigned to me that aren't done".
     pub query: String,
     /// Allowed tools: connector tool names (defaults per connector in cc-tasks) or permission
     /// rules such as `Bash(az boards query:*)` for CLI trackers.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<String>,
     /// First prompt for a session started from a task; {id} {title} {url} {summary} {status}.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
 }
 
@@ -79,7 +83,7 @@ pub const PROJECTS_TEMPLATE: &str = r##"# cc-sidebar per-project settings. Saved
 # # prompt = "Work on {id}: {title}\n\n{summary}\n\n{url}"
 "##;
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Overrides {
     #[serde(default)]
     pub project: Vec<Override>,

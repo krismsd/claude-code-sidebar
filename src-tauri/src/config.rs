@@ -1,10 +1,10 @@
 //! `%APPDATA%\cc-sidebar\config.toml` (SPEC §3.10). Created with defaults on first run, and
 //! hot-reloaded: the app polls its modified time.
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     /// "docked" (an AppBar that reserves its screen space) or "floating" (a normal window).
@@ -89,7 +89,7 @@ impl Default for Config {
     }
 }
 
-const TEMPLATE: &str = r#"# cc-sidebar settings. Saved changes apply within a couple of seconds.
+pub const TEMPLATE: &str = r#"# cc-sidebar settings. Saved changes apply within a couple of seconds.
 
 mode = "docked"           # "docked" (reserves its screen space) or "floating" (a normal window)
 monitor = 0               # 0 = primary, 1, 2, … = monitors counting from the left

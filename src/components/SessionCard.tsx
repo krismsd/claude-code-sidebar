@@ -179,14 +179,7 @@ export function SessionCard({
               </div>
             ))}
           <div className="muted small">
-            {[
-              s.tag && `#${s.tag}`,
-              s.model,
-              s.permission_mode,
-              s.shell_cwd && s.shell_cwd !== s.cwd && `shell in ${s.shell_cwd}`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+            {[s.tag && `#${s.tag}`, s.model, s.permission_mode].filter(Boolean).join(" · ")}
           </div>
           <div className="muted small right-click-hint">Right-click for more</div>
         </div>

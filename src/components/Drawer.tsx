@@ -30,7 +30,9 @@ export function Drawer({ shelved, byRoot, fresh, dragging, onShelve, onUnshelve 
   if (shelved.length === 0 && !dragging) return null;
   return (
     <div
-      className={`drawer${dragging ? " dragging" : ""}`}
+      // The drop-zone look is only for an empty drawer: restyling it mid-drag would move the
+      // tile being dragged out from under the cursor.
+      className={`drawer${dragging && shelved.length === 0 ? " dragging" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(DRAG_TYPE)) e.preventDefault();
       }}
@@ -44,8 +46,12 @@ export function Drawer({ shelved, byRoot, fresh, dragging, onShelve, onUnshelve 
         const sessions = byRoot.get(p.root) ?? [];
         const status = projectStatus(sessions, fresh);
         return (
-          <button
+          // A div, not a button: WebView2 won't start a drag from a button.
+          <div
             key={p.root}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onUnshelve(p.root)}
             className={`drawer-tile${status.flashing ? " flash" : ""}`}
             style={{ "--project": p.color } as CSSProperties}
             title={`${p.name}${status.open ? ` · ${status.open} open` : ""}\nClick or drag back to take it out`}
@@ -56,7 +62,7 @@ export function Drawer({ shelved, byRoot, fresh, dragging, onShelve, onUnshelve 
             <span className="drawer-mark">{p.emoji ?? initials(p.name)}</span>
             <span className="drawer-name">{p.name}</span>
             {status.state && <span className={`dot ${status.state}`} />}
-          </button>
+          </div>
         );
       })}
     </div>

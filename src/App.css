@@ -1562,6 +1562,7 @@ button {
   background: color-mix(in srgb, var(--project) 16%, var(--card));
   color: var(--fg);
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .drawer-tile:hover {

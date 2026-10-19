@@ -129,6 +129,13 @@ fn move_project(ctx: State<'_, Ctx>, root: String, to: usize) {
 }
 
 #[tauri::command]
+fn set_shelved(ctx: State<'_, Ctx>, root: String, shelved: bool) {
+    if ctx.store.lock().unwrap().set_shelved(&root, shelved) {
+        server::publish(&ctx);
+    }
+}
+
+#[tauri::command]
 fn close_project(ctx: State<'_, Ctx>, root: String) -> Result<(), String> {
     ctx.store.lock().unwrap().close_project(&root)?;
     server::publish(&ctx);
@@ -472,6 +479,7 @@ pub fn run() {
             peek_hide,
             rename_session,
             move_project,
+            set_shelved,
             close_project,
             dismiss_alert,
             dismiss_session,

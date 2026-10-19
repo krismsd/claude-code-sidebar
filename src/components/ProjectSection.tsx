@@ -29,6 +29,8 @@ interface Props {
   onCloseProject: (root: string) => void;
   /** Drag-to-reorder: a project header was dropped onto this section. */
   onDropProject: (draggedRoot: string, ontoRoot: string) => void;
+  /** Put the project in the drawer. */
+  onShelve: (root: string) => void;
 }
 
 export function ProjectSection({
@@ -39,6 +41,7 @@ export function ProjectSection({
   onProjectAction,
   onCloseProject,
   onDropProject,
+  onShelve,
   hasTasks,
   onSetupTasks,
   onMessage,
@@ -91,7 +94,7 @@ export function ProjectSection({
         className={`project-head${flashing ? " flash" : ""}`}
         draggable={!!root}
         onDragStart={(e) => root && e.dataTransfer.setData("application/x-cc-project", root)}
-        title={root ? `${root}\nDrag to reorder` : undefined}
+        title={root ? `${root}\nDrag to reorder, or onto the drawer to put it away` : undefined}
       >
         <span className={`dot ${status.state}`} />
         <span className="project-name">
@@ -128,6 +131,7 @@ export function ProjectSection({
               Set up tasks…
             </button>
           )}
+          <button onClick={() => (onShelve(root), setMenu(false))}>Put in drawer</button>
           <button onClick={() => (onProjectAction(root, "folder"), setMenu(false))}>
             Open folder
           </button>

@@ -6,6 +6,7 @@ import { ProjectSection, type CardHandlers } from "./components/ProjectSection";
 import { SessionCard } from "./components/SessionCard";
 import { SessionMenu } from "./components/SessionMenu";
 import { AddProject } from "./components/AddProject";
+import { Drawer } from "./components/Drawer";
 import { Strip } from "./components/Strip";
 import { UsageFooter } from "./components/UsageFooter";
 import { WindowMenu } from "./components/WindowMenu";
@@ -29,21 +30,30 @@ const HOVER_CLOSE_MS = 60;
 
 /** The hovered card drawn expanded, exactly over the original (SPEC §3.12). It ignores the
  * mouse, so hover still follows the cards underneath: moving below the original card's bottom
- * edge hovers the next card. Shifted up only if it would run off the bottom of the window. */
-function HoverCard({ rect, children }: { rect: DOMRect; children: ReactNode }) {
+ * edge hovers the next card. Shifted up only if it would run off the bottom of the window.
+ * Placed from the original card on every render, so it follows when cards above it change
+ * height. */
+function HoverCard({ anchor, children }: { anchor: HTMLElement; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const max = window.innerHeight - el.offsetHeight - 6;
-    el.style.top = `${Math.max(6, Math.min(rect.top, max))}px`;
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      const max = window.innerHeight - el.offsetHeight - 6;
+      el.style.left = `${rect.left}px`;
+      el.style.width = `${rect.width}px`;
+      el.style.top = `${Math.max(6, Math.min(rect.top, max))}px`;
+    };
+    place();
+    // Layout can also shift without a re-render of ours (fonts, a section's own state).
+    const ro = new ResizeObserver(place);
+    const list = anchor.closest(".cards");
+    if (list) [...list.children].forEach((c) => ro.observe(c));
+    return () => ro.disconnect();
   });
   return (
-    <div
-      ref={ref}
-      className="hover-card"
-      style={{ top: rect.top, left: rect.left, width: rect.width }}
-    >
+    <div ref={ref} className="hover-card">
       {children}
     </div>
   );
@@ -94,7 +104,8 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [windowMenu, setWindowMenu] = useState(false);
-  const [hover, setHover] = useState<{ id: string; rect: DOMRect } | null>(null);
+  const [hover, setHover] = useState<{ id: string; el: HTMLElement } | null>(null);
+  const [draggingProject, setDraggingProject] = useState(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -126,7 +137,7 @@ function App() {
       closeTimer.current = setTimeout(() => setHover(null), HOVER_CLOSE_MS);
       return;
     }
-    const next = { id: s.session_id, rect: el.getBoundingClientRect() };
+    const next = { id: s.session_id, el };
     if (hover) setHover(next);
     else openTimer.current = setTimeout(() => setHover(next), HOVER_OPEN_MS);
   };
@@ -138,6 +149,21 @@ function App() {
     };
     document.addEventListener("contextmenu", block);
     return () => document.removeEventListener("contextmenu", block);
+  }, []);
+
+  // While a project is being dragged, the drawer shows its drop zone even when empty.
+  useEffect(() => {
+    const start = (e: DragEvent) =>
+      e.dataTransfer?.types.includes("application/x-cc-project") && setDraggingProject(true);
+    const end = () => setDraggingProject(false);
+    document.addEventListener("dragstart", start);
+    document.addEventListener("dragend", end);
+    document.addEventListener("drop", end);
+    return () => {
+      document.removeEventListener("dragstart", start);
+      document.removeEventListener("dragend", end);
+      document.removeEventListener("drop", end);
+    };
   }, []);
 
   const cards: CardHandlers = {
@@ -191,6 +217,10 @@ function App() {
   const hovered = hover && state.sessions.find((s) => s.session_id === hover.id);
   const menuSession = menu && state.sessions.find((s) => s.session_id === menu.id);
 
+  const shelve = (root: string, shelved: boolean) => {
+    setHover(null);
+    invoke("set_shelved", { root, shelved }).catch(report);
+  };
   const sectionProps = {
     cards,
     onNewSession: (root: string) =>
@@ -202,11 +232,20 @@ function App() {
     onCloseProject: (root: string) => invoke("close_project", { root }).catch(report),
     onSetupTasks: () => invoke("open_settings", { tab: "projects" }).catch(report),
     onMessage: setToast,
-    onDropProject: (dragged: string, onto: string) =>
-      invoke("move_project", {
-        root: dragged,
-        to: state.projects.findIndex((t) => t.project.root === onto),
-      }).catch(report),
+    onDropProject: async (dragged: string, onto: string) => {
+      try {
+        // Dragged out of the drawer: take it out, then put it where it was dropped.
+        if (state.projects.some((t) => t.project.root === dragged && t.shelved))
+          await invoke("set_shelved", { root: dragged, shelved: false });
+        await invoke("move_project", {
+          root: dragged,
+          to: state.projects.findIndex((t) => t.project.root === onto),
+        });
+      } catch (e) {
+        report(e);
+      }
+    },
+    onShelve: (root: string) => shelve(root, true),
   };
 
   return (
@@ -254,21 +293,23 @@ function App() {
         {state.projects.length === 0 && other.length === 0 && (
           <p className="empty">No projects yet. Start a session, or use + above.</p>
         )}
-        {state.projects.map((t) => (
-          <ProjectSection
-            key={t.project.root}
-            project={t.project}
-            sessions={byRoot.get(t.project.root) ?? []}
-            hasTasks={state.task_projects.includes(t.project.root)}
-            {...sectionProps}
-          />
-        ))}
+        {state.projects
+          .filter((t) => !t.shelved)
+          .map((t) => (
+            <ProjectSection
+              key={t.project.root}
+              project={t.project}
+              sessions={byRoot.get(t.project.root) ?? []}
+              hasTasks={state.task_projects.includes(t.project.root)}
+              {...sectionProps}
+            />
+          ))}
         {other.length > 0 && (
           <ProjectSection project={null} sessions={other} hasTasks={false} {...sectionProps} />
         )}
       </div>
-      {hover && hovered && !menu && (
-        <HoverCard rect={hover.rect}>
+      {hover && hovered && !menu && hover.el.isConnected && (
+        <HoverCard anchor={hover.el}>
           <SessionCard session={hovered} {...cards} expanded />
         </HoverCard>
       )}
@@ -288,6 +329,14 @@ function App() {
           onRemove={(s) => invoke("dismiss_session", { sessionId: s.session_id }).catch(report)}
         />
       )}
+      <Drawer
+        shelved={state.projects.filter((t) => t.shelved)}
+        byRoot={byRoot}
+        fresh={fresh}
+        dragging={draggingProject}
+        onShelve={(root) => shelve(root, true)}
+        onUnshelve={(root) => shelve(root, false)}
+      />
       <UsageFooter usage={state.usage} now={now} />
       {toast && <div className="toast">{toast}</div>}
     </main>

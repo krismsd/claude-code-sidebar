@@ -79,6 +79,8 @@ export type SessionAction = "end" | "folder" | "vscode";
 export interface Tracked {
   project: Project;
   added_at: number;
+  /** Put away in the drawer. */
+  shelved: boolean;
 }
 
 export interface UiState {

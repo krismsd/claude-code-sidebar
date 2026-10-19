@@ -12,6 +12,9 @@ use std::collections::HashMap;
 pub struct Tracked {
     pub project: Project,
     pub added_at: Ms,
+    /// Put away in the drawer at the bottom of the sidebar (a small tile instead of a section).
+    #[serde(default)]
+    pub shelved: bool,
 }
 
 pub struct Store {
@@ -68,8 +71,25 @@ impl Store {
             return;
         };
         let now = s.last_event_at;
+        // Starting a session in a project brings it back out of the drawer.
+        let starting = s.status == Status::Starting;
         s.project = Some(project.clone());
+        let root = project.root.clone();
         self.track(project, now);
+        if starting {
+            self.set_shelved(&root, false);
+        }
+    }
+
+    /// Put a project in the drawer, or take it back out. False if nothing changed.
+    pub fn set_shelved(&mut self, root: &str, shelved: bool) -> bool {
+        match self.projects.iter_mut().find(|t| t.project.root == root) {
+            Some(t) if t.shelved != shelved => {
+                t.shelved = shelved;
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Track a project (new ones go to the bottom) or refresh its name/colour.
@@ -88,6 +108,7 @@ impl Store {
             None => self.projects.push(Tracked {
                 project: base,
                 added_at: now,
+                shelved: false,
             }),
         }
     }

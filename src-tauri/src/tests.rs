@@ -901,3 +901,32 @@ fn title_records_append_on_a_fresh_line() {
     assert_eq!(text.lines().count(), 3);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn shelved_projects_persist_and_come_back_for_new_sessions() {
+    let mut st = Store::default();
+    with_project(&mut st, "a", "/p/alpha", 0);
+    assert!(st.set_shelved("/p/alpha", true));
+    assert!(!st.set_shelved("/p/alpha", true), "no change");
+    let json = serde_json::to_string(st.projects()).unwrap();
+    let mut st2 = Store::default();
+    st2.restore_projects(serde_json::from_str(&json).unwrap());
+    assert!(st2.projects()[0].shelved);
+    // Old projects.json entries have no flag.
+    let old: Vec<crate::store::Tracked> = serde_json::from_str(
+        r##"[{"project":{"root":"/p/x","name":"x","color":"#000","emoji":null,"label":null,"worktree":null,"branch":null},"added_at":1}]"##,
+    )
+    .unwrap();
+    assert!(!old[0].shelved);
+
+    // Activity in an existing session leaves it in the drawer; a new session takes it out.
+    with_project(&mut st, "a", "/p/alpha", 1);
+    assert!(st.projects()[0].shelved);
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "b"})),
+        2,
+    );
+    let p = st.get("a").unwrap().project.clone().unwrap();
+    st.set_project("b", p);
+    assert!(!st.projects()[0].shelved);
+}

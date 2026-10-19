@@ -175,6 +175,11 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] The ⏳ waiting alert no longer adds a line or badge to the card (the status pill already says it); it still flashes the card and plays its sound.
 - [x] Sounds: on Windows 11's default scheme Asterisk, Exclamation, Notification and Default all play "Windows Background.wav" (Question is silent), so most choices sounded alike. The picker now lists the Media folder's .wav files (minus alarm/ring loops), plus the scheme aliases labelled with the file each plays; new installs default to four distinct files.
 
+## M17: Project drawer (2026-10-19)
+
+- [x] Projects can be put away in a drawer at the bottom of the sidebar (⋯ → Put in drawer, or drag the header onto it; the drop zone shows while dragging). There they're 52 px square tiles (colour, emoji or initials, name, status dot, flash). Click a tile, or drag it onto a project, to take it out. `Tracked.shelved` is saved in projects.json. Starting a new session in a project takes it out of the drawer. In the collapsed strip, drawer projects only show sessions that need you.
+- [x] Fix: the hover overlay kept its first position when a card above it changed height. It now follows its card (placed from the card on each render, plus a ResizeObserver on the list).
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

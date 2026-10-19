@@ -1527,3 +1527,68 @@ button {
 .settings-footer .status.error {
   color: var(--red);
 }
+
+/* ---- project drawer (M17) ---- */
+.drawer {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.drawer.dragging {
+  outline: 2px dashed var(--blue);
+  outline-offset: -4px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawer-tile {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  padding: 4px 3px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid color-mix(in srgb, var(--project) 55%, var(--border));
+  border-top: 4px solid var(--project);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--project) 16%, var(--card));
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.drawer-tile:hover {
+  background: color-mix(in srgb, var(--project) 30%, var(--card));
+}
+
+.drawer-tile.flash {
+  animation: card-flash 0.5s ease-in-out 8 alternate;
+}
+
+.drawer-mark {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.drawer-name {
+  max-width: 100%;
+  font-size: 9px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-tile .dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+}

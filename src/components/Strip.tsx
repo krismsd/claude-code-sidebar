@@ -18,6 +18,9 @@ interface Props {
 
 const ATTENTION = new Set(["needs_permission", "needs_input", "error"]);
 const PEEK_OPEN_MS = 300;
+
+const needsYou = (s: Session) =>
+  ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact");
 const PEEK_CLOSE_MS = 80;
 
 /** Collapsed sidebar: an expand button, one marker per open or starred session (in project
@@ -48,9 +51,11 @@ export function Strip(props: Props) {
     else openTimer.current = setTimeout(show, PEEK_OPEN_MS);
   };
 
-  const shown = projects.flatMap(
-    ({ project }) => arrange(sessions.filter((s) => s.project?.root === project.root)).visible,
-  );
+  // Projects in the drawer only show sessions that need you.
+  const shown = projects.flatMap(({ project, shelved }) => {
+    const visible = arrange(sessions.filter((s) => s.project?.root === project.root)).visible;
+    return shelved ? visible.filter((s) => s.status !== "closed" && needsYou(s)) : visible;
+  });
   const session = usageNow(usage?.five_hour ?? null, now);
   const week = usageNow(usage?.seven_day ?? null, now);
   const pct = (v: typeof session) => (!v ? "–" : v.reset ? "reset" : `${Math.round(v.percent)}%`);
@@ -61,14 +66,13 @@ export function Strip(props: Props) {
         {leftEdge ? "»" : "«"}
       </button>
       {shown.map((s) => {
-        const state =
-          ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact")
-            ? "attention"
-            : s.status === "working"
-              ? "working"
-              : s.status === "closed"
-                ? "closed"
-                : "open";
+        const state = needsYou(s)
+          ? "attention"
+          : s.status === "working"
+            ? "working"
+            : s.status === "closed"
+              ? "closed"
+              : "open";
         const flashing = freshKeys(s).some((k) => fresh.has(k));
         return (
           <button

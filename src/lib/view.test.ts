@@ -101,7 +101,7 @@ describe("groupSessions", () => {
     const b = session({ project: null, cwd: "/x" });
     const c = session({ project: { ...a.project!, root: "/p/untracked" } });
     const state: UiState = {
-      projects: [{ project: a.project!, added_at: 0 }],
+      projects: [{ project: a.project!, added_at: 0, shelved: false }],
       sessions: [a, b, c],
       task_projects: [],
       collapsed: false,

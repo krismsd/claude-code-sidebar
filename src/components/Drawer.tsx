@@ -1,6 +1,7 @@
 import { type CSSProperties } from "react";
 import type { Session, Tracked } from "../lib/types";
 import { projectStatus } from "../lib/view";
+import { DRAG_TYPE, endProjectDrag, startProjectDrag } from "../lib/drag";
 
 interface Props {
   shelved: Tracked[];
@@ -11,8 +12,6 @@ interface Props {
   onShelve: (root: string) => void;
   onUnshelve: (root: string) => void;
 }
-
-const DRAG_TYPE = "application/x-cc-project";
 
 /** "MyApp" → "MA", "cc-sidebar" → "CS", "api" → "AP". */
 function initials(name: string): string {
@@ -34,7 +33,9 @@ export function Drawer({ shelved, byRoot, fresh, dragging, onShelve, onUnshelve 
       // tile being dragged out from under the cursor.
       className={`drawer${dragging && shelved.length === 0 ? " dragging" : ""}`}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(DRAG_TYPE)) e.preventDefault();
+        if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
       }}
       onDrop={(e) => {
         const root = e.dataTransfer.getData(DRAG_TYPE);
@@ -56,7 +57,8 @@ export function Drawer({ shelved, byRoot, fresh, dragging, onShelve, onUnshelve 
             style={{ "--project": p.color } as CSSProperties}
             title={`${p.name}${status.open ? ` · ${status.open} open` : ""}\nClick or drag back to take it out`}
             draggable
-            onDragStart={(e) => e.dataTransfer.setData(DRAG_TYPE, p.root)}
+            onDragStart={(e) => startProjectDrag(e, p.root)}
+            onDragEnd={endProjectDrag}
             onClick={() => onUnshelve(p.root)}
           >
             <span className="drawer-mark">{p.emoji ?? initials(p.name)}</span>

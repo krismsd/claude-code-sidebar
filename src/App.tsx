@@ -10,7 +10,8 @@ import { Drawer } from "./components/Drawer";
 import { Strip } from "./components/Strip";
 import { UsageFooter } from "./components/UsageFooter";
 import { WindowMenu } from "./components/WindowMenu";
-import { freshKeys, groupSessions } from "./lib/view";
+import { dropIndex, freshKeys, groupSessions } from "./lib/view";
+import { DRAG_TYPE } from "./lib/drag";
 import "./App.css";
 
 type Outcome = "focused" | "resumed" | "tab_not_found" | "untagged" | "failed";
@@ -154,7 +155,7 @@ function App() {
   // While a project is being dragged, the drawer shows its drop zone even when empty.
   useEffect(() => {
     const start = (e: DragEvent) =>
-      e.dataTransfer?.types.includes("application/x-cc-project") && setDraggingProject(true);
+      e.dataTransfer?.types.includes(DRAG_TYPE) && setDraggingProject(true);
     const end = () => setDraggingProject(false);
     document.addEventListener("dragstart", start);
     document.addEventListener("dragend", end);
@@ -232,15 +233,15 @@ function App() {
     onCloseProject: (root: string) => invoke("close_project", { root }).catch(report),
     onSetupTasks: () => invoke("open_settings", { tab: "projects" }).catch(report),
     onMessage: setToast,
-    onDropProject: async (dragged: string, onto: string) => {
+    onDropProject: async (dragged: string, onto: string, place: "before" | "after") => {
+      const from = state.projects.findIndex((t) => t.project.root === dragged);
+      const at = state.projects.findIndex((t) => t.project.root === onto);
+      const to = dropIndex(from, at, place);
       try {
         // Dragged out of the drawer: take it out, then put it where it was dropped.
-        if (state.projects.some((t) => t.project.root === dragged && t.shelved))
+        if (state.projects[from]?.shelved)
           await invoke("set_shelved", { root: dragged, shelved: false });
-        await invoke("move_project", {
-          root: dragged,
-          to: state.projects.findIndex((t) => t.project.root === onto),
-        });
+        if (to !== from) await invoke("move_project", { root: dragged, to });
       } catch (e) {
         report(e);
       }

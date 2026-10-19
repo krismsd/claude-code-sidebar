@@ -3,6 +3,7 @@ import type { Project, Session } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
 import { arrange, projectStatus } from "../lib/view";
+import { DRAG_TYPE, draggedProject, endProjectDrag, startProjectDrag } from "../lib/drag";
 
 export interface CardHandlers {
   now: number;
@@ -27,8 +28,8 @@ interface Props {
   onNewSession: (root: string) => void;
   onProjectAction: (root: string, action: "folder" | "vscode") => void;
   onCloseProject: (root: string) => void;
-  /** Drag-to-reorder: a project header was dropped onto this section. */
-  onDropProject: (draggedRoot: string, ontoRoot: string) => void;
+  /** Drag-to-reorder: a project was dropped just before or after this section. */
+  onDropProject: (draggedRoot: string, ontoRoot: string, place: "before" | "after") => void;
   /** Put the project in the drawer. */
   onShelve: (root: string) => void;
 }
@@ -50,7 +51,7 @@ export function ProjectSection({
   const [showClosed, setShowClosed] = useState(false);
   const [menu, setMenu] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const [dropTarget, setDropTarget] = useState(false);
+  const [dropAt, setDropAt] = useState<"before" | "after" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // The menu closes on a click outside it or Escape (not on mouse-leave, which is twitchy).
@@ -75,25 +76,32 @@ export function ProjectSection({
 
   return (
     <section
-      className={`project${dropTarget ? " drop-target" : ""}`}
+      className={`project${dropAt ? ` drop-${dropAt}` : ""}`}
       style={{ "--project": color } as CSSProperties}
       onDragOver={(e) => {
-        if (root && e.dataTransfer.types.includes("application/x-cc-project")) {
-          e.preventDefault();
-          setDropTarget(true);
-        }
+        if (!root || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (draggedProject() === root) return setDropAt(null);
+        // Upper half: it goes above this project; lower half: below.
+        const r = e.currentTarget.getBoundingClientRect();
+        setDropAt(e.clientY < r.top + r.height / 2 ? "before" : "after");
       }}
-      onDragLeave={() => setDropTarget(false)}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropAt(null);
+      }}
       onDrop={(e) => {
-        setDropTarget(false);
-        const dragged = e.dataTransfer.getData("application/x-cc-project");
-        if (root && dragged && dragged !== root) onDropProject(dragged, root);
+        const place = dropAt;
+        setDropAt(null);
+        const dragged = e.dataTransfer.getData(DRAG_TYPE);
+        if (root && place && dragged && dragged !== root) onDropProject(dragged, root, place);
       }}
     >
       <header
         className={`project-head${flashing ? " flash" : ""}`}
         draggable={!!root}
-        onDragStart={(e) => root && e.dataTransfer.setData("application/x-cc-project", root)}
+        onDragStart={(e) => root && startProjectDrag(e, root)}
+        onDragEnd={endProjectDrag}
         title={root ? `${root}\nDrag to reorder, or onto the drawer to put it away` : undefined}
       >
         <span className={`dot ${status.state}`} />

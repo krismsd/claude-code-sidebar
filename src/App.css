@@ -546,10 +546,26 @@ button {
   position: relative;
 }
 
-.project.drop-target {
-  outline: 2px dashed var(--project);
-  outline-offset: 2px;
-  border-radius: 6px;
+/* Drag to reorder: a line where the project will go, not a highlight on the target. */
+.project.drop-before::before,
+.project.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--blue);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--blue) 70%, transparent);
+  pointer-events: none;
+}
+
+.project.drop-before::before {
+  top: -6px;
+}
+
+.project.drop-after::after {
+  bottom: -6px;
 }
 
 .project-head {

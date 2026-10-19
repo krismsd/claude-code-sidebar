@@ -59,3 +59,9 @@ export function groupSessions(state: UiState): {
   }
   return { byRoot, other };
 }
+
+/** Where a project moved from index `from` ends up when dropped before or after the project at
+ * index `at` (an index in the list once it has been taken out, as `move_project` expects). */
+export function dropIndex(from: number, at: number, place: "before" | "after"): number {
+  return (place === "after" ? at + 1 : at) - (from < at ? 1 : 0);
+}

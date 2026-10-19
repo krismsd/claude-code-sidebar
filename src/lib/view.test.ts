@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
-import { arrange, freshKeys, groupSessions, projectStatus } from "./view";
+import { arrange, dropIndex, freshKeys, groupSessions, projectStatus } from "./view";
 import { elapsed, sessionName, usageLevel, usageNow } from "./format";
 
 let n = 0;
@@ -159,5 +159,21 @@ describe("usageNow", () => {
     expect(usageNow(w, 1000)).toEqual({ percent: 0, reset: true });
     expect(usageNow({ percent: 5, resets_at: null }, 1e15)).toEqual({ percent: 5, reset: false });
     expect(usageNow(null, 0)).toBeNull();
+  });
+});
+
+describe("dropIndex", () => {
+  // [a, b, c, d]
+  it("moves down: dropping a after c puts it third", () => {
+    expect(dropIndex(0, 2, "after")).toBe(2); // [b, c, a, d]
+    expect(dropIndex(0, 2, "before")).toBe(1); // [b, a, c, d]
+  });
+  it("moves up", () => {
+    expect(dropIndex(3, 1, "before")).toBe(1); // [a, d, b, c]
+    expect(dropIndex(3, 1, "after")).toBe(2); // [a, b, d, c]
+  });
+  it("next to itself is no move", () => {
+    expect(dropIndex(1, 2, "before")).toBe(1);
+    expect(dropIndex(2, 1, "after")).toBe(2);
   });
 });

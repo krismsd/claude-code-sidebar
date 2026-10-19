@@ -50,10 +50,17 @@ pub struct Config {
 
 fn default_sounds() -> BTreeMap<String, String> {
     [
-        ("denied", "SystemExclamation"),
-        ("stop_failure", "SystemHand"),
-        ("repeated_failure", "SystemExclamation"),
-        ("waiting", "SystemAsterisk"),
+        // Files, not scheme aliases: on Windows 11 most aliases play the same sound.
+        ("denied", r"C:\Windows\Media\Windows Exclamation.wav"),
+        (
+            "stop_failure",
+            r"C:\Windows\Media\Windows Critical Stop.wav",
+        ),
+        ("repeated_failure", r"C:\Windows\Media\Windows Error.wav"),
+        (
+            "waiting",
+            r"C:\Windows\Media\Windows Notify System Generic.wav",
+        ),
         ("slow", ""),
         ("compact", ""),
         ("permission", ""),
@@ -109,12 +116,12 @@ usage_command = "cc-usage" # usage limits at startup: one tiny Haiku call ("" to
 tasks_command = "cc-tasks" # lists project tasks via Claude + connectors (see projects.toml)
 autostart = false          # start cc-sidebar when you sign in to Windows
 
-# Sound per alert: a Windows sound alias, a .wav path, or "" for none.
+# Sound per alert: a .wav path, a Windows sound alias (e.g. "SystemHand"), or "" for none.
 [sounds]
-denied = "SystemExclamation"       # 🚫 auto-mode denial
-stop_failure = "SystemHand"        # ⚠️ API error
-repeated_failure = "SystemExclamation" # 🔁 same tool failing
-waiting = "SystemAsterisk"         # ⏳ waiting on you
+denied = 'C:\Windows\Media\Windows Exclamation.wav'      # 🚫 auto-mode denial
+stop_failure = 'C:\Windows\Media\Windows Critical Stop.wav' # ⚠️ API error
+repeated_failure = 'C:\Windows\Media\Windows Error.wav'  # 🔁 same tool failing
+waiting = 'C:\Windows\Media\Windows Notify System Generic.wav' # ⏳ waiting on you
 slow = ""                          # 🐌 silent while working
 compact = ""                       # 📦 compacting context
 permission = ""                    # a new permission prompt
@@ -249,6 +256,6 @@ mod tests {
             .unwrap()
             .with_default_sounds();
         assert_eq!(c.sounds["denied"], "");
-        assert_eq!(c.sounds["stop_failure"], "SystemHand");
+        assert!(c.sounds["stop_failure"].ends_with("Critical Stop.wav"));
     }
 }

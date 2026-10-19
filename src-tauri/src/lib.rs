@@ -422,6 +422,12 @@ async fn pick_sound(app: tauri::AppHandle) -> Option<String> {
 
 #[cfg(windows)]
 #[tauri::command]
+fn list_sounds() -> alerts::SoundChoices {
+    alerts::sound_choices()
+}
+
+#[cfg(windows)]
+#[tauri::command]
 fn play_sound(sound: String) {
     alerts::play(&sound);
 }
@@ -452,6 +458,8 @@ pub fn run() {
             pick_sound,
             #[cfg(windows)]
             play_sound,
+            #[cfg(windows)]
+            list_sounds,
             #[cfg(windows)]
             list_monitors,
             list_tasks,

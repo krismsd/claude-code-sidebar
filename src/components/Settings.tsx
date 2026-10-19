@@ -23,15 +23,16 @@ const SOUND_KINDS: [string, string][] = [
   ["permission", "New permission prompt"],
 ];
 
-const SYSTEM_SOUNDS: [string, string][] = [
-  ["", "None"],
-  ["SystemAsterisk", "Asterisk"],
-  ["SystemExclamation", "Exclamation"],
-  ["SystemHand", "Critical stop"],
-  ["SystemNotification", "Notification"],
-  ["SystemQuestion", "Question"],
-  ["SystemDefault", "Default beep"],
-];
+interface SoundChoice {
+  value: string;
+  label: string;
+  /** For a sound-scheme alias: the file it plays ("" = nothing). */
+  plays: string | null;
+}
+interface SoundChoices {
+  files: SoundChoice[];
+  aliases: SoundChoice[];
+}
 const CUSTOM = "__custom";
 
 const blank = (v: string | null | undefined) => (v && v.trim() ? v.trim() : undefined);
@@ -449,24 +450,44 @@ function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-function SoundPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const system = SYSTEM_SOUNDS.some(([v]) => v === value);
+function SoundPicker({
+  value,
+  choices,
+  onChange,
+}: {
+  value: string;
+  choices: SoundChoices;
+  onChange: (v: string) => void;
+}) {
+  const known =
+    value === "" || [...choices.files, ...choices.aliases].some((c) => c.value === value);
   return (
     <span className="sound">
       <select
-        value={system ? value : CUSTOM}
+        value={known ? value : CUSTOM}
         onChange={async (e) => {
           if (e.target.value !== CUSTOM) return onChange(e.target.value);
           const picked = await invoke<string | null>("pick_sound");
           if (picked) onChange(picked);
         }}
       >
-        {SYSTEM_SOUNDS.map(([v, label]) => (
-          <option key={v} value={v}>
-            {label}
-          </option>
-        ))}
-        <option value={CUSTOM}>{system ? "A .wav file…" : value.split("\\").pop()}</option>
+        <option value="">None</option>
+        <optgroup label="Windows sounds">
+          {choices.files.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </optgroup>
+        {/* On Windows 11 most of these play the same file, so say which. */}
+        <optgroup label="Your sound scheme">
+          {choices.aliases.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label} ({c.plays || "silent"})
+            </option>
+          ))}
+        </optgroup>
+        <option value={CUSTOM}>{known ? "Another .wav file…" : value.split("\\").pop()}</option>
       </select>
       <button
         type="button"
@@ -481,6 +502,12 @@ function SoundPicker({ value, onChange }: { value: string; onChange: (v: string)
 }
 
 function Alerts({ config, set }: { config: Config; set: SetConfig }) {
+  const [choices, setChoices] = useState<SoundChoices>({ files: [], aliases: [] });
+  useEffect(() => {
+    invoke<SoundChoices>("list_sounds")
+      .then(setChoices)
+      .catch(() => {});
+  }, []);
   return (
     <>
       <h2>When to alert</h2>
@@ -522,6 +549,7 @@ function Alerts({ config, set }: { config: Config; set: SetConfig }) {
         <Field key={kind} label={label}>
           <SoundPicker
             value={config.sounds[kind] ?? ""}
+            choices={choices}
             onChange={(v) => set("sounds", { ...config.sounds, [kind]: v })}
           />
         </Field>

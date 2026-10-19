@@ -93,6 +93,113 @@ pub fn play(sound: &str) {
     }
 }
 
+/// Sounds to choose from in settings: the files in Windows' Media folder, and the sound scheme
+/// aliases with the file each plays (on Windows 11 most aliases share one file).
+#[derive(Debug, serde::Serialize)]
+pub struct SoundChoices {
+    pub files: Vec<SoundChoice>,
+    pub aliases: Vec<SoundChoice>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SoundChoice {
+    /// What goes in config.toml: a .wav path or an alias.
+    pub value: String,
+    pub label: String,
+    /// For an alias: the file it plays now ("" = nothing).
+    pub plays: Option<String>,
+}
+
+pub const ALIASES: [(&str, &str); 6] = [
+    ("SystemAsterisk", "Asterisk"),
+    ("SystemExclamation", "Exclamation"),
+    ("SystemHand", "Critical stop"),
+    ("SystemNotification", "Notification"),
+    ("SystemQuestion", "Question"),
+    ("SystemDefault", "Default beep"),
+];
+
+/// "Windows Notify Email.wav" → "Notify Email"; "tada.wav" → "Tada".
+fn sound_label(file: &str) -> String {
+    let stem = file.strip_suffix(".wav").unwrap_or(file);
+    let stem = stem.strip_prefix("Windows ").unwrap_or(stem);
+    let mut c = stem.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
+}
+
+#[cfg(windows)]
+pub fn sound_choices() -> SoundChoices {
+    let media = std::path::PathBuf::from(
+        std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()),
+    )
+    .join("Media");
+    let mut files: Vec<SoundChoice> = std::fs::read_dir(&media)
+        .map(|d| {
+            d.flatten()
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    // Alarms and ringtones are long loops, not alert sounds.
+                    let long = name.starts_with("Alarm") || name.starts_with("Ring");
+                    (name.to_ascii_lowercase().ends_with(".wav") && !long).then(|| SoundChoice {
+                        value: e.path().to_string_lossy().into_owned(),
+                        label: sound_label(&name),
+                        plays: None,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    files.sort_by_key(|f| f.label.to_lowercase());
+    let aliases = ALIASES
+        .iter()
+        .map(|(alias, label)| SoundChoice {
+            value: alias.to_string(),
+            label: label.to_string(),
+            plays: Some(
+                scheme_file(alias)
+                    .map(|f| sound_label(&f))
+                    .unwrap_or_default(),
+            ),
+        })
+        .collect();
+    SoundChoices { files, aliases }
+}
+
+/// The file an alias plays in the current sound scheme (None = silent).
+#[cfg(windows)]
+fn scheme_file(alias: &str) -> Option<String> {
+    use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_SZ, RegGetValueW};
+    use windows::core::HSTRING;
+    // SystemDefault is ".Default" in the registry.
+    let key = if alias == "SystemDefault" {
+        ".Default"
+    } else {
+        alias
+    };
+    let sub = HSTRING::from(format!(r"AppEvents\Schemes\Apps\.Default\{key}\.Current"));
+    let mut buf = vec![0u16; 512];
+    let mut len = (buf.len() * 2) as u32;
+    let ok = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            &sub,
+            None,
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut _),
+            Some(&mut len),
+        )
+    };
+    if ok.is_err() {
+        return None;
+    }
+    let path = String::from_utf16_lossy(&buf[..(len as usize / 2).saturating_sub(1)]);
+    let name = path.rsplit('\\').next()?.to_string();
+    (!name.is_empty()).then_some(name)
+}
+
 /// Whether to show a toast for this config, given whether the sidebar is currently hidden.
 pub fn wants_toast(cfg: &Config, sidebar_hidden: bool) -> bool {
     match cfg.toasts.as_str() {
@@ -136,6 +243,12 @@ mod tests {
         );
         assert!(got[0].body.contains("[Destructive]"));
         assert!(n.scan(&st, false).is_empty(), "only once");
+    }
+
+    #[test]
+    fn sound_labels() {
+        assert_eq!(sound_label("Windows Notify Email.wav"), "Notify Email");
+        assert_eq!(sound_label("tada.wav"), "Tada");
     }
 
     #[test]

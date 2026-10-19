@@ -45,7 +45,9 @@ export function SessionCard({
     s.alerts.some((a) => isFresh(a.id)) ||
     (s.pending_permission !== null &&
       fresh.has(`${s.session_id}:perm:${s.pending_permission.since}`));
-  const latest = [...s.alerts].sort((a, b) => b.at - a.at)[0];
+  // ⏳ waiting only flashes the card and plays its sound: the status pill already says it.
+  const shown = s.alerts.filter((a) => a.kind !== "waiting");
+  const latest = [...shown].sort((a, b) => b.at - a.at)[0];
   const closed = s.status === "closed";
   const activity =
     s.status === "needs_permission" && s.pending_permission
@@ -124,10 +126,10 @@ export function SessionCard({
           )}
         </div>
       )}
-      {(s.alerts.length > 1 || s.subagents_running + s.background_running > 0) && (
+      {(shown.length > 1 || s.subagents_running + s.background_running > 0) && (
         <div className="card-badges">
-          {s.alerts.length > 1 &&
-            s.alerts.map((a) => (
+          {shown.length > 1 &&
+            shown.map((a) => (
               <button
                 key={a.id}
                 className={`badge badge-${a.kind}${isFresh(a.id) ? " fresh" : ""}`}
@@ -152,8 +154,8 @@ export function SessionCard({
               {s.last_prompt}
             </div>
           )}
-          {s.alerts.length > 1 &&
-            s.alerts.map((a) => (
+          {shown.length > 1 &&
+            shown.map((a) => (
               <div key={a.id}>
                 {ALERT_EMOJI[a.kind]} {a.text}
               </div>

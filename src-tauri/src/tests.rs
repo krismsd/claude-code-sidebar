@@ -282,10 +282,14 @@ fn compaction_keeps_status_and_flags() {
     let mut s = Session::new(SID, 0);
     s.apply(&ours("UserPromptSubmit"), 1, &th());
     s.apply(&ours("PreCompact"), 2, &th());
-    s.apply(&ours("SessionStart.compact"), 3, &th());
-    assert_eq!(s.status, Status::Working);
     assert!(s.has_alert(AlertKind::Compact));
     assert_eq!(s.attention_rank(), 1, "compact is informational");
+    s.apply(&ours("SessionStart.compact"), 3, &th());
+    assert_eq!(s.status, Status::Working);
+    assert!(
+        !s.has_alert(AlertKind::Compact),
+        "cleared once compaction is done"
+    );
 }
 
 #[test]

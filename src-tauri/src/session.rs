@@ -222,6 +222,8 @@ impl Session {
 
     /// After loading from disk: skipped fields are defaulted, so make alert ids unique again.
     pub fn restored(mut self) -> Session {
+        // Saved by a build that never cleared it; a compaction doesn't outlive an app restart.
+        self.alerts.retain(|a| a.kind != AlertKind::Compact);
         if self.status == Status::Closed {
             self.alerts
                 .retain(|a| !matches!(a.kind, AlertKind::Waiting | AlertKind::Slow));
@@ -322,8 +324,8 @@ impl Session {
                     self.start_source = source.clone();
                 }
                 match source.as_deref() {
-                    // After compaction the session carries on with whatever it was doing.
-                    Some("compact") => {}
+                    // Compaction is done; the session carries on with whatever it was doing.
+                    Some("compact") => self.alerts.retain(|a| a.kind != AlertKind::Compact),
                     Some("clear") => {
                         self.last_prompt = None;
                         self.recap = None;

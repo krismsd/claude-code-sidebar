@@ -63,6 +63,10 @@ function useNow(intervalMs = 1000): number {
 function useFresh(sessions: Session[] | null): Set<string> {
   const seen = useRef<Set<string> | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  // Each batch's timer must survive later state updates (they arrive every few seconds), or a
+  // key stays fresh for good and the card flashes again whenever it is redrawn.
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => {
     if (sessions === null) return;
     const all = sessions.flatMap(freshKeys);
@@ -75,11 +79,12 @@ function useFresh(sessions: Session[] | null): Set<string> {
     if (added.length === 0) return;
     added.forEach((k) => known.add(k));
     setFresh((f) => new Set([...f, ...added]));
-    const t = setTimeout(
-      () => setFresh((f) => new Set([...f].filter((k) => !added.includes(k)))),
-      FLASH_MS,
+    timers.current.push(
+      setTimeout(
+        () => setFresh((f) => new Set([...f].filter((k) => !added.includes(k)))),
+        FLASH_MS,
+      ),
     );
-    return () => clearTimeout(t);
   }, [sessions]);
   return fresh;
 }

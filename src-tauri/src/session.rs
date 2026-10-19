@@ -84,6 +84,12 @@ pub struct PendingPermission {
     pub answerable: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Background {
+    pub agent: bool,
+    pub description: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     pub session_id: String,
@@ -137,8 +143,11 @@ pub struct Session {
     pub pending_permission: Option<PendingPermission>,
     /// Subagents started by the user-visible agent and still running.
     pub subagents_running: u32,
-    /// Background tasks still running at the last Stop.
+    /// Background shell commands (not agents) still running, as of the last report.
     pub background_running: u32,
+    /// What runs in the background (agents and commands), as of the last Stop/SubagentStop.
+    #[serde(default)]
+    pub background: Vec<Background>,
     pub alerts: Vec<Alert>,
     /// Starred by the user: shown first in its project and never pruned (SPEC §3.12).
     #[serde(default)]
@@ -186,6 +195,7 @@ impl Session {
             pending_permission: None,
             subagents_running: 0,
             background_running: 0,
+            background: Vec::new(),
             alerts: Vec::new(),
             closed_reason: None,
             starred: false,
@@ -341,6 +351,7 @@ impl Session {
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.subagents_running = 0;
+                self.set_background(&[]);
                 self.set_status(Status::Closed, now);
             }
             Event::UserPromptSubmit { prompt } => {
@@ -468,10 +479,9 @@ impl Session {
                 if let Some(msg) = last_assistant_message {
                     self.recap = Some(recap_text(msg));
                 }
-                self.background_running = background_tasks
-                    .iter()
-                    .filter(|t| t.status.as_deref() == Some("running"))
-                    .count() as u32;
+                self.set_background(background_tasks);
+                // The turn is over, so the only agents still going are background ones.
+                self.subagents_running = self.background.iter().filter(|b| b.agent).count() as u32;
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.set_status(Status::Idle, now);
@@ -504,11 +514,31 @@ impl Session {
                 self.subagents_running += 1;
                 self.set_status(Status::Working, now);
             }
-            Event::SubagentStop { agent_type } if !agent_type.is_empty() => {
-                self.subagents_running = self.subagents_running.saturating_sub(1);
+            Event::SubagentStop {
+                agent_type,
+                background_tasks,
+            } => {
+                if !agent_type.is_empty() {
+                    self.subagents_running = self.subagents_running.saturating_sub(1);
+                }
+                if let Some(tasks) = background_tasks {
+                    self.set_background(tasks);
+                }
             }
             _ => {}
         }
+    }
+
+    fn set_background(&mut self, tasks: &[crate::events::BackgroundTask]) {
+        self.background = tasks
+            .iter()
+            .filter(|t| t.running())
+            .map(|t| Background {
+                agent: t.is_agent(),
+                description: t.description.clone().unwrap_or_default(),
+            })
+            .collect();
+        self.background_running = self.background.iter().filter(|b| !b.agent).count() as u32;
     }
 
     /// The held request is live: the card may answer it.
@@ -572,6 +602,7 @@ impl Session {
         self.current_tool = None;
         self.pending_permission = None;
         self.subagents_running = 0;
+        self.set_background(&[]);
         self.closed_reason = Some(LOST.into());
         self.set_status(Status::Closed, now);
     }

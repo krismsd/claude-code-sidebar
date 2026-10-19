@@ -160,11 +160,23 @@ fn internal_helper_agents_are_ignored() {
 #[test]
 fn stop_with_background_tasks() {
     let mut s = Session::new(SID, 0);
+    // A background agent counts as an agent, not a background command.
     s.apply(&ours("Stop.background-tasks"), 1, &th());
     assert_eq!(s.status, Status::Idle);
-    assert_eq!(s.background_running, 1);
-    s.apply(&ours("Stop"), 2, &th());
-    assert_eq!(s.background_running, 0);
+    assert_eq!((s.subagents_running, s.background_running), (1, 0));
+    assert_eq!(s.background[0].description, "Count lines in README.md");
+    s.apply(&ours("Stop.background-shell"), 2, &th());
+    assert_eq!((s.subagents_running, s.background_running), (0, 1));
+    assert_eq!(
+        s.background,
+        vec![crate::session::Background {
+            agent: false,
+            description: "sleep 90".into()
+        }]
+    );
+    s.apply(&ours("Stop"), 3, &th());
+    assert_eq!((s.subagents_running, s.background_running), (0, 0));
+    assert!(s.background.is_empty());
 }
 
 #[test]

@@ -1,0 +1,23 @@
+{
+  "session_id": "0a92f1a9-bf52-4d8d-b42c-090a1c30faf8",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-delta/0a92f1a9-bf52-4d8d-b42c-090a1c30faf8.jsonl",
+  "cwd": "/home/user/cc-sidebar-sandbox/delta",
+  "prompt_id": "afe8af18-d838-4463-a8aa-e499de3f2ccf",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "started",
+  "background_tasks": [
+    {
+      "id": "bxyho0k31",
+      "type": "shell",
+      "status": "running",
+      "description": "sleep 90",
+      "command": "sleep 90"
+    }
+  ],
+  "session_crons": []
+}

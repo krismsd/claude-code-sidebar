@@ -44,6 +44,7 @@ function session(over: Partial<Session> = {}): Session {
     pending_permission: null,
     subagents_running: 0,
     background_running: 0,
+    background: [],
     alerts: [],
     closed_reason: null,
     starred: false,

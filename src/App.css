@@ -224,6 +224,16 @@ body,
   margin-top: 4px;
 }
 
+.running {
+  font-size: 11px;
+  color: var(--muted);
+  margin-right: 6px;
+}
+
+.running-agents {
+  color: var(--blue);
+}
+
 .badge {
   border: none;
   background: none;

@@ -26,6 +26,8 @@ const stop =
     f();
   };
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
 /** Session card. Compact in the list (its height never changes); the hover overlay draws the
  * same card `expanded` on top of it, so the top part lines up exactly. */
 export function SessionCard({
@@ -47,6 +49,12 @@ export function SessionCard({
       fresh.has(`${s.session_id}:perm:${s.pending_permission.since}`));
   // ⏳ waiting only flashes the card and plays its sound: the status pill already says it.
   const shown = s.alerts.filter((a) => a.kind !== "waiting");
+  const agents = s.subagents_running;
+  const describe = (agent: boolean) =>
+    s.background
+      .filter((b) => b.agent === agent && b.description)
+      .map((b) => b.description)
+      .join("\n") || undefined;
   const latest = [...shown].sort((a, b) => b.at - a.at)[0];
   const closed = s.status === "closed";
   const activity =
@@ -126,7 +134,7 @@ export function SessionCard({
           )}
         </div>
       )}
-      {(shown.length > 1 || s.subagents_running + s.background_running > 0) && (
+      {(shown.length > 1 || agents + s.background_running > 0) && (
         <div className="card-badges">
           {shown.length > 1 &&
             shown.map((a) => (
@@ -139,9 +147,14 @@ export function SessionCard({
                 {ALERT_EMOJI[a.kind]}
               </button>
             ))}
-          {s.subagents_running + s.background_running > 0 && (
-            <span className="muted small">
-              ⧗ {s.subagents_running + s.background_running} in background
+          {agents > 0 && (
+            <span className="running running-agents" title={describe(true)}>
+              🤖 {plural(agents, "agent")} running
+            </span>
+          )}
+          {s.background_running > 0 && (
+            <span className="running" title={describe(false)}>
+              ⧗ {plural(s.background_running, "background task")}
             </span>
           )}
         </div>
@@ -154,6 +167,11 @@ export function SessionCard({
               {s.last_prompt}
             </div>
           )}
+          {s.background.map((b, i) => (
+            <div key={`bg${i}`} className="muted">
+              {b.agent ? "🤖" : "⧗"} {b.description}
+            </div>
+          ))}
           {shown.length > 1 &&
             shown.map((a) => (
               <div key={a.id}>

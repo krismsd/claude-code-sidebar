@@ -59,6 +59,8 @@ export interface Session {
   pending_permission: PendingPermission | null;
   subagents_running: number;
   background_running: number;
+  /** What runs in the background, as of the last Stop/SubagentStop. */
+  background: { agent: boolean; description: string }[];
   alerts: Alert[];
   closed_reason: string | null;
   starred: boolean;

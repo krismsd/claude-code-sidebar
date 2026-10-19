@@ -50,6 +50,21 @@ pub struct Common {
 pub struct BackgroundTask {
     #[serde(default)]
     pub status: Option<String>,
+    /// "subagent" for agents, "shell" for background commands.
+    #[serde(default, rename = "type")]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+impl BackgroundTask {
+    pub fn running(&self) -> bool {
+        self.status.as_deref() == Some("running")
+    }
+
+    pub fn is_agent(&self) -> bool {
+        self.kind.as_deref().is_some_and(|k| k.contains("agent"))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -126,6 +141,9 @@ pub enum Event {
     SubagentStop {
         #[serde(default)]
         agent_type: String,
+        /// What is still running in the background (absent in older Claude Code).
+        #[serde(default)]
+        background_tasks: Option<Vec<BackgroundTask>>,
     },
     #[serde(other)]
     Other,

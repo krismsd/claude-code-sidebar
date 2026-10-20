@@ -110,6 +110,7 @@ function App() {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const dragging = useRef(false);
   const now = useNow();
   const fresh = useFresh(state?.sessions ?? null);
 
@@ -134,6 +135,7 @@ function App() {
   const onHover = (s: Session, el: HTMLElement | null) => {
     clearTimeout(openTimer.current);
     clearTimeout(closeTimer.current);
+    if (el && dragging.current) return;
     if (!el) {
       closeTimer.current = setTimeout(() => setHover(null), HOVER_CLOSE_MS);
       return;
@@ -154,11 +156,17 @@ function App() {
 
   // While a project is being dragged, the drawer shows its drop zone even when empty.
   useEffect(() => {
+    // No hover overlay while dragging, including one whose timer started as the drag began.
     const start = (e: DragEvent) => {
+      dragging.current = true;
+      clearTimeout(openTimer.current);
       setHover(null);
       if (e.dataTransfer?.types.includes(DRAG_TYPE)) setDraggingProject(true);
     };
-    const end = () => setDraggingProject(false);
+    const end = () => {
+      dragging.current = false;
+      setDraggingProject(false);
+    };
     document.addEventListener("dragstart", start);
     document.addEventListener("dragend", end);
     document.addEventListener("drop", end);

@@ -194,6 +194,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 
 - [x] Sessions can be dragged into order within their project, with an insertion line like projects. Saved as `Tracked.session_order` (ids). `arrange()` puts ordered ids first and the rest in the usual order (starred, then open by start), so new sessions go to the bottom. The strip follows the same order.
 - [x] Drawer tiles can be reordered: drop on a tile's left or right half, shown by a vertical line. A project dragged from the list onto a tile goes into the drawer at that spot. Shared `placeProject` handles moves into, out of and within the drawer. Dropping on the drawer's empty space just puts it away.
+- [x] No hover overlay during a drag (its 300 ms timer could start as the drag began and pop it up mid-drag).
 - [x] Menus (session right-click, project ⋯, ⚙) close when the sidebar loses focus (window `blur`), e.g. on a click in another app.
 
 ## Housekeeping (2026-10-17, v0.2.0)

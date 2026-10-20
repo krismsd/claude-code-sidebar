@@ -213,6 +213,8 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
   - sessions survive the sidebar being restarted or reinstalled.
 - [x] Shift+Enter: xterm.js sends a plain Enter, from the keypress too, so both are blocked and `ESC[27;2;13~` is sent (tmux parses it as S-Enter and Claude gets a newline). In Windows Terminal, Shift+Enter submits with or without tmux (checked in a plain tab), so tmux mode loses nothing there.
 - [x] ConPTY asks for the cursor position (`ESC[6n`) at startup and waits for the reply; xterm.js answers it (a probe without a terminal hung until it did).
+- [x] Fix (2026-10-21): the mode variable `CC_SIDEBAR_HOST=tmux` clashed with cc-hook's `CC_SIDEBAR_HOST` (the app's address override). Inside tmux sessions cc-hook posted to "tmux", failed, and kept renewing the shared app-down marker, so every session's hooks were skipped. The cards stayed "closed", and each click resumed the conversation again (three copies of one conversation ran at once). The variable is now `CC_SIDEBAR_RUN_IN`, and cc-hook ignores the stale value.
+- [x] Guard: before resuming a closed card, `pgrep -f '^claude .*--resume <id>'` in WSL. If found, it doesn't resume and says it's already running.
 - [ ] Not yet tried: image paste, Ctrl+B to background a running command, copying with mouse selection in the window.
 
 

@@ -5,7 +5,7 @@
 #   sidebar can find and focus this Windows Terminal tab.
 # - CC_SIDEBAR_PID: this shell's PID, which becomes claude's PID via exec (liveness, kill).
 # - CC_SIDEBAR_SETTINGS (optional): extra settings file, e.g. dev/hooks.json for test sessions.
-# - Hosting (optional): with CC_SIDEBAR_HOST=tmux, or "tmux" in ~/.config/cc-sidebar/host
+# - Hosting (optional): with CC_SIDEBAR_RUN_IN=tmux, or "tmux" in ~/.config/cc-sidebar/host
 #   (the sidebar's "Run sessions in" setting), Claude Code runs in its own tmux session
 #   "cc-<tag>" on a private socket, so closing the terminal only detaches and the session keeps
 #   running. CC_SIDEBAR_DETACHED=1 starts it without attaching (the sidebar opens a view).
@@ -19,7 +19,8 @@ if [ -n "${CC_SIDEBAR_PROMPT_FILE:-}" ] && [ -r "$CC_SIDEBAR_PROMPT_FILE" ]; the
   unset CC_SIDEBAR_PROMPT_FILE
   set -- "$@" "$prompt"
 fi
-host="${CC_SIDEBAR_HOST:-$(cat "$conf/host" 2>/dev/null)}"
+# (Not CC_SIDEBAR_HOST: cc-hook reads that as the sidebar app's address.)
+host="${CC_SIDEBAR_RUN_IN:-$(cat "$conf/host" 2>/dev/null)}"
 if [ "$host" = tmux ] && [ -z "${CC_SIDEBAR_IN_TMUX:-}" ] && command -v tmux >/dev/null; then
   tag="${CC_SIDEBAR_TAG:-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')}"
   printf '\033]0;[cc:%s] %s\007' "$tag" "${root##*/}"

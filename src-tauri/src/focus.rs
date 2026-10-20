@@ -14,6 +14,9 @@ pub enum Outcome {
     Resumed,
     /// A tmux session with no terminal showing it: opened in a new tab.
     Reopened,
+    /// The card says closed, but a `claude --resume <id>` for it is running (the sidebar missed
+    /// its events): resuming again would run the conversation twice.
+    AlreadyRunning,
     /// Open session but no matching tab (e.g. running in VS Code or tmux).
     TabNotFound,
     /// Started with plain `claude` (no tag), and no tab title gave it away.
@@ -26,6 +29,9 @@ pub enum Outcome {
 /// window instead; resuming then returns the new tmux session's name for it.
 pub fn activate(s: &Session, cfg: &Config) -> (Outcome, Option<String>) {
     if s.status == Status::Closed {
+        if resumed_elsewhere(s, cfg) {
+            return (Outcome::AlreadyRunning, None);
+        }
         return match resume(s, cfg) {
             Ok(hosted) => (Outcome::Resumed, hosted),
             Err(e) => {
@@ -189,6 +195,16 @@ fn new_tag() -> String {
     format!("{:06x}", (nanos ^ (nanos >> 24)) as u32 & 0xff_ffff)
 }
 
+/// Is a Claude Code process already resuming this conversation in WSL?
+fn resumed_elsewhere(s: &Session, cfg: &Config) -> bool {
+    let distro = s.distro.as_deref().unwrap_or(&cfg.distro);
+    let pattern = format!("^claude .*--resume {}", s.session_id);
+    crate::actions::hidden(&mut std::process::Command::new("wsl.exe"))
+        .args(["-d", distro, "-e", "pgrep", "-f", "--", &pattern])
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
 fn resume(s: &Session, cfg: &Config) -> Result<Option<String>, String> {
     let cwd = s.cwd.as_deref().ok_or("no cwd")?;
     let distro = s.distro.as_deref().unwrap_or(&cfg.distro);
@@ -223,7 +239,7 @@ pub fn launch(
     let tag = new_tag();
     let mut host_env: Vec<(&str, &str)> = Vec::new();
     if cfg.tmux() {
-        host_env.push(("CC_SIDEBAR_HOST", "tmux"));
+        host_env.push(("CC_SIDEBAR_RUN_IN", "tmux"));
         host_env.push(("CC_SIDEBAR_TAG", &tag));
     }
     if cfg.viewer() {

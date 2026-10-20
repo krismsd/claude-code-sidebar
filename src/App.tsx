@@ -14,11 +14,14 @@ import { dropIndex, freshKeys, groupSessions } from "./lib/view";
 import { DRAG_TYPE } from "./lib/drag";
 import "./App.css";
 
-type Outcome = "focused" | "resumed" | "reopened" | "tab_not_found" | "untagged" | "failed";
+type Outcome =
+  "focused" | "resumed" | "reopened" | "already_running" | "tab_not_found" | "untagged" | "failed";
 
 const OUTCOME_MESSAGE: Partial<Record<Outcome, string>> = {
   resumed: "Resuming in a new tab…",
   reopened: "It was running in the background: opened in a new tab",
+  already_running:
+    "This conversation is already running somewhere, so it wasn't resumed again. Its card updates when it next does something.",
   tab_not_found: "Couldn't find its terminal tab (is it running outside Windows Terminal?)",
   untagged:
     "Started with plain `claude`, so the sidebar can't tell which tab it's in. Run /exit, then `claudes --continue`.",

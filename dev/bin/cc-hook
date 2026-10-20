@@ -17,6 +17,9 @@ if [ -f "$down" ] && [ $(( $(date +%s) - $(stat -c %Y "$down" 2>/dev/null || ech
   cat >/dev/null
   exit 0
 fi
+# CC_SIDEBAR_HOST overrides the app's address (tests). Sessions started by a build of 2026-10-20
+# carry CC_SIDEBAR_HOST=tmux (the hosting mode, since renamed CC_SIDEBAR_RUN_IN): not an address.
+case "${CC_SIDEBAR_HOST:-}" in tmux | terminal | window | none) unset CC_SIDEBAR_HOST ;; esac
 host="${CC_SIDEBAR_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
 [ -n "$host" ] || exit 0
 out=$(curl -s --fail --connect-timeout 0.3 --max-time "$max" \

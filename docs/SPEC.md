@@ -193,7 +193,7 @@ A footer shows the account's 5-hour and weekly usage (% and reset time), read fr
 - **`window`**: tmux as above, but sessions are shown in the sidebar's own terminal window: xterm.js through a ConPTY running `wsl.exe -e tmux attach`, one tab per session. New and resumed sessions start detached (`CC_SIDEBAR_DETACHED=1`, with the tag chosen by the app) and open there. Closing a tab or the window detaches.
 
 **Mechanics:**
-- The app writes `~/.config/cc-sidebar/host` (`tmux`) when the mode isn't `terminal`, so `claudes` typed in any terminal behaves the same. `CC_SIDEBAR_HOST` overrides it.
+- The app writes `~/.config/cc-sidebar/host` (`tmux`) when the mode isn't `terminal`, so `claudes` typed in any terminal behaves the same. `CC_SIDEBAR_RUN_IN` overrides it (not `CC_SIDEBAR_HOST`, which cc-hook reads as the app's address).
 - Inside tmux, the wrapper exports `CC_SIDEBAR_TMUX`, and cc-hook sends it as `X-CC-Tmux`.
 - Every 4 s the app runs `tmux ls` per distro to tell which sessions have a terminal attached.
 - Session menu: **Hide (keep running)** (`tmux detach-client -s`) and **Open in Windows Terminal**.

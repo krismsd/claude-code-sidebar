@@ -35,7 +35,7 @@ export function projectStatus(sessions: Session[], fresh: Set<string>): ProjectS
   const attention = open.some(
     (s) => ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact"),
   );
-  const working = open.some((s) => s.status === "working");
+  const working = open.some((s) => s.status === "working" || s.status === "background");
   const flashing = sessions.some((s) => freshKeys(s).some((k) => fresh.has(k)));
   return {
     open: open.length,

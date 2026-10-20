@@ -328,6 +328,7 @@ function App() {
             invoke("session_action", { sessionId: s.session_id, action: "end" }).catch(report)
           }
           onRemove={(s) => invoke("dismiss_session", { sessionId: s.session_id }).catch(report)}
+          onMarkReady={(s) => invoke("mark_ready", { sessionId: s.session_id }).catch(report)}
         />
       )}
       <Drawer

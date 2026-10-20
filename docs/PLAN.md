@@ -181,6 +181,16 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Reordering shows an insertion line above or below the hovered project (by which half the cursor is in) instead of outlining it, and uses the move cursor rather than copy (`dropEffect = "move"`). `dropIndex` (unit-tested) turns before/after into the `move_project` index; the same applies to drawer tiles.
 - [x] Fix: the hover overlay kept its first position when a card above it changed height. It now follows its card (placed from the card on each render, plus a ResizeObserver on the list).
 
+## M18: Waiting on background work (2026-10-20)
+
+- [x] New status `background` ("waiting on job", muted slow-breathing pill): the turn ended, but Claude is waiting on background work it will act on by itself (a watcher, a poll loop, a background agent). It sorts with working sessions and raises no ⏳ alert. Decided as follows:
+  - **Instant guess at Stop:** a background agent always counts. A shell task counts if its description or command reads like waiting ("watch", "until", "poll", "finish", …) and not like a service ("dev server", "serve", "tail -f", …).
+  - **Haiku's verdict:** cc-recap now outputs `WAITING: yes|no`, and its context marks background tool calls "(background)". The verdict flips the status (Idle ↔ Background) for that Stop.
+  - **The user:** right-click → **Mark as ready**, which overrides Haiku for that Stop.
+- [x] When a session woken from `background` stops ready (the job reported back, not the user prompting), a ✅ `finished` alert goes off immediately: flash and sound (new `[sounds] finished`), no card line.
+- [x] Tested live with a headless sandbox session (sleep 70 in the background): "waiting on job", then woke, then ready with ✅ finished.
+- [x] Fix: the project menu of the last project opened below the list and was clipped; it opens upwards when there's no room.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

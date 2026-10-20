@@ -18,6 +18,7 @@ const SOUND_KINDS: [string, string][] = [
   ["stop_failure", "⚠️ API error"],
   ["repeated_failure", "🔁 Same tool keeps failing"],
   ["waiting", "⏳ Waiting on you"],
+  ["finished", "✅ Background job finished"],
   ["slow", "🐌 Silent while working"],
   ["compact", "📦 Compacting context"],
   ["permission", "New permission prompt"],

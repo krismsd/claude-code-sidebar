@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cc-recap: one-line Haiku recap of a Claude Code session (SPEC §3.5). Runs in WSL; the
 # sidebar calls it via `wsl.exe -e bash -l cc-recap <transcript.jsonl>`.
-# Output: TITLE: line, one recap line (< 90 chars), a line "---", 2-3 lines of detail, and a
+# Output: TITLE: line, WAITING: yes|no line, one recap line (< 90 chars), a line "---", 2-3 lines of detail, and a
 # last line "USAGE: <rate_limit_info JSON>" with the account's usage limits.
 # --setting-sources "" loads no user settings, so no hooks fire for this call (no recursion);
 # CC_SIDEBAR_INTERNAL=1 is a second guard in case they ever do.
@@ -13,7 +13,7 @@ ctx=$(jq -r '
   | (.message.content | if type=="string" then [{type:"text",text:.}] else . end)
   | map(
       if .type=="text" then .text
-      elif .type=="tool_use" then "[\(.name) \((.input.file_path | select(.) | split("/") | last) // .input.command // .input.pattern // .input.description // "" | tostring | .[0:80])]"
+      elif .type=="tool_use" then "[\(.name)\(if .input.run_in_background then " (background)" else "" end) \((.input.file_path | select(.) | split("/") | last) // .input.command // .input.pattern // .input.description // "" | tostring | .[0:80])]"
       else empty end)
   | join(" ") | select(. != "" and (startswith("<") | not))
   | "\($who): \(.[0:400])"' "$t" 2>/dev/null | tail -n 30)
@@ -23,7 +23,7 @@ known=$(jq -r 'select(.type=="custom-title") | (.customTitle // .title // empty)
 [ -n "$known" ] || known=$(jq -r 'select(.type=="ai-title") | (.aiTitle // empty)' "$t" 2>/dev/null | tail -n 1)
 raw=$(printf '%s\n' "$ctx" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
   --tools "" --strict-mcp-config --setting-sources "" --output-format stream-json --verbose \
-  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 0, "TITLE: " and a 3-6 word name for the session (its overall goal, like a tab title, no quotes); line 1, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 2, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.')
+  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 0, "TITLE: " and a 3-6 word name for the session (its overall goal, like a tab title, no quotes); line 1, "WAITING: yes" if the last assistant turn ended deliberately waiting for something it started in the background (a watcher, a poll loop, a background command or agent) whose result it will act on by itself when it finishes, otherwise "WAITING: no" (finished work, a question for the user, or a service such as a dev server left running are all "no"); line 2, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 3, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.')
 # The reply text, plus the account's usage limits that come with every call (rate_limit_event).
 out=$(printf '%s\n' "$raw" | jq -r 'select(.type=="result") | .result // empty')
 usage=$(printf '%s\n' "$raw" | jq -c 'select(.type=="rate_limit_event") | .rate_limit_info' | tail -n 1)

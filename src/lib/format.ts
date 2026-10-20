@@ -6,6 +6,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   needs_permission: "permission",
   needs_input: "your turn",
   idle: "ready",
+  background: "waiting on job",
   error: "error",
   closed: "closed",
 };
@@ -17,6 +18,7 @@ export const ALERT_EMOJI: Record<AlertKind, string> = {
   waiting: "⏳",
   slow: "🐌",
   compact: "📦",
+  finished: "✅",
 };
 
 const CLOSED_REASON: Record<string, string> = {

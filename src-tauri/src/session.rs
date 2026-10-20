@@ -40,6 +40,9 @@ pub enum Status {
     NeedsPermission,
     NeedsInput,
     Idle,
+    /// Turn over, but Claude is waiting on something it started in the background (a watcher,
+    /// a background agent) and will carry on by itself when it finishes. Not ready for you yet.
+    Background,
     Error,
     /// Claude Code has exited (SessionEnd) or its process is gone (liveness). The card stays so
     /// the session can be resumed; see `closed_reason`.
@@ -62,6 +65,8 @@ pub enum AlertKind {
     Waiting,
     /// 🐌 working with no events for a long time
     Slow,
+    /// ✅ a background job Claude was waiting on finished and the session is ready for you
+    Finished,
     /// 📦 context compaction (informational)
     Compact,
 }
@@ -88,6 +93,32 @@ pub struct PendingPermission {
 pub struct Background {
     pub agent: bool,
     pub description: String,
+    /// Looks like something Claude waits on (an agent, or a command that watches or polls)
+    /// rather than a long-running service such as a dev server.
+    #[serde(default)]
+    pub awaited: bool,
+}
+
+/// First guess, before Haiku's verdict: does this background command look like Claude waiting
+/// for something to finish (a deploy watcher, a poll loop) rather than a service it leaves
+/// running (a dev server, a log tail)?
+pub fn looks_awaited(text: &str) -> bool {
+    let t = text.to_lowercase();
+    const SERVICE: [&str; 9] = [
+        "dev server",
+        "server",
+        "serve",
+        "npm run dev",
+        "vite",
+        "watch mode",
+        "tail -f",
+        "docker compose up",
+        "storybook",
+    ];
+    const WAIT: [&str; 8] = [
+        "wait", "until", "poll", "watch", "monitor", "finish", "complete", "status",
+    ];
+    !SERVICE.iter().any(|w| t.contains(w)) && WAIT.iter().any(|w| t.contains(w))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,6 +179,12 @@ pub struct Session {
     /// What runs in the background (agents and commands), as of the last Stop/SubagentStop.
     #[serde(default)]
     pub background: Vec<Background>,
+    /// Woke up from Background (a job finished): say so when it next stops.
+    #[serde(default)]
+    pub woke_from_background: bool,
+    /// "Mark as ready" was used for this Stop; Haiku's verdict doesn't override it.
+    #[serde(default)]
+    pub ready_override_seq: Option<u64>,
     pub alerts: Vec<Alert>,
     /// Starred by the user: shown first in its project and never pruned (SPEC §3.12).
     #[serde(default)]
@@ -196,6 +233,8 @@ impl Session {
             subagents_running: 0,
             background_running: 0,
             background: Vec::new(),
+            woke_from_background: false,
+            ready_override_seq: None,
             alerts: Vec::new(),
             closed_reason: None,
             starred: false,
@@ -243,7 +282,7 @@ impl Session {
     }
 
     /// A Haiku recap arrived for Stop number `seq`; ignored if a newer Stop happened since.
-    pub fn set_haiku_recap(&mut self, seq: u64, recap: crate::recap::Recap) -> bool {
+    pub fn set_haiku_recap(&mut self, seq: u64, recap: crate::recap::Recap, now: Ms) -> bool {
         if seq != self.stop_seq {
             return false;
         }
@@ -252,6 +291,28 @@ impl Session {
         if recap.title.is_some() {
             self.title = recap.title;
         }
+        // Haiku read the turn: is Claude waiting on its background work, or done for now?
+        if let Some(waiting) = recap.waiting
+            && !self.background.is_empty()
+            && self.ready_override_seq != Some(seq)
+        {
+            match (self.status, waiting) {
+                (Status::Idle, true) => self.set_status(Status::Background, now),
+                (Status::Background, false) => self.set_status(Status::Idle, now),
+                _ => {}
+            }
+        }
+        true
+    }
+
+    /// "Mark as ready": the user says it isn't waiting on anything.
+    pub fn mark_ready(&mut self, now: Ms) -> bool {
+        if self.status != Status::Background {
+            return false;
+        }
+        self.ready_override_seq = Some(self.stop_seq);
+        self.woke_from_background = false;
+        self.set_status(Status::Idle, now);
         true
     }
 
@@ -327,6 +388,12 @@ impl Session {
         if !matches!(hook.event, Event::Notification { .. }) {
             self.permission_released_at = None;
         }
+
+        let was_background = self.status == Status::Background;
+        // Prompts Claude Code injects (a background task or agent reporting back) start with a
+        // tag; anything else is the user.
+        let user_prompt = matches!(&hook.event, Event::UserPromptSubmit { prompt }
+            if !prompt.trim_start().starts_with('<'));
 
         match &hook.event {
             Event::SessionStart { source } => {
@@ -484,7 +551,18 @@ impl Session {
                 self.subagents_running = self.background.iter().filter(|b| b.agent).count() as u32;
                 self.current_tool = None;
                 self.pending_permission = None;
-                self.set_status(Status::Idle, now);
+                if self.background.iter().any(|b| b.awaited) {
+                    self.set_status(Status::Background, now);
+                } else {
+                    self.set_status(Status::Idle, now);
+                    if std::mem::take(&mut self.woke_from_background) {
+                        self.alert(
+                            AlertKind::Finished,
+                            "Background job finished: ready for you".into(),
+                            now,
+                        );
+                    }
+                }
             }
             Event::StopFailure {
                 error,
@@ -527,15 +605,30 @@ impl Session {
             }
             _ => {}
         }
+
+        if was_background && self.status == Status::Working {
+            self.woke_from_background = !user_prompt;
+        }
+        if user_prompt {
+            self.woke_from_background = false;
+        }
+        if self.status != Status::Idle {
+            self.alerts.retain(|a| a.kind != AlertKind::Finished);
+        }
     }
 
     fn set_background(&mut self, tasks: &[crate::events::BackgroundTask]) {
         self.background = tasks
             .iter()
             .filter(|t| t.running())
-            .map(|t| Background {
-                agent: t.is_agent(),
-                description: t.description.clone().unwrap_or_default(),
+            .map(|t| {
+                let description = t.description.clone().unwrap_or_default();
+                let command = t.command.as_deref().unwrap_or_default();
+                Background {
+                    agent: t.is_agent(),
+                    awaited: t.is_agent() || looks_awaited(&format!("{description} {command}")),
+                    description,
+                }
             })
             .collect();
         self.background_running = self.background.iter().filter(|b| !b.agent).count() as u32;
@@ -614,7 +707,7 @@ impl Session {
             Status::Closed => 3,
             Status::NeedsPermission | Status::NeedsInput | Status::Error => 0,
             _ if alerting => 0,
-            Status::Working | Status::Starting => 1,
+            Status::Working | Status::Starting | Status::Background => 1,
             _ => 2,
         }
     }

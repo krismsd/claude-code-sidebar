@@ -28,6 +28,7 @@ fn kind_key(k: AlertKind) -> &'static str {
         AlertKind::Waiting => "waiting",
         AlertKind::Slow => "slow",
         AlertKind::Compact => "compact",
+        AlertKind::Finished => "finished",
     }
 }
 

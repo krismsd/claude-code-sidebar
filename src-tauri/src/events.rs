@@ -55,6 +55,8 @@ pub struct BackgroundTask {
     pub kind: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
+    pub command: Option<String>,
 }
 
 impl BackgroundTask {

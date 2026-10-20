@@ -185,6 +185,12 @@ body,
   background: var(--green);
 }
 
+/* Waiting on its own background work: muted, slowly breathing, clearly not "ready". */
+.chip-background {
+  background: color-mix(in srgb, var(--blue) 35%, var(--grey));
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
 .chip-error {
   background: var(--red);
 }
@@ -194,6 +200,7 @@ body,
   .chip-needs_permission,
   .chip-needs_input,
   .chip-idle,
+  .chip-background,
   .chip-error {
     color: #1b1b1b;
   }
@@ -353,6 +360,7 @@ body,
   .card.flash,
   .badge.fresh,
   .chip-working,
+  .chip-background,
   .chip-needs_permission {
     animation: none;
   }
@@ -649,6 +657,11 @@ button {
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+}
+
+.project-menu.up {
+  top: auto;
+  bottom: calc(100% + 2px);
 }
 
 .project-menu button {

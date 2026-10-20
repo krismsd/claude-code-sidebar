@@ -1,9 +1,16 @@
 // Mirrors src-tauri/src/session.rs (serde output).
 export type Status =
-  "starting" | "working" | "needs_permission" | "needs_input" | "idle" | "error" | "closed";
+  | "starting"
+  | "working"
+  | "needs_permission"
+  | "needs_input"
+  | "idle"
+  | "background"
+  | "error"
+  | "closed";
 
 export type AlertKind =
-  "denied" | "stop_failure" | "repeated_failure" | "waiting" | "slow" | "compact";
+  "denied" | "stop_failure" | "repeated_failure" | "waiting" | "slow" | "compact" | "finished";
 
 export interface Alert {
   id: number;
@@ -60,7 +67,7 @@ export interface Session {
   subagents_running: number;
   background_running: number;
   /** What runs in the background, as of the last Stop/SubagentStop. */
-  background: { agent: boolean; description: string }[];
+  background: { agent: boolean; description: string; awaited: boolean }[];
   alerts: Alert[];
   closed_reason: string | null;
   starred: boolean;

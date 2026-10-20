@@ -61,6 +61,10 @@ fn default_sounds() -> BTreeMap<String, String> {
             "waiting",
             r"C:\Windows\Media\Windows Notify System Generic.wav",
         ),
+        (
+            "finished",
+            r"C:\Windows\Media\Windows Notify System Generic.wav",
+        ),
         ("slow", ""),
         ("compact", ""),
         ("permission", ""),
@@ -122,6 +126,7 @@ denied = 'C:\Windows\Media\Windows Exclamation.wav'      # 🚫 auto-mode denial
 stop_failure = 'C:\Windows\Media\Windows Critical Stop.wav' # ⚠️ API error
 repeated_failure = 'C:\Windows\Media\Windows Error.wav'  # 🔁 same tool failing
 waiting = 'C:\Windows\Media\Windows Notify System Generic.wav' # ⏳ waiting on you
+finished = 'C:\Windows\Media\Windows Notify System Generic.wav' # ✅ background job done, ready for you
 slow = ""                          # 🐌 silent while working
 compact = ""                       # 📦 compacting context
 permission = ""                    # a new permission prompt

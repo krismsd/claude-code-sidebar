@@ -47,8 +47,9 @@ export function SessionCard({
     s.alerts.some((a) => isFresh(a.id)) ||
     (s.pending_permission !== null &&
       fresh.has(`${s.session_id}:perm:${s.pending_permission.since}`));
-  // ⏳ waiting only flashes the card and plays its sound: the status pill already says it.
-  const shown = s.alerts.filter((a) => a.kind !== "waiting");
+  // ⏳ waiting and ✅ finished only flash the card and play their sound: the status pill
+  // already says it.
+  const shown = s.alerts.filter((a) => a.kind !== "waiting" && a.kind !== "finished");
   const agents = s.subagents_running;
   const describe = (agent: boolean) =>
     s.background

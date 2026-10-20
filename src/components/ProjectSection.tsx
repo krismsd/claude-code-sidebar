@@ -34,6 +34,9 @@ interface Props {
   onShelve: (root: string) => void;
 }
 
+/** Roughly the project menu's height, to decide whether it fits below the header. */
+const MENU_HEIGHT = 150;
+
 export function ProjectSection({
   project,
   sessions,
@@ -50,6 +53,8 @@ export function ProjectSection({
   const [showTasks, setShowTasks] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
   const [menu, setMenu] = useState(false);
+  /** Open the menu upwards when there's no room under the header (the last project). */
+  const [menuUp, setMenuUp] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [dropAt, setDropAt] = useState<"before" | "after" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -120,7 +125,14 @@ export function ProjectSection({
               className="icon"
               title="Project actions"
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setMenu(!menu)}
+              onClick={(e) => {
+                const list = e.currentTarget.closest(".cards")?.getBoundingClientRect();
+                const head = e.currentTarget.getBoundingClientRect();
+                setMenuUp(
+                  !!list && head.bottom + MENU_HEIGHT > list.bottom && head.top > MENU_HEIGHT,
+                );
+                setMenu(!menu);
+              }}
             >
               ⋯
             </button>
@@ -128,7 +140,7 @@ export function ProjectSection({
         )}
       </header>
       {menu && root && (
-        <div className="project-menu" ref={menuRef}>
+        <div className={`project-menu${menuUp ? " up" : ""}`} ref={menuRef}>
           {hasTasks ? (
             <button onClick={() => (setShowTasks(true), setMenu(false))}>Tasks…</button>
           ) : (

@@ -47,9 +47,12 @@ pub struct Recap {
     pub line: String,
     pub detail: Option<String>,
     pub title: Option<String>,
+    /// `WAITING: yes|no`: the turn ended waiting on background work that will resume it.
+    pub waiting: Option<bool>,
 }
 
-/// Parse cc-recap output: an optional `TITLE: …` line, the recap line, `---`, then detail.
+/// Parse cc-recap output: optional `TITLE: …` and `WAITING: yes|no` lines, the recap line,
+/// `---`, then detail.
 pub fn parse(out: &str) -> Option<Recap> {
     let out = out.replace('`', "").replace("**", "");
     let mut parts = out.splitn(2, "\n---");
@@ -62,8 +65,11 @@ pub fn parse(out: &str) -> Option<Recap> {
     };
     let mut title = None;
     let mut line = None;
+    let mut waiting = None;
     for l in head.lines().map(str::trim).filter(|l| !l.is_empty()) {
-        if let Some(t) = l
+        if let Some(w) = l.strip_prefix("WAITING:") {
+            waiting = Some(w.trim().to_ascii_lowercase().starts_with('y'));
+        } else if let Some(t) = l
             .strip_prefix("TITLE:")
             .or_else(|| l.strip_prefix("Title:"))
         {
@@ -89,6 +95,7 @@ pub fn parse(out: &str) -> Option<Recap> {
         line: crate::events::truncate(&line, 110),
         detail,
         title,
+        waiting,
     })
 }
 
@@ -181,7 +188,11 @@ impl Recapper {
             return false;
         };
         log::info!("recap {id} in {:.1}s", started.elapsed().as_secs_f32());
-        let applied = ctx.store.lock().unwrap().set_haiku_recap(id, seq, recap);
+        let applied = ctx
+            .store
+            .lock()
+            .unwrap()
+            .set_haiku_recap(id, seq, recap, now_ms());
         if applied {
             publish(ctx);
         }
@@ -216,6 +227,17 @@ mod tests {
         );
         assert!(parse("").is_none());
         assert!(parse("TITLE: only a title\n---\ndetail").is_none());
+    }
+
+    #[test]
+    fn parses_waiting() {
+        let r = parse("TITLE: Deploy\nWAITING: yes\nWatching the ML job\n---\nx\n").unwrap();
+        assert_eq!(
+            (r.line.as_str(), r.waiting),
+            ("Watching the ML job", Some(true))
+        );
+        assert_eq!(parse("WAITING: no\nDone\n").unwrap().waiting, Some(false));
+        assert_eq!(parse("Done\n").unwrap().waiting, None);
     }
 
     #[test]

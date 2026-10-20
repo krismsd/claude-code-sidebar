@@ -203,7 +203,18 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] WSL: `dev/tmux/tmux.conf` (installed by install.sh); `claudes` hosts in tmux when `CC_SIDEBAR_HOST`/`~/.config/cc-sidebar/host` says so; cc-hook sends `X-CC-Tmux`. Tested with a stub claude: arguments with spaces survive, Claude's PID is the wrapper's (liveness and End unchanged), and the title passes through.
 - [x] App: `session_mode` (terminal | tmux | window); the host marker is synced on config apply; `Session.tmux`/`attached`; the attach watcher (4 s); focus falls back to a new attached tab; Hide / Open in Windows Terminal; "Running in the background" on cards.
 - [x] Terminal window (`term.rs` + `TerminalWindow.tsx`): portable-pty ConPTY → `wsl.exe tmux attach`, UTF-8-safe output events, a waiter thread drops the console on exit (ConPTY only ends output then), tabs per session, and keys (copy/paste/image paste/Shift+Enter), web links, OSC 52.
-- [ ] Verify on screen: the window opens and attaches, typing, resize, Hide/close → background → click to reopen, End, mode `tmux` with Windows Terminal, Shift+Enter, Ctrl+B, image paste.
+- [x] Verified on screen with sandbox sessions:
+  - a click opens the window attached; typing works;
+  - maximising resizes the tmux client (134×44 → 301×65);
+  - closing a tab detaches, the card shows "Running in the background", and a click reopens it with full history;
+  - Hide closes it; Open in Windows Terminal opens an attached `[cc:<tag>]` tab, and detaching closes that tab;
+  - + starts a new session detached and opens it in the window;
+  - End closes the window tab, and the tmux server exits when it's the last session;
+  - sessions survive the sidebar being restarted or reinstalled.
+- [x] Shift+Enter: xterm.js sends a plain Enter, from the keypress too, so both are blocked and `ESC[27;2;13~` is sent (tmux parses it as S-Enter and Claude gets a newline). In Windows Terminal, Shift+Enter submits with or without tmux (checked in a plain tab), so tmux mode loses nothing there.
+- [x] ConPTY asks for the cursor position (`ESC[6n`) at startup and waits for the reply; xterm.js answers it (a probe without a terminal hung until it did).
+- [ ] Not yet tried: image paste, Ctrl+B to background a running command, copying with mouse selection in the window.
+
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

@@ -163,6 +163,13 @@ function Pane({ name, active, session }: { name: string; active: boolean; sessio
     const send = (data: string) => invoke("term_write", { name, data });
     t.onData(send);
     t.attachCustomKeyEventHandler((e) => {
+      // Shift+Enter: a newline in the prompt. xterm.js would send a plain Enter (from the
+      // keypress too, so block every event type), so send the modified key in xterm's
+      // modifyOtherKeys form, which tmux passes on as Shift+Enter.
+      if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.altKey) {
+        if (e.type === "keydown") send("\x1b[27;2;13~");
+        return false;
+      }
       if (e.type !== "keydown") return true;
       const ctrl = e.ctrlKey && !e.altKey;
       // Copy a selection with Ctrl+C (without one, Ctrl+C interrupts as usual).
@@ -173,11 +180,6 @@ function Pane({ name, active, session }: { name: string; active: boolean; sessio
       }
       // Ctrl+V: let the browser paste (handled below), rather than sending ^V.
       if (ctrl && e.key.toLowerCase() === "v") return false;
-      // Shift+Enter: a newline in the prompt (Alt+Enter, which Claude Code understands).
-      if (e.key === "Enter" && e.shiftKey && !e.ctrlKey) {
-        send("\x1b\r");
-        return false;
-      }
       return true;
     });
     // A paste with no text (an image): send ^V, so Claude Code reads the clipboard itself.

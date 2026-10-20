@@ -35,11 +35,14 @@ export function SessionMenu({
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // Clicking anywhere outside the sidebar (another window) closes it too.
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onClose);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("blur", onClose);
     };
   }, [onClose]);
 

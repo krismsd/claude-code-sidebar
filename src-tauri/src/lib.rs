@@ -136,6 +136,13 @@ fn set_shelved(ctx: State<'_, Ctx>, root: String, shelved: bool) {
 }
 
 #[tauri::command]
+fn set_session_order(ctx: State<'_, Ctx>, root: String, ids: Vec<String>) {
+    if ctx.store.lock().unwrap().set_session_order(&root, ids) {
+        server::publish(&ctx);
+    }
+}
+
+#[tauri::command]
 fn close_project(ctx: State<'_, Ctx>, root: String) -> Result<(), String> {
     ctx.store.lock().unwrap().close_project(&root)?;
     server::publish(&ctx);
@@ -480,6 +487,7 @@ pub fn run() {
             rename_session,
             move_project,
             set_shelved,
+            set_session_order,
             close_project,
             dismiss_alert,
             dismiss_session,

@@ -15,6 +15,10 @@ pub struct Tracked {
     /// Put away in the drawer at the bottom of the sidebar (a small tile instead of a section).
     #[serde(default)]
     pub shelved: bool,
+    /// Session ids in the order the user dragged them into. Sessions not listed (new ones)
+    /// follow in their usual order.
+    #[serde(default)]
+    pub session_order: Vec<String>,
 }
 
 pub struct Store {
@@ -92,6 +96,17 @@ impl Store {
         }
     }
 
+    /// The user dragged a project's sessions into this order.
+    pub fn set_session_order(&mut self, root: &str, ids: Vec<String>) -> bool {
+        match self.projects.iter_mut().find(|t| t.project.root == root) {
+            Some(t) if t.session_order != ids => {
+                t.session_order = ids;
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Track a project (new ones go to the bottom) or refresh its name/colour.
     pub fn track(&mut self, project: Project, now: Ms) {
         let base = Project {
@@ -109,6 +124,7 @@ impl Store {
                 project: base,
                 added_at: now,
                 shelved: false,
+                session_order: Vec::new(),
             }),
         }
     }

@@ -190,6 +190,12 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Fix: the project menu of the last project opened below the list and was clipped; it opens upwards when there's no room.
 - [x] Fix: recaps for a long session were stale. Its transcript had runs of NUL bytes (a crash or sleep mid-write), plain `jq` stops at the first bad line (exit 5), so Haiku saw the first ~300 lines instead of the latest turns. That is also why it said WAITING: no for a session watching a deploy. cc-recap now reads `tail -n 800`, strips NULs and parses with `jq -R 'fromjson?'`, skipping bad lines. Tool calls show their human-written `description` before the raw command.
 
+## M19: Ordering by drag, menus close on blur (2026-10-20)
+
+- [x] Sessions can be dragged into order within their project, with an insertion line like projects. Saved as `Tracked.session_order` (ids). `arrange()` puts ordered ids first and the rest in the usual order (starred, then open by start), so new sessions go to the bottom. The strip follows the same order.
+- [x] Drawer tiles can be reordered: drop on a tile's left or right half, shown by a vertical line. A project dragged from the list onto a tile goes into the drawer at that spot. Shared `placeProject` handles moves into, out of and within the drawer. Dropping on the drawer's empty space just puts it away.
+- [x] Menus (session right-click, project ⋯, ⚙) close when the sidebar loses focus (window `blur`), e.g. on a click in another app.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

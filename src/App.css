@@ -1644,3 +1644,51 @@ button {
   top: 3px;
   right: 3px;
 }
+
+/* Drag sessions to reorder them within a project: a line where the card will go. */
+.card-slot {
+  position: relative;
+}
+
+.card-slot.drop-before::before,
+.card-slot.drop-after::after,
+.drawer-tile.drop-before::before,
+.drawer-tile.drop-after::after {
+  content: "";
+  position: absolute;
+  border-radius: 2px;
+  background: var(--blue);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--blue) 70%, transparent);
+  pointer-events: none;
+}
+
+.card-slot.drop-before::before,
+.card-slot.drop-after::after {
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.card-slot.drop-before::before {
+  top: -5px;
+}
+
+.card-slot.drop-after::after {
+  bottom: -5px;
+}
+
+/* Drawer tiles sit side by side: the line is vertical. */
+.drawer-tile.drop-before::before,
+.drawer-tile.drop-after::after {
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.drawer-tile.drop-before::before {
+  left: -5px;
+}
+
+.drawer-tile.drop-after::after {
+  right: -5px;
+}

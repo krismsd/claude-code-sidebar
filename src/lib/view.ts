@@ -1,15 +1,26 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
 import type { Session, UiState } from "./types";
 
-/** Within a project: starred first (open or closed), then open, then closed (newest first). */
-export function arrange(sessions: Session[]): { visible: Session[]; closed: Session[] } {
+/** Within a project: starred first (open or closed), then open, then closed (newest first).
+ * `order` (session ids the user dragged into order) comes first among the visible ones; the
+ * rest follow in the usual order, so a new session goes to the bottom. */
+export function arrange(
+  sessions: Session[],
+  order: string[] = [],
+): { visible: Session[]; closed: Session[] } {
   const byStart = (a: Session, b: Session) => a.started_at - b.started_at;
   const starred = sessions.filter((s) => s.starred).sort(byStart);
   const open = sessions.filter((s) => !s.starred && s.status !== "closed").sort(byStart);
   const closed = sessions
     .filter((s) => !s.starred && s.status === "closed")
     .sort((a, b) => b.status_since - a.status_since);
-  return { visible: [...starred, ...open], closed };
+  const rank = (s: Session) => {
+    const i = order.indexOf(s.session_id);
+    return i < 0 ? Infinity : i;
+  };
+  // Array.sort is stable: unranked sessions keep the usual order.
+  const visible = [...starred, ...open].sort((a, b) => rank(a) - rank(b));
+  return { visible, closed };
 }
 
 const ATTENTION = new Set(["needs_permission", "needs_input", "error"]);
@@ -64,4 +75,18 @@ export function groupSessions(state: UiState): {
  * index `at` (an index in the list once it has been taken out, as `move_project` expects). */
 export function dropIndex(from: number, at: number, place: "before" | "after"): number {
   return (place === "after" ? at + 1 : at) - (from < at ? 1 : 0);
+}
+
+/** Ids of `ids` with `moved` taken out and put just before or after `target`. */
+export function reorder(
+  ids: string[],
+  moved: string,
+  target: string,
+  place: "before" | "after",
+): string[] {
+  const rest = ids.filter((id) => id !== moved);
+  const at = rest.indexOf(target);
+  if (at < 0) return ids;
+  rest.splice(place === "after" ? at + 1 : at, 0, moved);
+  return rest;
 }

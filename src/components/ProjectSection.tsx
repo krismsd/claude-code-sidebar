@@ -2,8 +2,17 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Project, Session } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
-import { arrange, projectStatus } from "../lib/view";
-import { DRAG_TYPE, draggedProject, endProjectDrag, startProjectDrag } from "../lib/drag";
+import { arrange, projectStatus, reorder } from "../lib/view";
+import {
+  DRAG_TYPE,
+  draggedProject,
+  draggedSession,
+  dropPlace,
+  endProjectDrag,
+  endSessionDrag,
+  startProjectDrag,
+  startSessionDrag,
+} from "../lib/drag";
 
 export interface CardHandlers {
   now: number;
@@ -32,6 +41,9 @@ interface Props {
   onDropProject: (draggedRoot: string, ontoRoot: string, place: "before" | "after") => void;
   /** Put the project in the drawer. */
   onShelve: (root: string) => void;
+  /** Session ids in the user's dragged order. */
+  sessionOrder: string[];
+  onReorderSessions: (root: string, ids: string[]) => void;
 }
 
 /** Roughly the project menu's height, to decide whether it fits below the header. */
@@ -46,6 +58,8 @@ export function ProjectSection({
   onCloseProject,
   onDropProject,
   onShelve,
+  sessionOrder,
+  onReorderSessions,
   hasTasks,
   onSetupTasks,
   onMessage,
@@ -66,14 +80,19 @@ export function ProjectSection({
       if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    // Clicking anywhere outside the sidebar (another window) closes it too.
+    const onBlur = () => setMenu(false);
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onBlur);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("blur", onBlur);
     };
   }, [menu]);
-  const { visible, closed } = arrange(sessions);
+  const { visible, closed } = arrange(sessions, sessionOrder);
+  const [cardDrop, setCardDrop] = useState<{ id: string; place: "before" | "after" } | null>(null);
   const status = projectStatus(sessions, cards.fresh);
   const flashing = status.flashing;
   const root = project?.root;
@@ -182,7 +201,37 @@ export function ProjectSection({
       )}
       <div className="project-cards">
         {visible.map((s) => (
-          <SessionCard key={s.session_id} session={s} {...cards} />
+          // Drag a card onto another in the same project to reorder them; a line shows where
+          // it will go.
+          <div
+            key={s.session_id}
+            className={`card-slot${cardDrop?.id === s.session_id ? ` drop-${cardDrop.place}` : ""}`}
+            draggable={!!root}
+            onDragStart={(e) => root && startSessionDrag(e, root, s.session_id)}
+            onDragEnd={() => (endSessionDrag(), setCardDrop(null))}
+            onDragOver={(e) => {
+              const d = draggedSession();
+              if (!d || d.root !== root) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setCardDrop(d.id === s.session_id ? null : { id: s.session_id, place: dropPlace(e) });
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) setCardDrop(null);
+            }}
+            onDrop={(e) => {
+              const d = draggedSession();
+              const place = cardDrop?.place;
+              setCardDrop(null);
+              if (!root || !d || d.root !== root || !place || d.id === s.session_id) return;
+              e.preventDefault();
+              e.stopPropagation();
+              const ids = visible.map((v) => v.session_id);
+              onReorderSessions(root, reorder(ids, d.id, s.session_id, place));
+            }}
+          >
+            <SessionCard session={s} {...cards} />
+          </div>
         ))}
         {visible.length === 0 && closed.length === 0 && (
           <div className="muted small empty-project">No sessions. + starts one.</div>

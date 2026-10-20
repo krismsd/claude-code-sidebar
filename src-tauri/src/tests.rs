@@ -913,10 +913,12 @@ fn shelved_projects_persist_and_come_back_for_new_sessions() {
     with_project(&mut st, "a", "/p/alpha", 0);
     assert!(st.set_shelved("/p/alpha", true));
     assert!(!st.set_shelved("/p/alpha", true), "no change");
+    assert!(st.set_session_order("/p/alpha", vec!["b".into(), "a".into()]));
     let json = serde_json::to_string(st.projects()).unwrap();
     let mut st2 = Store::default();
     st2.restore_projects(serde_json::from_str(&json).unwrap());
     assert!(st2.projects()[0].shelved);
+    assert_eq!(st2.projects()[0].session_order, ["b", "a"]);
     // Old projects.json entries have no flag.
     let old: Vec<crate::store::Tracked> = serde_json::from_str(
         r##"[{"project":{"root":"/p/x","name":"x","color":"#000","emoji":null,"label":null,"worktree":null,"branch":null},"added_at":1}]"##,

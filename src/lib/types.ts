@@ -81,6 +81,8 @@ export interface Tracked {
   added_at: number;
   /** Put away in the drawer. */
   shelved: boolean;
+  /** Session ids in the order the user dragged them into. */
+  session_order: string[];
 }
 
 export interface UiState {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
-import { arrange, dropIndex, freshKeys, groupSessions, projectStatus } from "./view";
+import { arrange, dropIndex, freshKeys, groupSessions, projectStatus, reorder } from "./view";
 import { elapsed, sessionName, usageLevel, usageNow } from "./format";
 
 let n = 0;
@@ -101,7 +101,7 @@ describe("groupSessions", () => {
     const b = session({ project: null, cwd: "/x" });
     const c = session({ project: { ...a.project!, root: "/p/untracked" } });
     const state: UiState = {
-      projects: [{ project: a.project!, added_at: 0, shelved: false }],
+      projects: [{ project: a.project!, added_at: 0, shelved: false, session_order: [] }],
       sessions: [a, b, c],
       task_projects: [],
       collapsed: false,
@@ -175,5 +175,21 @@ describe("dropIndex", () => {
   it("next to itself is no move", () => {
     expect(dropIndex(1, 2, "before")).toBe(1);
     expect(dropIndex(2, 1, "after")).toBe(2);
+  });
+});
+
+describe("session order", () => {
+  it("dragged order first, the rest after in the usual order", () => {
+    const a = session({ session_id: "a", started_at: 1 });
+    const b = session({ session_id: "b", started_at: 2 });
+    const c = session({ session_id: "c", started_at: 3 });
+    const ids = (ss: Session[]) => ss.map((s) => s.session_id);
+    expect(ids(arrange([a, b, c]).visible)).toEqual(["a", "b", "c"]);
+    expect(ids(arrange([a, b, c], ["c", "a"]).visible)).toEqual(["c", "a", "b"]);
+  });
+  it("reorder puts the moved id next to the target", () => {
+    expect(reorder(["a", "b", "c"], "a", "c", "after")).toEqual(["b", "c", "a"]);
+    expect(reorder(["a", "b", "c"], "c", "a", "before")).toEqual(["c", "a", "b"]);
+    expect(reorder(["a", "b", "c"], "b", "a", "after")).toEqual(["a", "b", "c"]);
   });
 });

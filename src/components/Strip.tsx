@@ -52,8 +52,11 @@ export function Strip(props: Props) {
   };
 
   // Projects in the drawer only show sessions that need you.
-  const shown = projects.flatMap(({ project, shelved }) => {
-    const visible = arrange(sessions.filter((s) => s.project?.root === project.root)).visible;
+  const shown = projects.flatMap(({ project, shelved, session_order }) => {
+    const visible = arrange(
+      sessions.filter((s) => s.project?.root === project.root),
+      session_order,
+    ).visible;
     return shelved ? visible.filter((s) => s.status !== "closed" && needsYou(s)) : visible;
   });
   const session = usageNow(usage?.five_hour ?? null, now);

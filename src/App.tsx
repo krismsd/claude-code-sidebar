@@ -154,8 +154,10 @@ function App() {
 
   // While a project is being dragged, the drawer shows its drop zone even when empty.
   useEffect(() => {
-    const start = (e: DragEvent) =>
-      e.dataTransfer?.types.includes(DRAG_TYPE) && setDraggingProject(true);
+    const start = (e: DragEvent) => {
+      setHover(null);
+      if (e.dataTransfer?.types.includes(DRAG_TYPE)) setDraggingProject(true);
+    };
     const end = () => setDraggingProject(false);
     document.addEventListener("dragstart", start);
     document.addEventListener("dragend", end);
@@ -222,6 +224,25 @@ function App() {
     setHover(null);
     invoke("set_shelved", { root, shelved }).catch(report);
   };
+  /** A project dropped just before or after another, in the list or in the drawer: move it
+   * there, into or out of the drawer as needed. */
+  const placeProject = async (
+    dragged: string,
+    onto: string,
+    place: "before" | "after",
+    shelved: boolean,
+  ) => {
+    const from = state.projects.findIndex((t) => t.project.root === dragged);
+    const at = state.projects.findIndex((t) => t.project.root === onto);
+    const to = dropIndex(from, at, place);
+    try {
+      if (state.projects[from] && state.projects[from].shelved !== shelved)
+        await invoke("set_shelved", { root: dragged, shelved });
+      if (to !== from) await invoke("move_project", { root: dragged, to });
+    } catch (e) {
+      report(e);
+    }
+  };
   const sectionProps = {
     cards,
     onNewSession: (root: string) =>
@@ -233,20 +254,11 @@ function App() {
     onCloseProject: (root: string) => invoke("close_project", { root }).catch(report),
     onSetupTasks: () => invoke("open_settings", { tab: "projects" }).catch(report),
     onMessage: setToast,
-    onDropProject: async (dragged: string, onto: string, place: "before" | "after") => {
-      const from = state.projects.findIndex((t) => t.project.root === dragged);
-      const at = state.projects.findIndex((t) => t.project.root === onto);
-      const to = dropIndex(from, at, place);
-      try {
-        // Dragged out of the drawer: take it out, then put it where it was dropped.
-        if (state.projects[from]?.shelved)
-          await invoke("set_shelved", { root: dragged, shelved: false });
-        if (to !== from) await invoke("move_project", { root: dragged, to });
-      } catch (e) {
-        report(e);
-      }
-    },
+    onDropProject: (dragged: string, onto: string, place: "before" | "after") =>
+      placeProject(dragged, onto, place, false),
     onShelve: (root: string) => shelve(root, true),
+    onReorderSessions: (root: string, ids: string[]) =>
+      invoke("set_session_order", { root, ids }).catch(report),
   };
 
   return (
@@ -302,11 +314,18 @@ function App() {
               project={t.project}
               sessions={byRoot.get(t.project.root) ?? []}
               hasTasks={state.task_projects.includes(t.project.root)}
+              sessionOrder={t.session_order}
               {...sectionProps}
             />
           ))}
         {other.length > 0 && (
-          <ProjectSection project={null} sessions={other} hasTasks={false} {...sectionProps} />
+          <ProjectSection
+            project={null}
+            sessions={other}
+            hasTasks={false}
+            sessionOrder={[]}
+            {...sectionProps}
+          />
         )}
       </div>
       {hover && hovered && !menu && hover.el.isConnected && (
@@ -337,6 +356,7 @@ function App() {
         dragging={draggingProject}
         onShelve={(root) => shelve(root, true)}
         onUnshelve={(root) => shelve(root, false)}
+        onDropAt={(dragged, onto, place) => placeProject(dragged, onto, place, true)}
       />
       <UsageFooter usage={state.usage} now={now} />
       {toast && <div className="toast">{toast}</div>}

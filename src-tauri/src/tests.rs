@@ -164,7 +164,7 @@ fn stop_with_background_tasks() {
     let mut s = Session::new(SID, 0);
     // A background agent counts as an agent, not a background command.
     s.apply(&ours("Stop.background-tasks"), 1, &th());
-    assert_eq!(s.status, Status::Background);
+    assert_eq!(s.status, Status::Idle);
     assert_eq!((s.subagents_running, s.background_running), (1, 0));
     assert_eq!(s.background[0].description, "Count lines in README.md");
     s.apply(&ours("Stop.background-shell"), 2, &th());
@@ -534,7 +534,6 @@ fn haiku_recap_applies_only_to_its_turn() {
             title: Some("Goodbye helper".into()),
             waiting: None,
         },
-        1,
     ));
     assert_eq!(s.recap_haiku.as_deref(), Some("Added goodbye()"));
     // Next turn: the old Haiku recap goes, and a late result for the old turn is ignored.
@@ -548,7 +547,6 @@ fn haiku_recap_applies_only_to_its_turn() {
             title: None,
             waiting: None,
         },
-        2,
     ));
     assert_eq!(s.recap_haiku, None);
 }
@@ -948,60 +946,68 @@ fn haiku(waiting: bool) -> crate::recap::Recap {
 }
 
 #[test]
-fn background_work_claude_waits_on() {
-    // A background agent always reports back: waiting on it, not ready.
+fn jobs_claude_waits_on() {
+    // A background agent is always a job; the status stays "ready".
     let mut s = Session::new(SID, 0);
     s.apply(&ours("Stop.background-tasks"), 1, &th());
-    assert_eq!(s.status, Status::Background);
-    assert_eq!(s.attention_rank(), 1, "sorts with working sessions");
+    assert_eq!(s.status, Status::Idle);
+    assert!(s.background[0].awaited);
 
-    // A plain background command: ready until Haiku says the turn ended waiting on it.
+    // A plain background command is a job once Haiku says Claude will act on it.
     let mut s = Session::new(SID, 0);
     s.apply(&ours("UserPromptSubmit"), 1, &th());
     s.apply(&ours("Stop.background-shell"), 2, &th());
-    assert_eq!(s.status, Status::Idle);
-    assert!(s.set_haiku_recap(s.stop_seq, haiku(true), 3));
-    assert_eq!(s.status, Status::Background);
-    s.tick(10 * 60_000, &th());
-    assert!(!s.has_alert(AlertKind::Waiting), "not waiting on the user");
-
-    // The job finishes: Claude is woken by an injected prompt, works, and stops.
-    s.apply(
-        &fx_with(
-            "UserPromptSubmit",
-            serde_json::json!({"session_id": SID, "prompt": "<task-notification>done</task-notification>"}),
-        ),
-        4,
-        &th(),
+    assert!(
+        !s.background[0].awaited,
+        "\"sleep 90\" doesn't look like a watcher"
     );
-    assert_eq!(s.status, Status::Working);
-    s.apply(&ours("Stop"), 5, &th());
+    assert!(s.set_haiku_recap(s.stop_seq, haiku(true)));
+    assert!(s.background[0].awaited);
+    assert_eq!(s.status, Status::Idle);
+
+    // The user chats in between: still a job, and no alert when that turn ends.
+    s.apply(&ours("UserPromptSubmit"), 3, &th());
+    s.apply(&ours("Stop.background-shell"), 4, &th());
+    assert!(!s.has_alert(AlertKind::Finished));
+    s.set_haiku_recap(s.stop_seq, haiku(true));
+
+    // The job reports back (an injected prompt), Claude deals with it and stops.
+    // Recorded: the prompt Claude Code injects when a background command finishes.
+    s.apply(&ours("UserPromptSubmit.task-notification"), 5, &th());
+    s.apply(&ours("Stop"), 6, &th());
     assert_eq!(s.status, Status::Idle);
     assert!(s.has_alert(AlertKind::Finished), "ready for you right away");
-    s.apply(&ours("UserPromptSubmit"), 6, &th());
-    assert!(!s.has_alert(AlertKind::Finished));
-
-    // The user prompting while it waits isn't a job finishing.
-    s.apply(&ours("Stop.background-shell"), 7, &th());
-    s.set_haiku_recap(s.stop_seq, haiku(true), 8);
-    s.apply(&ours("UserPromptSubmit"), 9, &th());
-    s.apply(&ours("Stop"), 10, &th());
+    assert!(s.pending_jobs.is_empty());
+    s.apply(&ours("UserPromptSubmit"), 7, &th());
     assert!(!s.has_alert(AlertKind::Finished));
 }
 
 #[test]
-fn haiku_and_the_user_can_say_it_is_ready() {
+fn jobs_finishing_during_the_users_turn_dont_alert() {
     let mut s = Session::new(SID, 0);
     s.apply(&ours("Stop.background-tasks"), 1, &th());
-    assert!(s.set_haiku_recap(s.stop_seq, haiku(false), 2));
-    assert_eq!(s.status, Status::Idle, "Haiku: not waiting");
+    s.apply(&ours("UserPromptSubmit"), 2, &th());
+    s.apply(&ours("Stop"), 3, &th());
+    assert!(!s.has_alert(AlertKind::Finished));
+}
 
+#[test]
+fn haiku_can_say_background_commands_are_not_jobs() {
     let mut s = Session::new(SID, 0);
-    s.apply(&ours("Stop.background-tasks"), 1, &th());
-    assert!(s.mark_ready(2));
-    assert_eq!(s.status, Status::Idle);
-    s.set_haiku_recap(s.stop_seq, haiku(true), 3);
-    assert_eq!(s.status, Status::Idle, "the user's word beats Haiku's");
+    s.apply(
+        &fx_with(
+            "Stop",
+            serde_json::json!({"session_id": SID, "background_tasks": [
+                {"id": "x", "type": "shell", "status": "running",
+                 "description": "Watch the logs until I stop it"}]}),
+        ),
+        1,
+        &th(),
+    );
+    assert!(s.background[0].awaited, "guessed from the description");
+    s.set_haiku_recap(s.stop_seq, haiku(false));
+    assert!(!s.background[0].awaited);
+    assert!(s.pending_jobs.is_empty());
 }
 
 #[test]

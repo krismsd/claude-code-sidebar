@@ -230,17 +230,10 @@ impl Store {
         session_id: &str,
         seq: u64,
         recap: crate::recap::Recap,
-        now: Ms,
     ) -> bool {
         self.sessions
             .get_mut(session_id)
-            .is_some_and(|s| s.set_haiku_recap(seq, recap, now))
-    }
-
-    pub fn mark_ready(&mut self, session_id: &str, now: Ms) -> bool {
-        self.sessions
-            .get_mut(session_id)
-            .is_some_and(|s| s.mark_ready(now))
+            .is_some_and(|s| s.set_haiku_recap(seq, recap))
     }
 
     pub fn permission_holdable(&mut self, session_id: &str, answerable: bool) {

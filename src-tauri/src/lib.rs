@@ -92,19 +92,6 @@ fn rename_session(ctx: State<'_, Ctx>, session_id: String, name: String) {
     }
 }
 
-/// "Mark as ready": the session isn't really waiting on its background work.
-#[tauri::command]
-fn mark_ready(ctx: State<'_, Ctx>, session_id: String) {
-    if ctx
-        .store
-        .lock()
-        .unwrap()
-        .mark_ready(&session_id, server::now_ms())
-    {
-        server::publish(&ctx);
-    }
-}
-
 /// Collapsed strip: show / size / hide the peek card for a session (see `peek`).
 #[tauri::command]
 fn peek_show(
@@ -490,7 +477,6 @@ pub fn run() {
             peek_show,
             peek_resize,
             peek_hide,
-            mark_ready,
             rename_session,
             move_project,
             set_shelved,

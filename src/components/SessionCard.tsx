@@ -50,12 +50,13 @@ export function SessionCard({
   // ⏳ waiting and ✅ finished only flash the card and play their sound: the status pill
   // already says it.
   const shown = s.alerts.filter((a) => a.kind !== "waiting" && a.kind !== "finished");
-  const agents = s.subagents_running;
-  const describe = (agent: boolean) =>
-    s.background
-      .filter((b) => b.agent === agent && b.description)
-      .map((b) => b.description)
-      .join("\n") || undefined;
+  // Jobs Claude will act on when they finish (watchers, background agents) get their own
+  // highlighted line; other background commands (dev servers) and agents working inside the
+  // current turn are just counted.
+  const jobs = s.background.filter((b) => b.awaited);
+  const services = s.background.filter((b) => !b.awaited && !b.agent);
+  const agents = Math.max(0, s.subagents_running - jobs.filter((b) => b.agent).length);
+  const jobName = (b: (typeof jobs)[number]) => b.description || (b.agent ? "Agent" : "Command");
   const latest = [...shown].sort((a, b) => b.at - a.at)[0];
   const closed = s.status === "closed";
   const activity =
@@ -135,7 +136,19 @@ export function SessionCard({
           )}
         </div>
       )}
-      {(shown.length > 1 || agents + s.background_running > 0) && (
+      {jobs.length > 0 && (
+        <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
+          <span className="card-jobs-label">
+            {jobs.length > 1 ? `Waiting on ${jobs.length} jobs` : "Waiting on"}
+          </span>
+          {jobs.map((b, i) => (
+            <span key={i} className={`card-job${expanded ? " full" : ""}`}>
+              {b.agent ? "🤖" : "⏱"} {jobName(b)}
+            </span>
+          ))}
+        </div>
+      )}
+      {(shown.length > 1 || agents + services.length > 0) && (
         <div className="card-badges">
           {shown.length > 1 &&
             shown.map((a) => (
@@ -149,13 +162,11 @@ export function SessionCard({
               </button>
             ))}
           {agents > 0 && (
-            <span className="running running-agents" title={describe(true)}>
-              🤖 {plural(agents, "agent")} running
-            </span>
+            <span className="running running-agents">🤖 {plural(agents, "agent")} running</span>
           )}
-          {s.background_running > 0 && (
-            <span className="running" title={describe(false)}>
-              ⧗ {plural(s.background_running, "background task")}
+          {services.length > 0 && (
+            <span className="running" title={services.map(jobName).join("\n")}>
+              ⧗ {plural(services.length, "background task")}
             </span>
           )}
         </div>
@@ -168,9 +179,9 @@ export function SessionCard({
               {s.last_prompt}
             </div>
           )}
-          {s.background.map((b, i) => (
+          {services.map((b, i) => (
             <div key={`bg${i}`} className="muted">
-              {b.agent ? "🤖" : "⧗"} {b.description}
+              ⧗ {jobName(b)}
             </div>
           ))}
           {shown.length > 1 &&

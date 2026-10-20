@@ -185,12 +185,6 @@ body,
   background: var(--green);
 }
 
-/* Waiting on its own background work: muted, slowly breathing, clearly not "ready". */
-.chip-background {
-  background: color-mix(in srgb, var(--blue) 35%, var(--grey));
-  animation: breathe 3.2s ease-in-out infinite;
-}
-
 .chip-error {
   background: var(--red);
 }
@@ -200,7 +194,6 @@ body,
   .chip-needs_permission,
   .chip-needs_input,
   .chip-idle,
-  .chip-background,
   .chip-error {
     color: #1b1b1b;
   }
@@ -229,6 +222,36 @@ body,
   align-items: center;
   gap: 4px;
   margin-top: 4px;
+}
+
+/* Jobs Claude waits on: highlighted, their own block. */
+.card-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 4px 0 2px;
+  padding: 3px 7px;
+  border-left: 3px solid var(--blue);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  font-size: 12px;
+}
+
+.card-jobs-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--blue);
+}
+
+.card-job {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-job.full {
+  white-space: normal;
 }
 
 .running {
@@ -360,7 +383,6 @@ body,
   .card.flash,
   .badge.fresh,
   .chip-working,
-  .chip-background,
   .chip-needs_permission {
     animation: none;
   }

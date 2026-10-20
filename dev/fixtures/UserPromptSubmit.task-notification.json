@@ -1,0 +1,9 @@
+{
+  "session_id": "e22bd8ae-53a3-42c4-9de9-d3eacc0cfd44",
+  "transcript_path": "/home/user/.claude/projects/-home-user-cc-sidebar-sandbox-echo/e22bd8ae-53a3-42c4-9de9-d3eacc0cfd44.jsonl",
+  "cwd": "/home/user/cc-sidebar-sandbox/echo",
+  "prompt_id": "fefe3152-8f71-451e-b556-b8587936bd61",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "<task-notification>\n<task-id>b9c31thy4</task-id>\n<tool-use-id>toolu_01BLq2BFPHkyHRLK3Tc4Tnta</tool-use-id>\n<output-file>/tmp/claude-1000/-home-user-cc-sidebar-sandbox-echo/e22bd8ae-53a3-42c4-9de9-d3eacc0cfd44/tasks/b9c31thy4.output</output-file>\n<status>completed</status>\n<summary>Background command \"Wait until the demo job finishes\" completed (exit code 0)</summary>\n</task-notification>"
+}

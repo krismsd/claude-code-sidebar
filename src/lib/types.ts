@@ -1,13 +1,6 @@
 // Mirrors src-tauri/src/session.rs (serde output).
 export type Status =
-  | "starting"
-  | "working"
-  | "needs_permission"
-  | "needs_input"
-  | "idle"
-  | "background"
-  | "error"
-  | "closed";
+  "starting" | "working" | "needs_permission" | "needs_input" | "idle" | "error" | "closed";
 
 export type AlertKind =
   "denied" | "stop_failure" | "repeated_failure" | "waiting" | "slow" | "compact" | "finished";

@@ -10,11 +10,10 @@ interface Props {
   onRename: (s: Session, name: string) => void;
   onEnd: (s: Session) => void;
   onRemove: (s: Session) => void;
-  onMarkReady: (s: Session) => void;
   onMessage: (msg: string) => void;
 }
 
-/** Right-click menu for a session: rename, copy its ID, mark it ready, end it or remove it. */
+/** Right-click menu for a session: rename, copy its ID, end it or remove it. */
 export function SessionMenu({
   session: s,
   x,
@@ -23,7 +22,6 @@ export function SessionMenu({
   onRename,
   onEnd,
   onRemove,
-  onMarkReady,
   onMessage,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -79,17 +77,6 @@ export function SessionMenu({
       ) : (
         <>
           <button onClick={() => setRenaming(true)}>Rename…</button>
-          {s.status === "background" && (
-            <button
-              title="It isn't waiting on its background work: show it as ready"
-              onClick={() => {
-                onMarkReady(s);
-                onClose();
-              }}
-            >
-              Mark as ready
-            </button>
-          )}
           <button
             onClick={() => {
               navigator.clipboard

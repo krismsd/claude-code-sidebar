@@ -68,7 +68,7 @@ export function Strip(props: Props) {
       {shown.map((s) => {
         const state = needsYou(s)
           ? "attention"
-          : s.status === "working" || s.status === "background"
+          : s.status === "working"
             ? "working"
             : s.status === "closed"
               ? "closed"

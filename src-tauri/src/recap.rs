@@ -188,11 +188,7 @@ impl Recapper {
             return false;
         };
         log::info!("recap {id} in {:.1}s", started.elapsed().as_secs_f32());
-        let applied = ctx
-            .store
-            .lock()
-            .unwrap()
-            .set_haiku_recap(id, seq, recap, now_ms());
+        let applied = ctx.store.lock().unwrap().set_haiku_recap(id, seq, recap);
         if applied {
             publish(ctx);
         }

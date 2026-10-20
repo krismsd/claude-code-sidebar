@@ -183,12 +183,9 @@ Each spike can be a throwaway binary or script under `spikes/`.
 
 ## M18: Waiting on background work (2026-10-20)
 
-- [x] New status `background` ("waiting on job", muted slow-breathing pill): the turn ended, but Claude is waiting on background work it will act on by itself (a watcher, a poll loop, a background agent). It sorts with working sessions and raises no ⏳ alert. Decided as follows:
-  - **Instant guess at Stop:** a background agent always counts. A shell task counts if its description or command reads like waiting ("watch", "until", "poll", "finish", …) and not like a service ("dev server", "serve", "tail -f", …).
-  - **Haiku's verdict:** cc-recap now outputs `WAITING: yes|no`, and its context marks background tool calls "(background)". The verdict flips the status (Idle ↔ Background) for that Stop.
-  - **The user:** right-click → **Mark as ready**, which overrides Haiku for that Stop.
-- [x] When a session woken from `background` stops ready (the job reported back, not the user prompting), a ✅ `finished` alert goes off immediately: flash and sound (new `[sounds] finished`), no card line.
-- [x] Tested live with a headless sandbox session (sleep 70 in the background): "waiting on job", then woke, then ready with ✅ finished.
+- [x] Jobs Claude is waiting on (a background agent, a watcher or poll loop it will act on) get a highlighted **Waiting on** block on the card, separate from other background tasks (dev servers: "⧗ N background tasks") and from agents inside the current turn. The status pill stays as it is. (A first take, "waiting on job" as its own status, was dropped the same day: chatting with a session while its job runs made it flip to ready, which read as wrong. The old status loads as idle.)
+- [x] What counts as a job: a background agent always does. A shell task is guessed from its description or command ("watch", "until", "poll", "finish", … but not "dev server", "serve", "tail -f", …), then decided by Haiku: cc-recap's `WAITING: yes|no` now asks whether background work Claude will act on is still running, even if the latest turn was about something else.
+- [x] When a job from the last Stop is gone at the next Stop, and that turn wasn't started by the user, a ✅ `finished` alert goes off immediately: flash and sound (`[sounds] finished`), no card line. The trigger is the injected `<task-notification>` prompt (fixture UserPromptSubmit.task-notification).
 - [x] Fix: the project menu of the last project opened below the list and was clipped; it opens upwards when there's no room.
 - [x] Fix: recaps for a long session were stale. Its transcript had runs of NUL bytes (a crash or sleep mid-write), plain `jq` stops at the first bad line (exit 5), so Haiku saw the first ~300 lines instead of the latest turns. That is also why it said WAITING: no for a session watching a deploy. cc-recap now reads `tail -n 800`, strips NULs and parses with `jq -R 'fromjson?'`, skipping bad lines. Tool calls show their human-written `description` before the raw command.
 

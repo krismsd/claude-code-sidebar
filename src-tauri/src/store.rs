@@ -276,6 +276,18 @@ impl Store {
         }
     }
 
+    /// The user opened the session: "job finished" has been seen (its card shows no line to
+    /// dismiss it from, so otherwise it would flash the project until the next turn).
+    pub fn seen(&mut self, session_id: &str) -> bool {
+        let Some(s) = self.sessions.get_mut(session_id) else {
+            return false;
+        };
+        let before = s.alerts.len();
+        s.alerts
+            .retain(|a| a.kind != crate::session::AlertKind::Finished);
+        s.alerts.len() != before
+    }
+
     /// Remove a closed session's card. Live sessions can't be dismissed.
     pub fn dismiss_session(&mut self, session_id: &str) -> bool {
         if self

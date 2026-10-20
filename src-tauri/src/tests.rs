@@ -1143,3 +1143,15 @@ fn ready_timer_survives_idle_end_and_resume() {
     let s = st.get("a").unwrap();
     assert_eq!((s.status, s.status_since), (Status::Idle, 2_000));
 }
+
+#[test]
+fn opening_a_session_clears_job_finished() {
+    let mut st = Store::default();
+    st.apply(&ours("Stop.background-tasks"), 1);
+    st.apply(&ours("UserPromptSubmit.task-notification"), 2);
+    st.apply(&ours("Stop"), 3);
+    assert!(st.get(SID).unwrap().has_alert(AlertKind::Finished));
+    assert!(st.seen(SID));
+    assert!(!st.get(SID).unwrap().has_alert(AlertKind::Finished));
+    assert!(!st.seen(SID), "nothing left to clear");
+}

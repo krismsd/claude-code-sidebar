@@ -251,6 +251,9 @@ async fn activate_session(
         .get(&session_id)
         .cloned()
         .ok_or("unknown session")?;
+    if ctx.store.lock().unwrap().seen(&session_id) {
+        server::publish(&ctx);
+    }
     let cfg = ctx.config.read().unwrap().clone();
     // "window" mode: open tmux sessions show in the sidebar's own terminal window.
     if cfg.viewer()

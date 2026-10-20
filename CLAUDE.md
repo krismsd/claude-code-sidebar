@@ -69,4 +69,5 @@ M1 verified most of the original list (see PLAN findings). Still open:
 - Rust: `cargo fmt` and `cargo clippy -D warnings` clean. Frontend: TypeScript strict, ESLint plus Prettier.
 - The session state machine is pure Rust with unit tests driven by `dev/fixtures/*.json`.
 - Small commits with clear messages. Ask the user before creating any remote repo.
+- The GitHub repo is public. Before any push, run the privacy scan kept in local memory (`public-repo-privacy-scan`) over the unpushed commits and their messages, and scrub hits by rewriting the unpushed history. Never list the scanned names in tracked files, this one included.
 - Screenshots go in `.shots/` (gitignored).

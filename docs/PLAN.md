@@ -222,6 +222,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Fix: Haiku's session-wide `WAITING: yes` marked every background command as a job, including servers (a session with a backend and a Vite dev server showed as "Waiting on 2 jobs"). `awaited()`: agents always count. Clear service words ("server", "serve", "vite", "tail -f", …) never count. Weaker ones ("backend", "frontend", "localhost") don't count unless the text speaks of waiting ("Watch the … frontend deploys" is a job). Haiku decides only the rest. Saved sessions are reclassified on load.
 - [x] Removed the card's "Running in the background" line: with idle sessions ended, a session that survives without a window is working, waiting on you or has background work, all already on the card, and a click does the right thing either way.
 - [x] The ✅ finished alert has no card line to dismiss, so it pulsed the project dot until the next turn. Opening the session (a click on its card or strip marker) now counts as seeing it (`Store::seen`).
+- [x] Fix: Claude's status line got garbled after partial redraws in the terminal window. xterm.js's default (Unicode 6) width table counts some emoji as one column where tmux counts two. Now uses the Unicode 11 table (`@xterm/addon-unicode11`).
 - [ ] Not yet tried: image paste, Ctrl+B to background a running command, copying with mouse selection in the window.
 
 

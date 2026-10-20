@@ -6,6 +6,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import "@xterm/xterm/css/xterm.css";
 import type { Session, UiState } from "../lib/types";
@@ -146,6 +147,11 @@ function Pane({ name, active, session }: { name: string; active: boolean; sessio
     });
     const f = new FitAddon();
     t.loadAddon(f);
+    // Character widths as tmux sees them (emoji are two columns). With xterm.js's default
+    // (Unicode 6) table, partial redraws of lines with emoji, such as Claude's status line,
+    // land a column off and leave fragments behind.
+    t.loadAddon(new Unicode11Addon());
+    t.unicode.activeVersion = "11";
     t.loadAddon(new WebLinksAddon((_, url) => openUrl(url)));
     // tmux copies through OSC 52 (set-clipboard on).
     t.loadAddon(new ClipboardAddon());

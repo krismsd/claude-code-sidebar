@@ -218,7 +218,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Idle sessions with nothing showing them are ended (`Session::idle_unwatched`, checked by the 4 s attach watcher, 5 s grace for a view to attach after a click). Tested live:
   - an unwatched new session ended about 12 s after it became idle;
   - a session with `sleep 45` in the background stayed alive while it ran, then ended 6 s after reporting back, and its card shows "ready" with the ✅ alert (dormant: `closed_reason == "idle"`, treated as open by `arrange`, the strip and counts).
-- [x] Resumed sessions show "ready", not "new".
+- [x] Resumed sessions show "ready", not "new", and the ready timer counts from the last Stop (`last_stop_at`) through an idle end and a resume, so opening or closing a session doesn't reset it.
 - [ ] Not yet tried: image paste, Ctrl+B to background a running command, copying with mouse selection in the window.
 
 

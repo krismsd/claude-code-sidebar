@@ -1089,3 +1089,32 @@ fn sessions_with_something_to_do_stay() {
     st.set_attached(&d, &attached, 2);
     assert!(st.take_idle_unwatched(100_000).is_empty());
 }
+
+#[test]
+fn ready_timer_survives_idle_end_and_resume() {
+    let attached = std::collections::HashMap::from([("cc-t1".to_string(), false)]);
+    let mut st = Store::default();
+    tmux_session(&mut st, "a", 0);
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "a"})),
+        1_000,
+    );
+    st.apply(
+        &fx_with("Stop", serde_json::json!({"session_id": "a"})),
+        2_000,
+    );
+    assert_eq!(st.get("a").unwrap().status_since, 2_000);
+    // Nothing shows it: ended for sitting idle. The timer still counts from the Stop.
+    let d = st.get("a").unwrap().distro.clone();
+    st.set_attached(&d, &attached, 3_000);
+    assert_eq!(st.take_idle_unwatched(10_000).len(), 1);
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "a"})),
+        11_000,
+    );
+    assert_eq!(st.get("a").unwrap().status_since, 2_000);
+    // Opened again (resumed) without a prompt: same.
+    tmux_session(&mut st, "a", 50_000);
+    let s = st.get("a").unwrap();
+    assert_eq!((s.status, s.status_since), (Status::Idle, 2_000));
+}

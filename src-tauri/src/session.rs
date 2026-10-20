@@ -202,6 +202,9 @@ pub struct Session {
     /// The current turn was started by the user's own prompt.
     #[serde(default)]
     pub user_turn: bool,
+    /// When the last turn ended: "ready" counts from here, through closing and resuming.
+    #[serde(default)]
+    pub last_stop_at: Option<Ms>,
     pub alerts: Vec<Alert>,
     /// Starred by the user: shown first in its project and never pruned (SPEC §3.12).
     #[serde(default)]
@@ -257,6 +260,7 @@ impl Session {
             jobs_awaited: None,
             pending_jobs: Vec::new(),
             user_turn: false,
+            last_stop_at: None,
             alerts: Vec::new(),
             closed_reason: None,
             starred: false,
@@ -432,22 +436,35 @@ impl Session {
                         self.set_status(Status::Idle, now);
                     }
                     // Resumed: a conversation with history, ready for the next prompt.
-                    Some("resume") => self.set_status(Status::Idle, now),
+                    // Resumed: ready again, counting from when its last turn ended (opening it
+                    // isn't news).
+                    Some("resume") => {
+                        self.set_status(Status::Idle, now);
+                        if let Some(t) = self.last_stop_at {
+                            self.status_since = t;
+                        }
+                    }
                     // New: ready, not yet prompted.
                     _ => self.set_status(Status::Starting, now),
                 }
             }
             Event::SessionEnd { reason } => {
-                self.closed_reason = Some(if std::mem::take(&mut self.ending_idle) {
+                let idle_end = std::mem::take(&mut self.ending_idle);
+                self.closed_reason = Some(if idle_end {
                     "idle".into()
                 } else {
                     reason.clone().unwrap_or_else(|| "other".into())
                 });
+                let ready_since = self.status_since;
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.subagents_running = 0;
                 self.set_background(&[]);
                 self.set_status(Status::Closed, now);
+                // Ended for sitting idle: still the same ready conversation, same timer.
+                if idle_end {
+                    self.status_since = ready_since;
+                }
             }
             Event::UserPromptSubmit { prompt } => {
                 // Background subagent hand-backs arrive as prompts; they aren't the user's.
@@ -569,6 +586,7 @@ impl Session {
             } => {
                 // The Haiku recap described the previous turn; a new one is on its way.
                 self.stop_seq += 1;
+                self.last_stop_at = Some(now);
                 self.recap_haiku = None;
                 self.recap_detail = None;
                 if let Some(msg) = last_assistant_message {

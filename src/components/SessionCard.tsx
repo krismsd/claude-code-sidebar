@@ -120,11 +120,6 @@ export function SessionCard({
         </div>
       )}
       {activity && <div className="card-activity">{activity}</div>}
-      {s.status !== "closed" && s.tmux && s.attached === false && (
-        <div className="card-hidden" title="Runs in tmux with no terminal showing it">
-          ◌ Running in the background · click to show
-        </div>
-      )}
       {s.status === "needs_permission" && s.pending_permission?.answerable && (
         <div className="answer">
           <button className="allow" onClick={stop(() => onAnswer(s, true))}>

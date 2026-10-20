@@ -189,7 +189,7 @@ A footer shows the account's 5-hour and weekly usage (% and reset time), read fr
 
 `session_mode` in config.toml, set from Settings → General → "Run sessions in":
 - **`terminal`** (default): as before. Claude Code is the tab's process, and closing the tab ends it.
-- **`tmux`**: `claudes` runs Claude Code in its own tmux session `cc-<tag>`, on a private socket (`tmux -L cc-sidebar`) with the sidebar's config (`~/.config/cc-sidebar/tmux.conf`: no prefix key, since Claude uses Ctrl+B; no status bar; mouse; OSC 52; extended keys; title passthrough). The tab is only a view: closing it detaches, Claude keeps running, and the card says "Running in the background". A click focuses the tab, or opens a new tab attached to the session (`wt … wsl.exe -e tmux -L cc-sidebar attach -t cc-<tag>`).
+- **`tmux`**: `claudes` runs Claude Code in its own tmux session `cc-<tag>`, on a private socket (`tmux -L cc-sidebar`) with the sidebar's config (`~/.config/cc-sidebar/tmux.conf`: no prefix key, since Claude uses Ctrl+B; no status bar; mouse; OSC 52; extended keys; title passthrough). The tab is only a view: closing it detaches, Claude keeps running. A click focuses the tab, or opens a new tab attached to the session (`wt … wsl.exe -e tmux -L cc-sidebar attach -t cc-<tag>`).
 - **`window`**: tmux as above, but sessions are shown in the sidebar's own terminal window: xterm.js through a ConPTY running `wsl.exe -e tmux attach`, one tab per session. New and resumed sessions start detached (`CC_SIDEBAR_DETACHED=1`, with the tag chosen by the app) and open there. Closing a tab or the window detaches.
 
 **Mechanics:**

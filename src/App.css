@@ -1771,9 +1771,3 @@ button {
   text-align: center;
   margin-top: 30vh;
 }
-
-.card-hidden {
-  margin: 2px 0;
-  font-size: 11px;
-  color: var(--blue);
-}

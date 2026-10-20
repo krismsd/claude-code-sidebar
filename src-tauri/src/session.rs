@@ -98,26 +98,43 @@ pub struct Background {
     pub awaited: bool,
 }
 
-/// First guess, before Haiku's verdict: does this background command look like Claude waiting
-/// for something to finish (a deploy watcher, a poll loop) rather than a service it leaves
-/// running (a dev server, a log tail)?
-pub fn looks_awaited(text: &str) -> bool {
+const WAIT_WORDS: [&str; 8] = [
+    "wait", "until", "poll", "watch", "monitor", "finish", "complete", "status",
+];
+
+/// A background command that reads as a service Claude leaves running (a dev server, an app's
+/// backend, a log tail): never a job Claude waits on, whatever Haiku says about the session.
+/// "backend"/"frontend"/"localhost" only count when nothing in the text speaks of waiting
+/// ("Watch the frontend deploy" is a job).
+pub fn looks_service(text: &str) -> bool {
     let t = text.to_lowercase();
     const SERVICE: [&str; 9] = [
-        "dev server",
         "server",
         "serve",
         "npm run dev",
+        "npm start",
         "vite",
         "watch mode",
         "tail -f",
         "docker compose up",
         "storybook",
     ];
-    const WAIT: [&str; 8] = [
-        "wait", "until", "poll", "watch", "monitor", "finish", "complete", "status",
-    ];
-    !SERVICE.iter().any(|w| t.contains(w)) && WAIT.iter().any(|w| t.contains(w))
+    const APP_PART: [&str; 3] = ["backend", "frontend", "localhost"];
+    let waits = WAIT_WORDS.iter().any(|w| t.contains(w));
+    SERVICE.iter().any(|w| t.contains(w)) || (!waits && APP_PART.iter().any(|w| t.contains(w)))
+}
+
+/// First guess, before Haiku's verdict: does this background command look like Claude waiting
+/// for something to finish (a deploy watcher, a poll loop) rather than a service?
+pub fn looks_awaited(text: &str) -> bool {
+    let t = text.to_lowercase();
+    !looks_service(&t) && WAIT_WORDS.iter().any(|w| t.contains(w))
+}
+
+/// Is a background task a job Claude waits on? Agents always are, services never; for other
+/// commands Haiku's verdict on the session (if any) beats the guess from the text.
+fn awaited(agent: bool, text: &str, haiku: Option<bool>) -> bool {
+    agent || (!looks_service(text) && haiku.unwrap_or_else(|| looks_awaited(text)))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -304,6 +321,12 @@ impl Session {
                 .retain(|a| !matches!(a.kind, AlertKind::Waiting | AlertKind::Slow));
         }
         self.next_alert_id = self.alerts.iter().map(|a| a.id).max().unwrap_or(0) + 1;
+        // Saved by a build that let Haiku's verdict mark services (dev servers) as jobs.
+        let haiku = self.jobs_awaited;
+        for b in &mut self.background {
+            b.awaited = awaited(b.agent, &b.description, haiku);
+        }
+        self.pending_jobs = self.awaited_jobs();
         self
     }
 
@@ -320,8 +343,8 @@ impl Session {
         // Haiku read the turn: will Claude act on its background commands when they finish?
         if recap.waiting.is_some() {
             self.jobs_awaited = recap.waiting;
-            for b in self.background.iter_mut().filter(|b| !b.agent) {
-                b.awaited = recap.waiting == Some(true);
+            for b in self.background.iter_mut() {
+                b.awaited = awaited(b.agent, &b.description, recap.waiting);
             }
             self.pending_jobs = self.awaited_jobs();
         }
@@ -676,10 +699,10 @@ impl Session {
             .map(|t| {
                 let description = t.description.clone().unwrap_or_default();
                 let command = t.command.as_deref().unwrap_or_default();
-                let guess = looks_awaited(&format!("{description} {command}"));
+                let text = format!("{description} {command}");
                 Background {
                     agent: t.is_agent(),
-                    awaited: t.is_agent() || self.jobs_awaited.unwrap_or(guess),
+                    awaited: awaited(t.is_agent(), &text, self.jobs_awaited),
                     description,
                 }
             })

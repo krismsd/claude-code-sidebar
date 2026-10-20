@@ -1019,6 +1019,31 @@ fn awaited_background_commands() {
     assert!(!looks_awaited("Start the dev server npm run dev"));
     assert!(!looks_awaited("sleep 90 sleep 90"));
     assert!(!looks_awaited("tail -f app.log"));
+    assert!(looks_awaited("Watch the CN, PL and frontend deploys"));
+}
+
+#[test]
+fn haiku_cannot_make_servers_jobs() {
+    // Seen live: two servers started in the background, and Haiku said the session was
+    // waiting on background work. Only real jobs follow Haiku.
+    let mut s = Session::new(SID, 0);
+    s.apply(
+        &fx_with(
+            "Stop",
+            serde_json::json!({"session_id": SID, "background_tasks": [
+                {"id": "1", "type": "shell", "status": "running",
+                 "description": "Run the API backend against dev DB in background"},
+                {"id": "2", "type": "shell", "status": "running",
+                 "description": "Run the Vite frontend dev server in background"},
+                {"id": "3", "type": "shell", "status": "running",
+                 "description": "Run the nightly import"}]}),
+        ),
+        1,
+        &th(),
+    );
+    s.set_haiku_recap(s.stop_seq, haiku(true));
+    let awaited: Vec<bool> = s.background.iter().map(|b| b.awaited).collect();
+    assert_eq!(awaited, [false, false, true]);
 }
 
 fn tmux_session(st: &mut Store, id: &str, now: u64) {

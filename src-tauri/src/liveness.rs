@@ -47,11 +47,23 @@ pub async fn watch_attached(ctx: Ctx) {
         for distro in distros {
             let name = distro.clone().unwrap_or_else(|| DEFAULT_DISTRO.into());
             if let Some(list) = tmux_sessions(&name).await {
-                changed |= ctx.store.lock().unwrap().set_attached(&distro, &list);
+                changed |= ctx
+                    .store
+                    .lock()
+                    .unwrap()
+                    .set_attached(&distro, &list, now_ms());
             }
         }
         if changed {
             publish(&ctx);
+        }
+        // Nothing shows it and it has nothing to do: end it (SIGTERM, as End does). Its card
+        // stays, closed and resumable; a click brings it back.
+        let idle = ctx.store.lock().unwrap().take_idle_unwatched(now_ms());
+        for (distro, pid) in idle {
+            let name = distro.unwrap_or_else(|| DEFAULT_DISTRO.into());
+            log::info!("ending idle background session (pid {pid})");
+            let _ = wsl(&name, &format!("kill -TERM {pid}")).await;
         }
     }
 }

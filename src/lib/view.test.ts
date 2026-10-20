@@ -195,3 +195,13 @@ describe("session order", () => {
     expect(reorder(["a", "b", "c"], "b", "a", "after")).toEqual(["a", "b", "c"]);
   });
 });
+
+describe("dormant sessions", () => {
+  it("ended for sitting idle: shown with the open ones, not folded away as closed", () => {
+    const a = session({ status: "closed", closed_reason: "idle" });
+    const b = session({ status: "closed", closed_reason: "other" });
+    const { visible, closed } = arrange([a, b]);
+    expect(visible).toEqual([a]);
+    expect(closed).toEqual([b]);
+  });
+});

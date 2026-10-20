@@ -199,6 +199,8 @@ A footer shows the account's 5-hour and weekly usage (% and reset time), read fr
 - Session menu: **Hide (keep running)** (`tmux detach-client -s`) and **Open in Windows Terminal**.
 - End still signals Claude's PID. When Claude exits, the tmux session and any views close.
 
+**Processes only live while they're needed** (2026-10-21). A conversation (the card) is permanent; its process is not. A tmux session with no terminal showing it, for 5 s with no new event, is ended (SIGTERM) when it has nothing to do: it's idle, new or errored, with no pending permission, nothing in the background (jobs, dev servers, background agents) and no agents running. Working, waiting-on-you and background work keep it alive. Its SessionEnd is recorded as `idle`, and the UI treats that as **dormant**: shown and sorted as a ready conversation (green pill, ✅ alert kept), and a click resumes it. Resumed sessions start as "ready", not "new".
+
 **Known differences from a plain Windows Terminal tab:**
 - scrollback lives in tmux (mouse wheel), so Windows Terminal's search only sees the screen;
 - mouse selection goes through tmux (Shift+drag for a native selection);

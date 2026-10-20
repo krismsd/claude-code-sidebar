@@ -360,6 +360,7 @@ impl Store {
         &mut self,
         distro: &Option<String>,
         attached: &HashMap<String, bool>,
+        now: Ms,
     ) -> bool {
         let mut changed = false;
         for s in self.sessions.values_mut() {
@@ -367,13 +368,31 @@ impl Store {
             if &s.distro != distro || s.status == Status::Closed {
                 continue;
             }
-            let now = attached.get(name).copied();
-            if now.is_some() && s.attached != now {
-                s.attached = now;
+            let seen = attached.get(name).copied();
+            if seen.is_some() && s.attached != seen {
+                s.attached = seen;
                 changed = true;
+            }
+            match seen {
+                Some(false) if s.unattached_since.is_none() => s.unattached_since = Some(now),
+                Some(true) => s.unattached_since = None,
+                _ => {}
             }
         }
         changed
+    }
+
+    /// Sessions to end for sitting idle with nothing showing them (see
+    /// `Session::idle_unwatched`): (distro, pid). Marks them so their close reads "idle".
+    pub fn take_idle_unwatched(&mut self, now: Ms) -> Vec<(Option<String>, u32)> {
+        let mut out = Vec::new();
+        for s in self.sessions.values_mut() {
+            if !s.ending_idle && s.idle_unwatched(now) {
+                s.ending_idle = true;
+                out.push((s.distro.clone(), s.pid.unwrap_or(0)));
+            }
+        }
+        out
     }
 
     pub fn restore(&mut self, saved: Vec<Session>, now: Ms) {

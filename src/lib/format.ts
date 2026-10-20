@@ -25,6 +25,7 @@ const CLOSED_REASON: Record<string, string> = {
   other: "tab closed",
   logout: "logged out",
   lost: "process gone",
+  idle: "closed",
 };
 
 export function closedLabel(s: Session): string {

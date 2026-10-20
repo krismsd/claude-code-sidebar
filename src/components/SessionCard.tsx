@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Session } from "../lib/types";
+import { dormant } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
@@ -30,7 +31,7 @@ const HOUR = 3_600_000;
 
 /** A "ready" pill fades from green to grey between 1 and 2 hours: still ready, but old news. */
 function readyFade(s: Session, now: number): CSSProperties | undefined {
-  if (s.status !== "idle") return undefined;
+  if (s.status !== "idle" && !dormant(s)) return undefined;
   const grey = Math.min(1, Math.max(0, (now - s.status_since - HOUR) / HOUR));
   if (grey === 0) return undefined;
   return {
@@ -70,7 +71,10 @@ export function SessionCard({
   const agents = Math.max(0, s.subagents_running - jobs.filter((b) => b.agent).length);
   const jobName = (b: (typeof jobs)[number]) => b.description || (b.agent ? "Agent" : "Command");
   const latest = [...shown].sort((a, b) => b.at - a.at)[0];
-  const closed = s.status === "closed";
+  // A dormant session (ended for sitting idle) looks and acts like a ready one.
+  const asleep = dormant(s);
+  const closed = s.status === "closed" && !asleep;
+  const status = asleep ? "idle" : s.status;
   const activity =
     s.status === "needs_permission" && s.pending_permission
       ? `Wants to: ${s.pending_permission.summary}`
@@ -83,7 +87,7 @@ export function SessionCard({
 
   return (
     <article
-      className={`card status-${s.status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}`}
+      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}`}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
       onMouseEnter={(e) => onHover(s, e.currentTarget)}
@@ -105,18 +109,18 @@ export function SessionCard({
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
-        <span className={`chip chip-${s.status}`} style={readyFade(s, now)}>
-          {closed ? closedLabel(s) : STATUS_LABEL[s.status]} · {elapsed(s.status_since, now)}
+        <span className={`chip chip-${status}`} style={readyFade(s, now)}>
+          {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
         </span>
       </header>
-      {!closed && s.tag === null && (
+      {s.status !== "closed" && s.tag === null && (
         <div className="card-warning" title="Run /exit in that tab, then: claudes --continue">
           ⚠ Started with plain <code>claude</code>: can&apos;t focus or end it. Restart with{" "}
           <code>claudes --continue</code>
         </div>
       )}
       {activity && <div className="card-activity">{activity}</div>}
-      {!closed && s.tmux && s.attached === false && (
+      {s.status !== "closed" && s.tmux && s.attached === false && (
         <div className="card-hidden" title="Runs in tmux with no terminal showing it">
           ◌ Running in the background · click to show
         </div>

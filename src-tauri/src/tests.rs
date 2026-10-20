@@ -117,7 +117,7 @@ fn basic_lifecycle() {
     assert_eq!(s.closed_reason.as_deref(), Some("prompt_input_exit"));
     assert_eq!(s.attention_rank(), 3);
 
-    // Resumed: any event revives it.
+    // Resumed: any event revives it, ready for a prompt (not "new").
     s.apply(
         &fx_with(
             "SessionStart",
@@ -126,7 +126,7 @@ fn basic_lifecycle() {
         8,
         &th(),
     );
-    assert_eq!(s.status, Status::Starting);
+    assert_eq!(s.status, Status::Idle);
     assert_eq!(s.closed_reason, None);
 }
 
@@ -574,7 +574,7 @@ fn resuming_with_plain_claude_drops_the_old_process_identity() {
     resumed["_headers"] = serde_json::json!({});
     st.apply(&hook_from(resumed), 2_000);
     let s = st.get("a").unwrap();
-    assert_eq!(s.status, Status::Starting);
+    assert_eq!(s.status, Status::Idle);
     assert_eq!(
         (s.tag.as_deref(), s.pid, s.wt_session.as_deref()),
         (None, None, None)
@@ -582,7 +582,7 @@ fn resuming_with_plain_claude_drops_the_old_process_identity() {
     // So liveness has nothing stale to check, and the card stays open.
     assert!(st.pids().is_empty());
     st.pids_dead(&[382308], 40_000);
-    assert_eq!(st.get("a").unwrap().status, Status::Starting);
+    assert_eq!(st.get("a").unwrap().status, Status::Idle);
     // Later events without headers don't clear anything either way.
     st.apply(
         &fx_with(
@@ -1019,4 +1019,73 @@ fn awaited_background_commands() {
     assert!(!looks_awaited("Start the dev server npm run dev"));
     assert!(!looks_awaited("sleep 90 sleep 90"));
     assert!(!looks_awaited("tail -f app.log"));
+}
+
+fn tmux_session(st: &mut Store, id: &str, now: u64) {
+    st.apply(
+        &fx_with(
+            "SessionStart",
+            serde_json::json!({"session_id": id, "source": "resume",
+                "_headers": {"x-cc-pid": "4242", "x-cc-tag": "t1", "x-cc-tmux": "cc-t1"}}),
+        ),
+        now,
+    );
+}
+
+#[test]
+fn resumed_sessions_are_ready_not_new() {
+    let mut st = Store::default();
+    tmux_session(&mut st, "r", 0);
+    assert_eq!(st.get("r").unwrap().status, Status::Idle);
+    assert_eq!(st.get("r").unwrap().tmux.as_deref(), Some("cc-t1"));
+}
+
+#[test]
+fn idle_sessions_nothing_shows_are_ended() {
+    let attached = |on: bool| std::collections::HashMap::from([("cc-t1".to_string(), on)]);
+    let mut st = Store::default();
+    tmux_session(&mut st, "a", 0);
+    let distro = st.get("a").unwrap().distro.clone();
+
+    // Shown: kept.
+    st.set_attached(&distro, &attached(true), 1_000);
+    assert!(st.take_idle_unwatched(60_000).is_empty());
+    // Just closed: not before the grace period (a click may be about to attach a view).
+    st.set_attached(&distro, &attached(false), 61_000);
+    assert!(st.take_idle_unwatched(62_000).is_empty());
+    assert_eq!(st.take_idle_unwatched(67_000), vec![(distro.clone(), 4242)]);
+    assert!(st.take_idle_unwatched(70_000).is_empty(), "only once");
+    // Its SessionEnd reads as idle, not "tab closed".
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "a"})),
+        71_000,
+    );
+    assert_eq!(st.get("a").unwrap().closed_reason.as_deref(), Some("idle"));
+}
+
+#[test]
+fn sessions_with_something_to_do_stay() {
+    let attached = std::collections::HashMap::from([("cc-t1".to_string(), false)]);
+    // Working.
+    let mut st = Store::default();
+    tmux_session(&mut st, "w", 0);
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "w"})),
+        1,
+    );
+    let d = st.get("w").unwrap().distro.clone();
+    st.set_attached(&d, &attached, 2);
+    assert!(st.take_idle_unwatched(100_000).is_empty());
+    // A background command (e.g. a dev server) still running.
+    let mut st = Store::default();
+    tmux_session(&mut st, "b", 0);
+    st.apply(
+        &fx_with(
+            "Stop.background-shell",
+            serde_json::json!({"session_id": "b"}),
+        ),
+        1,
+    );
+    st.set_attached(&d, &attached, 2);
+    assert!(st.take_idle_unwatched(100_000).is_empty());
 }

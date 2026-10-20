@@ -215,6 +215,10 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] ConPTY asks for the cursor position (`ESC[6n`) at startup and waits for the reply; xterm.js answers it (a probe without a terminal hung until it did).
 - [x] Fix (2026-10-21): the mode variable `CC_SIDEBAR_HOST=tmux` clashed with cc-hook's `CC_SIDEBAR_HOST` (the app's address override). Inside tmux sessions cc-hook posted to "tmux", failed, and kept renewing the shared app-down marker, so every session's hooks were skipped. The cards stayed "closed", and each click resumed the conversation again (three copies of one conversation ran at once). The variable is now `CC_SIDEBAR_RUN_IN`, and cc-hook ignores the stale value.
 - [x] Guard: before resuming a closed card, `pgrep -f '^claude .*--resume <id>'` in WSL. If found, it doesn't resume and says it's already running.
+- [x] Idle sessions with nothing showing them are ended (`Session::idle_unwatched`, checked by the 4 s attach watcher, 5 s grace for a view to attach after a click). Tested live:
+  - an unwatched new session ended about 12 s after it became idle;
+  - a session with `sleep 45` in the background stayed alive while it ran, then ended 6 s after reporting back, and its card shows "ready" with the ✅ alert (dormant: `closed_reason == "idle"`, treated as open by `arrange`, the strip and counts).
+- [x] Resumed sessions show "ready", not "new".
 - [ ] Not yet tried: image paste, Ctrl+B to background a running command, copying with mouse selection in the window.
 
 

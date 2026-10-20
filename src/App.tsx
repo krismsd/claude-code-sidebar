@@ -10,7 +10,7 @@ import { Drawer } from "./components/Drawer";
 import { Strip } from "./components/Strip";
 import { UsageFooter } from "./components/UsageFooter";
 import { WindowMenu } from "./components/WindowMenu";
-import { dropIndex, freshKeys, groupSessions } from "./lib/view";
+import { dropIndex, freshKeys, groupSessions, isOpen } from "./lib/view";
 import { DRAG_TYPE } from "./lib/drag";
 import "./App.css";
 
@@ -228,7 +228,7 @@ function App() {
   const drag = state.floating ? { "data-tauri-drag-region": true } : {};
 
   const { byRoot, other } = groupSessions(state);
-  const openCount = state.sessions.filter((s) => s.status !== "closed").length;
+  const openCount = state.sessions.filter(isOpen).length;
   const hovered = hover && state.sessions.find((s) => s.session_id === hover.id);
   const menuSession = menu && state.sessions.find((s) => s.session_id === menu.id);
 

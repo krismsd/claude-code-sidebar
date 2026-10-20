@@ -2,7 +2,7 @@ import { useRef, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Session, Tracked, Usage } from "../lib/types";
 import { usageLevel, usageNow, sessionName, STATUS_LABEL } from "../lib/format";
-import { arrange, freshKeys } from "../lib/view";
+import { arrange, freshKeys, isOpen } from "../lib/view";
 
 interface Props {
   projects: Tracked[];
@@ -57,7 +57,7 @@ export function Strip(props: Props) {
       sessions.filter((s) => s.project?.root === project.root),
       session_order,
     ).visible;
-    return shelved ? visible.filter((s) => s.status !== "closed" && needsYou(s)) : visible;
+    return shelved ? visible.filter((s) => isOpen(s) && needsYou(s)) : visible;
   });
   const session = usageNow(usage?.five_hour ?? null, now);
   const week = usageNow(usage?.seven_day ?? null, now);
@@ -73,7 +73,7 @@ export function Strip(props: Props) {
           ? "attention"
           : s.status === "working"
             ? "working"
-            : s.status === "closed"
+            : !isOpen(s)
               ? "closed"
               : "open";
         const flashing = freshKeys(s).some((k) => fresh.has(k));

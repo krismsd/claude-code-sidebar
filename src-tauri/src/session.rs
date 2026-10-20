@@ -133,6 +133,13 @@ pub struct Session {
     /// For a tmux session: whether any terminal shows it (None until checked).
     #[serde(default)]
     pub attached: Option<bool>,
+    /// Since when no terminal has shown it (not saved).
+    #[serde(skip)]
+    pub unattached_since: Option<Ms>,
+    /// The sidebar ended it for sitting idle with nothing showing it: its SessionEnd records
+    /// "idle" rather than "other" (which reads as "tab closed").
+    #[serde(skip)]
+    pub ending_idle: bool,
     /// The directory the session was started in, which decides its project. The payload `cwd`
     /// follows the session's `cd`s, so this is recovered from the transcript path (`start_dir`).
     pub cwd: Option<String>,
@@ -220,6 +227,8 @@ impl Session {
             distro: None,
             tmux: None,
             attached: None,
+            unattached_since: None,
+            ending_idle: false,
             cwd: None,
             shell_cwd: None,
             project: None,
@@ -422,12 +431,18 @@ impl Session {
                         self.current_tool = None;
                         self.set_status(Status::Idle, now);
                     }
-                    // New or resumed: ready, not yet prompted.
+                    // Resumed: a conversation with history, ready for the next prompt.
+                    Some("resume") => self.set_status(Status::Idle, now),
+                    // New: ready, not yet prompted.
                     _ => self.set_status(Status::Starting, now),
                 }
             }
             Event::SessionEnd { reason } => {
-                self.closed_reason = Some(reason.clone().unwrap_or_else(|| "other".into()));
+                self.closed_reason = Some(if std::mem::take(&mut self.ending_idle) {
+                    "idle".into()
+                } else {
+                    reason.clone().unwrap_or_else(|| "other".into())
+                });
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.subagents_running = 0;
@@ -629,7 +644,9 @@ impl Session {
             _ => {}
         }
 
-        if self.status != Status::Idle {
+        // Ended for sitting idle (see `idle_unwatched`) right after its job reported back: it is
+        // still ready for the user, so the alert stays.
+        if self.status != Status::Idle && self.closed_reason.as_deref() != Some("idle") {
             self.alerts.retain(|a| a.kind != AlertKind::Finished);
         }
     }
@@ -650,6 +667,25 @@ impl Session {
             })
             .collect();
         self.background_running = self.background.iter().filter(|b| !b.agent).count() as u32;
+    }
+
+    /// A tmux-hosted session with no terminal showing it and nothing to do: no turn running, not
+    /// waiting on the user, nothing in the background (jobs, dev servers, agents). Keeping its
+    /// process buys nothing, so the sidebar ends it (it can be resumed). `GRACE` covers the
+    /// moment after a click, before the new view attaches.
+    pub fn idle_unwatched(&self, now: Ms) -> bool {
+        const GRACE: Ms = 5_000;
+        self.tmux.is_some()
+            && self.pid.is_some()
+            && self.attached == Some(false)
+            && self
+                .unattached_since
+                .is_some_and(|t| now.saturating_sub(t) >= GRACE)
+            && now.saturating_sub(self.last_event_at) >= GRACE
+            && matches!(self.status, Status::Idle | Status::Starting | Status::Error)
+            && self.pending_permission.is_none()
+            && self.background.is_empty()
+            && self.subagents_running == 0
     }
 
     /// The held request is live: the card may answer it.

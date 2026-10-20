@@ -1,6 +1,13 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
 import type { Session, UiState } from "./types";
 
+/** Ended by the sidebar for sitting idle with nothing showing it (tmux sessions): only the
+ * process went, to save resources. To you it's still a ready conversation; a click resumes it. */
+export const dormant = (s: Session) => s.status === "closed" && s.closed_reason === "idle";
+
+/** Open as far as the user is concerned: running, or dormant. */
+export const isOpen = (s: Session) => s.status !== "closed" || dormant(s);
+
 /** Within a project: starred first (open or closed), then open, then closed (newest first).
  * `order` (session ids the user dragged into order) comes first among the visible ones; the
  * rest follow in the usual order, so a new session goes to the bottom. */
@@ -10,9 +17,9 @@ export function arrange(
 ): { visible: Session[]; closed: Session[] } {
   const byStart = (a: Session, b: Session) => a.started_at - b.started_at;
   const starred = sessions.filter((s) => s.starred).sort(byStart);
-  const open = sessions.filter((s) => !s.starred && s.status !== "closed").sort(byStart);
+  const open = sessions.filter((s) => !s.starred && isOpen(s)).sort(byStart);
   const closed = sessions
-    .filter((s) => !s.starred && s.status === "closed")
+    .filter((s) => !s.starred && !isOpen(s))
     .sort((a, b) => b.status_since - a.status_since);
   const rank = (s: Session) => {
     const i = order.indexOf(s.session_id);
@@ -42,7 +49,7 @@ export interface ProjectStatus {
 
 /** Summary for a project header or strip dot. */
 export function projectStatus(sessions: Session[], fresh: Set<string>): ProjectStatus {
-  const open = sessions.filter((s) => s.status !== "closed");
+  const open = sessions.filter(isOpen);
   const attention = open.some(
     (s) => ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact"),
   );

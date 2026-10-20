@@ -190,6 +190,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] When a session woken from `background` stops ready (the job reported back, not the user prompting), a ✅ `finished` alert goes off immediately: flash and sound (new `[sounds] finished`), no card line.
 - [x] Tested live with a headless sandbox session (sleep 70 in the background): "waiting on job", then woke, then ready with ✅ finished.
 - [x] Fix: the project menu of the last project opened below the list and was clipped; it opens upwards when there's no room.
+- [x] Fix: recaps for a long session were stale. Its transcript had runs of NUL bytes (a crash or sleep mid-write), plain `jq` stops at the first bad line (exit 5), so Haiku saw the first ~300 lines instead of the latest turns. That is also why it said WAITING: no for a session watching a deploy. cc-recap now reads `tail -n 800`, strips NULs and parses with `jq -R 'fromjson?'`, skipping bad lines. Tool calls show their human-written `description` before the raw command.
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

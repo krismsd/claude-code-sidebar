@@ -8,19 +8,22 @@
 t="$1"
 [ -r "$t" ] || { echo "no transcript: $t" >&2; exit 2; }
 # Condense the last 30 user/assistant entries: text, plus tool calls as "[Tool target]".
-ctx=$(jq -r '
+# Read raw lines and skip any that don't parse (a transcript can hold a run of NUL bytes
+# after a crash or sleep, and plain jq stops at the first bad line), and only the tail of
+# the file, which holds the latest turns.
+ctx=$(tail -n 800 "$t" | tr -d '\000' | jq -rR 'fromjson? |
   select(.type=="user" or .type=="assistant") | .type as $who
   | (.message.content | if type=="string" then [{type:"text",text:.}] else . end)
   | map(
       if .type=="text" then .text
-      elif .type=="tool_use" then "[\(.name)\(if .input.run_in_background then " (background)" else "" end) \((.input.file_path | select(.) | split("/") | last) // .input.command // .input.pattern // .input.description // "" | tostring | .[0:80])]"
+      elif .type=="tool_use" then "[\(.name)\(if .input.run_in_background then " (background)" else "" end) \((.input.file_path | select(.) | split("/") | last) // .input.description // .input.command // .input.pattern // "" | tostring | .[0:80])]"
       else empty end)
   | join(" ") | select(. != "" and (startswith("<") | not))
-  | "\($who): \(.[0:400])"' "$t" 2>/dev/null | tail -n 30)
+  | "\($who): \(.[0:400])"' 2>/dev/null | tail -n 30)
 [ -n "$ctx" ] || { echo "empty transcript" >&2; exit 3; }
 # A title Claude Code already has wins: one set by the user (custom-title), else its ai-title.
-known=$(jq -r 'select(.type=="custom-title") | (.customTitle // .title // empty)' "$t" 2>/dev/null | tail -n 1)
-[ -n "$known" ] || known=$(jq -r 'select(.type=="ai-title") | (.aiTitle // empty)' "$t" 2>/dev/null | tail -n 1)
+known=$(tr -d '\000' <"$t" | jq -rR 'fromjson? | select(.type=="custom-title") | (.customTitle // .title // empty)' 2>/dev/null | tail -n 1)
+[ -n "$known" ] || known=$(tr -d '\000' <"$t" | jq -rR 'fromjson? | select(.type=="ai-title") | (.aiTitle // empty)' 2>/dev/null | tail -n 1)
 raw=$(printf '%s\n' "$ctx" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
   --tools "" --strict-mcp-config --setting-sources "" --output-format stream-json --verbose \
   --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 0, "TITLE: " and a 3-6 word name for the session (its overall goal, like a tab title, no quotes); line 1, "WAITING: yes" if the last assistant turn ended deliberately waiting for something it started in the background (a watcher, a poll loop, a background command or agent) whose result it will act on by itself when it finishes, otherwise "WAITING: no" (finished work, a question for the user, or a service such as a dev server left running are all "no"); line 2, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 3, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.')

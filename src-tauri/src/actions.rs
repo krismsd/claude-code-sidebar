@@ -12,7 +12,7 @@ use std::process::Command;
 use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-fn hidden(cmd: &mut Command) -> &mut Command {
+pub fn hidden(cmd: &mut Command) -> &mut Command {
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
     cmd
@@ -43,6 +43,44 @@ pub fn signal(s: &Session, cfg: &Config, sig: &str) -> Result<(), String> {
     } else {
         Err(format!("kill -{sig} {pid} failed"))
     }
+}
+
+/// Detach every terminal showing a tmux-hosted session: tabs close, Claude keeps running.
+pub fn hide(s: &Session, cfg: &Config) -> Result<(), String> {
+    let name = s
+        .tmux
+        .as_deref()
+        .ok_or("This session isn't running in tmux.")?;
+    let status = hidden(Command::new("wsl.exe").args([
+        "-d",
+        distro(s, cfg),
+        "-e",
+        "tmux",
+        "-L",
+        "cc-sidebar",
+        "detach-client",
+        "-s",
+        name,
+    ]))
+    .status()
+    .map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("couldn't detach {name}"))
+    }
+}
+
+/// Write ~/.config/cc-sidebar/host in WSL so `claudes` typed in any terminal uses tmux too
+/// (or remove it). Runs whenever the config is applied.
+pub fn sync_host(cfg: &Config) {
+    let script = if cfg.tmux() {
+        "mkdir -p ~/.config/cc-sidebar && printf tmux > ~/.config/cc-sidebar/host"
+    } else {
+        "rm -f ~/.config/cc-sidebar/host"
+    };
+    let _ = hidden(Command::new("wsl.exe").args(["-d", &cfg.distro, "-e", "sh", "-c", script]))
+        .status();
 }
 
 pub fn open_folder(s: &Session, cfg: &Config) -> Result<(), String> {
@@ -217,7 +255,11 @@ pub fn project_at(
 
 /// Start a new session in `path` (a WSL path that must exist).
 #[cfg(windows)]
-pub fn new_session(path: &str, cfg: &Config, overrides: &Overrides) -> Result<(), String> {
+pub fn new_session(
+    path: &str,
+    cfg: &Config,
+    overrides: &Overrides,
+) -> Result<Option<String>, String> {
     let path = path.trim().trim_end_matches('/');
     let path = if path.is_empty() { "/" } else { path };
     if !path.starts_with('/') {

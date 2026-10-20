@@ -10,6 +10,8 @@ interface Props {
   onRename: (s: Session, name: string) => void;
   onEnd: (s: Session) => void;
   onRemove: (s: Session) => void;
+  /** Hide it (detach every terminal) or open it in a Windows Terminal tab (tmux sessions). */
+  onAction: (s: Session, action: "hide" | "terminal") => void;
   onMessage: (msg: string) => void;
 }
 
@@ -22,6 +24,7 @@ export function SessionMenu({
   onRename,
   onEnd,
   onRemove,
+  onAction,
   onMessage,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -80,6 +83,27 @@ export function SessionMenu({
       ) : (
         <>
           <button onClick={() => setRenaming(true)}>Rename…</button>
+          {!closed && s.tmux && s.attached && (
+            <button
+              title="Close its terminal; Claude keeps running in the background"
+              onClick={() => {
+                onAction(s, "hide");
+                onClose();
+              }}
+            >
+              Hide (keep running)
+            </button>
+          )}
+          {!closed && s.tmux && (
+            <button
+              onClick={() => {
+                onAction(s, "terminal");
+                onClose();
+              }}
+            >
+              Open in Windows Terminal
+            </button>
+          )}
           <button
             onClick={() => {
               navigator.clipboard

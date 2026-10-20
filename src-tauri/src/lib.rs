@@ -23,6 +23,8 @@ pub mod session;
 mod settings;
 pub mod store;
 mod tasks;
+#[cfg(windows)]
+mod term;
 #[cfg(test)]
 mod tests;
 mod ui;
@@ -52,9 +54,14 @@ async fn list_tasks(ctx: State<'_, Ctx>, root: String) -> Result<Vec<tasks::Task
 /// Start a session in the project with the task as its first prompt.
 #[cfg(windows)]
 #[tauri::command]
-fn start_task(ctx: State<'_, Ctx>, root: String, task: tasks::Task) -> Result<(), String> {
+async fn start_task(
+    app: tauri::AppHandle,
+    ctx: State<'_, Ctx>,
+    root: String,
+    task: tasks::Task,
+) -> Result<(), String> {
     let cfg = ctx.config.read().unwrap().clone();
-    let overrides = ctx.overrides.read().unwrap();
+    let overrides = ctx.overrides.read().unwrap().clone();
     let name = ctx
         .store
         .lock()
@@ -64,7 +71,71 @@ fn start_task(ctx: State<'_, Ctx>, root: String, task: tasks::Task) -> Result<()
         .find(|t| t.project.root == root)
         .map(|t| t.project.name.clone())
         .unwrap_or_else(|| root.rsplit('/').next().unwrap_or("claude").to_string());
-    tasks::start(&cfg, &root, &name, &task, overrides.tasks_for(&root))
+    let hosted = tauri::async_runtime::spawn_blocking(move || {
+        tasks::start(&cfg, &root, &name, &task, overrides.tasks_for(&root))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    show_hosted(&app, hosted, "")
+}
+
+/// "window" mode: a session just started detached in tmux; show it in the terminal window.
+#[cfg(windows)]
+fn show_hosted(
+    app: &tauri::AppHandle,
+    hosted: Option<String>,
+    session_id: &str,
+) -> Result<(), String> {
+    match hosted {
+        Some(name) => term::show(app, &name, session_id).map_err(|e| e.to_string()),
+        None => Ok(()),
+    }
+}
+
+/// The terminal window opens a view of tmux session `name` (see `term`).
+#[cfg(windows)]
+#[tauri::command]
+fn term_open(
+    app: tauri::AppHandle,
+    ctx: State<'_, Ctx>,
+    views: State<'_, term::Views>,
+    name: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    let distro = ctx
+        .store
+        .lock()
+        .unwrap()
+        .ordered()
+        .into_iter()
+        .find(|s| s.tmux.as_deref() == Some(name.as_str()))
+        .and_then(|s| s.distro.clone())
+        .unwrap_or_else(|| ctx.config.read().unwrap().distro.clone());
+    views.open(&app, &name, &distro, cols, rows)
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn term_write(views: State<'_, term::Views>, name: String, data: String) -> Result<(), String> {
+    views.write(&name, &data)
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn term_resize(
+    views: State<'_, term::Views>,
+    name: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    views.resize(&name, cols, rows)
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn term_close(views: State<'_, term::Views>, name: String) {
+    views.close(&name);
 }
 
 /// Open projects.toml (created from a commented template the first time).
@@ -169,6 +240,7 @@ fn dismiss_session(ctx: State<'_, Ctx>, session_id: String) {
 #[cfg(windows)]
 #[tauri::command]
 async fn activate_session(
+    app: tauri::AppHandle,
     ctx: State<'_, Ctx>,
     session_id: String,
 ) -> Result<focus::Outcome, String> {
@@ -180,9 +252,20 @@ async fn activate_session(
         .cloned()
         .ok_or("unknown session")?;
     let cfg = ctx.config.read().unwrap().clone();
-    tauri::async_runtime::spawn_blocking(move || focus::activate(&session, &cfg))
-        .await
-        .map_err(|e| e.to_string())
+    // "window" mode: open tmux sessions show in the sidebar's own terminal window.
+    if cfg.viewer()
+        && session.status != session::Status::Closed
+        && let Some(name) = &session.tmux
+    {
+        term::show(&app, name, &session.session_id).map_err(|e| e.to_string())?;
+        return Ok(focus::Outcome::Focused);
+    }
+    let (outcome, hosted) =
+        tauri::async_runtime::spawn_blocking(move || focus::activate(&session, &cfg))
+            .await
+            .map_err(|e| e.to_string())?;
+    show_hosted(&app, hosted, &session_id)?;
+    Ok(outcome)
 }
 
 /// Global hotkey: focus the session that has been waiting on you the longest.
@@ -204,6 +287,12 @@ fn jump_to_waiting(ctx: &Ctx) {
     };
     if let Some(s) = target {
         let cfg = ctx.config.read().unwrap().clone();
+        if cfg.viewer()
+            && let Some(name) = &s.tmux
+        {
+            let _ = term::show(&ctx.app, name, &s.session_id);
+            return;
+        }
         tauri::async_runtime::spawn_blocking(move || focus::activate(&s, &cfg));
     }
 }
@@ -252,6 +341,8 @@ async fn session_action(
     let cfg = ctx.config.read().unwrap().clone();
     tauri::async_runtime::spawn_blocking(move || match action.as_str() {
         "end" => actions::signal(&s, &cfg, "TERM"),
+        "hide" => actions::hide(&s, &cfg),
+        "terminal" => focus::attach_tab(&s, &cfg),
         "folder" => actions::open_folder(&s, &cfg),
         "vscode" => actions::open_vscode(&s, &cfg),
         other => Err(format!("unknown action {other}")),
@@ -289,14 +380,20 @@ async fn recent_projects(ctx: State<'_, Ctx>) -> Result<Vec<actions::Recent>, St
 
 #[cfg(windows)]
 #[tauri::command]
-async fn new_session(ctx: State<'_, Ctx>, path: String) -> Result<(), String> {
+async fn new_session(
+    app: tauri::AppHandle,
+    ctx: State<'_, Ctx>,
+    path: String,
+) -> Result<(), String> {
     let (cfg, overrides) = (
         ctx.config.read().unwrap().clone(),
         ctx.overrides.read().unwrap().clone(),
     );
-    tauri::async_runtime::spawn_blocking(move || actions::new_session(&path, &cfg, &overrides))
-        .await
-        .map_err(|e| e.to_string())?
+    let hosted =
+        tauri::async_runtime::spawn_blocking(move || actions::new_session(&path, &cfg, &overrides))
+            .await
+            .map_err(|e| e.to_string())??;
+    show_hosted(&app, hosted, "")
 }
 
 /// "Add project": track a folder's project with no session yet (SPEC §3.12).
@@ -473,6 +570,14 @@ pub fn run() {
             #[cfg(windows)]
             play_sound,
             #[cfg(windows)]
+            term_open,
+            #[cfg(windows)]
+            term_write,
+            #[cfg(windows)]
+            term_resize,
+            #[cfg(windows)]
+            term_close,
+            #[cfg(windows)]
             list_sounds,
             #[cfg(windows)]
             list_monitors,
@@ -548,6 +653,8 @@ pub fn run() {
                 });
             }
             app.manage(ctx.clone());
+            #[cfg(windows)]
+            app.manage(term::Views::default());
 
             let collapse =
                 MenuItem::with_id(app, "collapse", "Collapse / expand", true, None::<&str>)?;
@@ -582,12 +689,20 @@ pub fn run() {
             tauri::async_runtime::spawn(server::ticker(ctx.clone()));
             tauri::async_runtime::spawn(server::watch_config(ctx.clone()));
             tauri::async_runtime::spawn(server::probe_usage(ctx.clone()));
+            tauri::async_runtime::spawn(liveness::watch_attached(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())
         })
         // Closed by Windows or another program (e.g. `taskkill`, an installer): give the
         // reserved space back and restore desktop icons first, like Quit in the tray.
         .on_window_event(|window, event| {
+            // The terminal window closed: its views detach (sessions keep running in tmux).
+            #[cfg(windows)]
+            if let tauri::WindowEvent::Destroyed = event
+                && window.label() == term::LABEL
+            {
+                window.state::<term::Views>().close_all();
+            }
             if let tauri::WindowEvent::CloseRequested { .. } = event
                 && window.label() == "main"
             {

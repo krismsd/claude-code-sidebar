@@ -35,6 +35,10 @@ export interface Session {
   pid: number | null;
   wt_session: string | null;
   distro: string | null;
+  /** tmux session it runs in ("cc-<tag>"), when hosted in tmux. */
+  tmux: string | null;
+  /** For a tmux session: a terminal shows it (null until checked). */
+  attached: boolean | null;
   cwd: string | null;
   shell_cwd: string | null;
   project: Project | null;
@@ -153,6 +157,7 @@ export interface Config {
   usage_command: string;
   tasks_command: string;
   autostart: boolean;
+  session_mode: "terminal" | "tmux" | "window";
 }
 
 export interface TasksConfig {

@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "peek",
-    "settings"
+    "settings",
+    "term"
   ],
   "permissions": [
     "core:default",

@@ -14,10 +14,11 @@ import { dropIndex, freshKeys, groupSessions } from "./lib/view";
 import { DRAG_TYPE } from "./lib/drag";
 import "./App.css";
 
-type Outcome = "focused" | "resumed" | "tab_not_found" | "untagged" | "failed";
+type Outcome = "focused" | "resumed" | "reopened" | "tab_not_found" | "untagged" | "failed";
 
 const OUTCOME_MESSAGE: Partial<Record<Outcome, string>> = {
   resumed: "Resuming in a new tab…",
+  reopened: "It was running in the background: opened in a new tab",
   tab_not_found: "Couldn't find its terminal tab (is it running outside Windows Terminal?)",
   untagged:
     "Started with plain `claude`, so the sidebar can't tell which tab it's in. Run /exit, then `claudes --continue`.",
@@ -355,6 +356,9 @@ function App() {
             invoke("session_action", { sessionId: s.session_id, action: "end" }).catch(report)
           }
           onRemove={(s) => invoke("dismiss_session", { sessionId: s.session_id }).catch(report)}
+          onAction={(s, action) =>
+            invoke("session_action", { sessionId: s.session_id, action }).catch(report)
+          }
         />
       )}
       <Drawer

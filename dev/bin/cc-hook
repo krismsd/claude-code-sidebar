@@ -23,6 +23,7 @@ out=$(curl -s --fail --connect-timeout 0.3 --max-time "$max" \
   -H 'Content-Type: application/json' \
   -H "X-CC-Tag: ${CC_SIDEBAR_TAG:-}" \
   -H "X-CC-Pid: ${CC_SIDEBAR_PID:-}" \
+  -H "X-CC-Tmux: ${CC_SIDEBAR_TMUX:-}" \
   -H "X-WT-Session: ${WT_SESSION:-}" \
   -H "X-CC-Internal: ${CC_SIDEBAR_INTERNAL:-}" \
   -H "X-WSL-Distro: ${WSL_DISTRO_NAME:-}" \

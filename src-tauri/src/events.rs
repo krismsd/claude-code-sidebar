@@ -12,6 +12,8 @@ pub struct HookMeta {
     pub distro: Option<String>,
     /// Set on our own Haiku recap calls; such events are dropped.
     pub internal: bool,
+    /// tmux session hosting this Claude Code ("cc-<tag>"), when it runs in tmux.
+    pub tmux: Option<String>,
 }
 
 impl HookMeta {
@@ -29,6 +31,7 @@ impl HookMeta {
             wt_session: val("x-wt-session"),
             distro: val("x-wsl-distro"),
             internal: val("x-cc-internal").is_some_and(|v| v == "1"),
+            tmux: val("x-cc-tmux"),
         }
     }
 }

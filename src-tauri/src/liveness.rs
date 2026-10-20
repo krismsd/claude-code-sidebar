@@ -37,16 +37,44 @@ pub async fn run(ctx: Ctx) {
     }
 }
 
-/// Returns the PIDs that are gone, or None if the check itself failed (then assume alive).
-async fn check(distro: &str, pids: &[u32]) -> Option<Vec<u32>> {
-    let list = pids
-        .iter()
-        .map(u32::to_string)
-        .collect::<Vec<_>>()
-        .join(" ");
-    let script = format!("for p in {list}; do [ -d /proc/$p ] || echo $p; done");
+/// Every few seconds, for sessions hosted in tmux: is a terminal showing them? (Closing a tab
+/// only detaches, so the card says when a session runs with nothing showing it.)
+pub async fn watch_attached(ctx: Ctx) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(4)).await;
+        let distros = ctx.store.lock().unwrap().tmux_distros();
+        let mut changed = false;
+        for distro in distros {
+            let name = distro.clone().unwrap_or_else(|| DEFAULT_DISTRO.into());
+            if let Some(list) = tmux_sessions(&name).await {
+                changed |= ctx.store.lock().unwrap().set_attached(&distro, &list);
+            }
+        }
+        if changed {
+            publish(&ctx);
+        }
+    }
+}
+
+/// `tmux ls` on the sidebar's socket: session name → has a client attached.
+pub async fn tmux_sessions(distro: &str) -> Option<HashMap<String, bool>> {
+    let out = wsl(
+        distro,
+        "tmux -L cc-sidebar ls -F '#{session_name} #{session_attached}' 2>/dev/null; true",
+    )
+    .await?;
+    Some(
+        out.lines()
+            .filter_map(|l| l.split_once(' '))
+            .map(|(n, a)| (n.to_string(), a.trim() != "0"))
+            .collect(),
+    )
+}
+
+/// Run a small script in a distro, without a console window. None if it failed or hung.
+async fn wsl(distro: &str, script: &str) -> Option<String> {
     let mut cmd = tokio::process::Command::new("wsl.exe");
-    cmd.args(["-d", distro, "-e", "sh", "-c", &script]);
+    cmd.args(["-d", distro, "-e", "sh", "-c", script]);
     #[cfg(windows)]
     {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -56,12 +84,22 @@ async fn check(distro: &str, pids: &[u32]) -> Option<Vec<u32>> {
         .await
         .ok()?
         .ok()?;
-    if !out.status.success() {
-        return None;
-    }
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Returns the PIDs that are gone, or None if the check itself failed (then assume alive).
+async fn check(distro: &str, pids: &[u32]) -> Option<Vec<u32>> {
+    let list = pids
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let script = format!("for p in {list}; do [ -d /proc/$p ] || echo $p; done");
+    let out = wsl(distro, &script).await?;
     Some(
-        String::from_utf8_lossy(&out.stdout)
-            .split_whitespace()
+        out.split_whitespace()
             .filter_map(|p| p.parse().ok())
             .collect(),
     )

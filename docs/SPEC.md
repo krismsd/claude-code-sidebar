@@ -185,6 +185,27 @@ Decisions (2026-10-17): stable project order with drag to reorder; trackers via 
 
 A footer shows the account's 5-hour and weekly usage (% and reset time), read from the `rate_limit_event` that every `claude -p` stream-json call emits: refreshed by each Haiku recap, plus one tiny call at startup (`cc-usage`). Past a reset time the row dims until the next update.
 
+### 3.14 Sessions hosted in tmux (M20, 2026-10-20)
+
+`session_mode` in config.toml, set from Settings → General → "Run sessions in":
+- **`terminal`** (default): as before. Claude Code is the tab's process, and closing the tab ends it.
+- **`tmux`**: `claudes` runs Claude Code in its own tmux session `cc-<tag>`, on a private socket (`tmux -L cc-sidebar`) with the sidebar's config (`~/.config/cc-sidebar/tmux.conf`: no prefix key, since Claude uses Ctrl+B; no status bar; mouse; OSC 52; extended keys; title passthrough). The tab is only a view: closing it detaches, Claude keeps running, and the card says "Running in the background". A click focuses the tab, or opens a new tab attached to the session (`wt … wsl.exe -e tmux -L cc-sidebar attach -t cc-<tag>`).
+- **`window`**: tmux as above, but sessions are shown in the sidebar's own terminal window: xterm.js through a ConPTY running `wsl.exe -e tmux attach`, one tab per session. New and resumed sessions start detached (`CC_SIDEBAR_DETACHED=1`, with the tag chosen by the app) and open there. Closing a tab or the window detaches.
+
+**Mechanics:**
+- The app writes `~/.config/cc-sidebar/host` (`tmux`) when the mode isn't `terminal`, so `claudes` typed in any terminal behaves the same. `CC_SIDEBAR_HOST` overrides it.
+- Inside tmux, the wrapper exports `CC_SIDEBAR_TMUX`, and cc-hook sends it as `X-CC-Tmux`.
+- Every 4 s the app runs `tmux ls` per distro to tell which sessions have a terminal attached.
+- Session menu: **Hide (keep running)** (`tmux detach-client -s`) and **Open in Windows Terminal**.
+- End still signals Claude's PID. When Claude exits, the tmux session and any views close.
+
+**Known differences from a plain Windows Terminal tab:**
+- scrollback lives in tmux (mouse wheel), so Windows Terminal's search only sees the screen;
+- mouse selection goes through tmux (Shift+drag for a native selection);
+- WSL shutdown or a Windows restart ends sessions (resume as before).
+
+In the sidebar's window: Ctrl+C copies a selection, Ctrl+V pastes (an image paste sends ^V so Claude reads the clipboard), and Shift+Enter sends Alt+Enter (newline).
+
 ## 4. Testing denials
 
 Prefer a harmless, deterministic trigger: add a test-only auto-mode rule in `dev/hooks.json` (see the "Configure auto mode" docs) that denies any command containing `CC_SIDEBAR_DENY_TEST`, then ask the test session to run `echo CC_SIDEBAR_DENY_TEST`. Verified in S4: the `autoMode.soft_deny` prose rule (read from `--settings`) denies it and emits `PermissionDenied`. It is a classifier judgement, not a regex, but it fired reliably. A plain `permissions.deny` match does not emit `PermissionDenied`.

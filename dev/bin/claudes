@@ -5,10 +5,13 @@
 #   sidebar can find and focus this Windows Terminal tab.
 # - CC_SIDEBAR_PID: this shell's PID, which becomes claude's PID via exec (liveness, kill).
 # - CC_SIDEBAR_SETTINGS (optional): extra settings file, e.g. dev/hooks.json for test sessions.
-tag=$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')
+# - Hosting (optional): with CC_SIDEBAR_HOST=tmux, or "tmux" in ~/.config/cc-sidebar/host
+#   (the sidebar's "Run sessions in" setting), Claude Code runs in its own tmux session
+#   "cc-<tag>" on a private socket, so closing the terminal only detaches and the session keeps
+#   running. CC_SIDEBAR_DETACHED=1 starts it without attaching (the sidebar opens a view).
+#   CC_SIDEBAR_TAG may be given to choose the tag (the sidebar does, to know the tmux name).
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/cc-sidebar"
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-export CC_SIDEBAR_TAG="$tag" CC_SIDEBAR_PID=$$ CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1
-printf '\033]0;[cc:%s] %s\007' "$tag" "${root##*/}"
 # CC_SIDEBAR_PROMPT_FILE (optional): first prompt, e.g. a task picked in the sidebar. Read
 # and deleted here so the text never goes through wt.exe's command line.
 if [ -n "${CC_SIDEBAR_PROMPT_FILE:-}" ] && [ -r "$CC_SIDEBAR_PROMPT_FILE" ]; then
@@ -16,6 +19,25 @@ if [ -n "${CC_SIDEBAR_PROMPT_FILE:-}" ] && [ -r "$CC_SIDEBAR_PROMPT_FILE" ]; the
   unset CC_SIDEBAR_PROMPT_FILE
   set -- "$@" "$prompt"
 fi
+host="${CC_SIDEBAR_HOST:-$(cat "$conf/host" 2>/dev/null)}"
+if [ "$host" = tmux ] && [ -z "${CC_SIDEBAR_IN_TMUX:-}" ] && command -v tmux >/dev/null; then
+  tag="${CC_SIDEBAR_TAG:-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')}"
+  printf '\033]0;[cc:%s] %s\007' "$tag" "${root##*/}"
+  attach=(); [ -n "${CC_SIDEBAR_DETACHED:-}" ] && attach=(-d)
+  # The session runs this script again, inside tmux; the server's environment is whatever it
+  # started with, so pass on what this run needs.
+  pass=(-e CC_SIDEBAR_IN_TMUX=1 -e "CC_SIDEBAR_TAG=$tag")
+  for v in CC_SIDEBAR_SETTINGS PATH; do
+    [ -n "${!v:-}" ] && pass+=(-e "$v=${!v}")
+  done
+  exec tmux -L cc-sidebar -f "$conf/tmux.conf" new-session "${attach[@]}" -s "cc-$tag" \
+    -c "$PWD" "${pass[@]}" -- "$0" "$@"
+fi
+tag="${CC_SIDEBAR_TAG:-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')}"
+export CC_SIDEBAR_TAG="$tag" CC_SIDEBAR_PID=$$ CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1
+# Inside tmux, the hooks report the tmux session so the sidebar can open or hide it.
+[ -n "${CC_SIDEBAR_IN_TMUX:-}" ] && export CC_SIDEBAR_TMUX="cc-$tag"
+printf '\033]0;[cc:%s] %s\007' "$tag" "${root##*/}"
 if [ -n "${CC_SIDEBAR_SETTINGS:-}" ]; then
   exec claude --settings "$CC_SIDEBAR_SETTINGS" "$@"
 fi

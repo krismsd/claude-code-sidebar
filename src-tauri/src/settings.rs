@@ -65,6 +65,11 @@ pub fn validate(c: &Config) -> Result<(), String> {
     one_of("mode", &c.mode, &["docked", "floating"])?;
     one_of("edge", &c.edge, &["right", "left"])?;
     one_of("toasts", &c.toasts, &["when_hidden", "always", "never"])?;
+    one_of(
+        "session_mode",
+        &c.session_mode,
+        &["terminal", "tmux", "window"],
+    )?;
     if !(200..=900).contains(&c.width) {
         return Err("Width must be between 200 and 900".into());
     }

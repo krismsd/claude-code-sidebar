@@ -343,6 +343,39 @@ impl Store {
 
     /// Load saved sessions (app start). Open sessions without a PID can't be checked, so they
     /// start closed and revive on their next event; the rest are confirmed by liveness.
+    /// Distros with open sessions hosted in tmux (to ask which have a terminal attached).
+    pub fn tmux_distros(&self) -> Vec<Option<String>> {
+        let mut out: Vec<Option<String>> = Vec::new();
+        for s in self.sessions.values() {
+            if s.tmux.is_some() && s.status != Status::Closed && !out.contains(&s.distro) {
+                out.push(s.distro.clone());
+            }
+        }
+        out
+    }
+
+    /// tmux's answer for one distro: session name → has a client attached. Returns whether any
+    /// card changed.
+    pub fn set_attached(
+        &mut self,
+        distro: &Option<String>,
+        attached: &HashMap<String, bool>,
+    ) -> bool {
+        let mut changed = false;
+        for s in self.sessions.values_mut() {
+            let Some(name) = &s.tmux else { continue };
+            if &s.distro != distro || s.status == Status::Closed {
+                continue;
+            }
+            let now = attached.get(name).copied();
+            if now.is_some() && s.attached != now {
+                s.attached = now;
+                changed = true;
+            }
+        }
+        changed
+    }
+
     pub fn restore(&mut self, saved: Vec<Session>, now: Ms) {
         for s in saved {
             let mut s = s.restored();

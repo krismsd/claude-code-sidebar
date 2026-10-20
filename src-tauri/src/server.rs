@@ -544,6 +544,12 @@ pub fn apply_config(ctx: &Ctx) {
             }
         }
     }
+    // Tell `claudes` in WSL whether to host sessions in tmux.
+    #[cfg(windows)]
+    {
+        let cfg = cfg.clone();
+        tauri::async_runtime::spawn_blocking(move || crate::actions::sync_host(&cfg));
+    }
     #[cfg(windows)]
     {
         crate::appbar::configure(

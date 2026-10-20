@@ -12,6 +12,8 @@ use uiautomation::types::ControlType;
 pub enum Outcome {
     Focused,
     Resumed,
+    /// A tmux session with no terminal showing it: opened in a new tab.
+    Reopened,
     /// Open session but no matching tab (e.g. running in VS Code or tmux).
     TabNotFound,
     /// Started with plain `claude` (no tag), and no tab title gave it away.
@@ -19,17 +21,23 @@ pub enum Outcome {
     Failed,
 }
 
-/// Click on a card: closed → resume in a new tab; open → focus its tab.
-pub fn activate(s: &Session, cfg: &Config) -> Outcome {
+/// Click on a card: closed → resume in a new tab; open → focus its tab (a tmux session with no
+/// tab gets a new one). In "window" mode the caller shows tmux sessions in the sidebar's own
+/// window instead; resuming then returns the new tmux session's name for it.
+pub fn activate(s: &Session, cfg: &Config) -> (Outcome, Option<String>) {
     if s.status == Status::Closed {
         return match resume(s, cfg) {
-            Ok(()) => Outcome::Resumed,
+            Ok(hosted) => (Outcome::Resumed, hosted),
             Err(e) => {
                 log::warn!("resume {}: {e}", s.session_id);
-                Outcome::Failed
+                (Outcome::Failed, None)
             }
         };
     }
+    (focus_open(s, cfg), None)
+}
+
+fn focus_open(s: &Session, cfg: &Config) -> Outcome {
     // Tagged sessions (started with `claudes`) have "[cc:<tag>]" in the tab title; plain `claude`
     // sessions fall back to the project name.
     let needle = match (&s.tag, &s.project) {
@@ -40,6 +48,13 @@ pub fn activate(s: &Session, cfg: &Config) -> Outcome {
     };
     match focus_tab(&needle) {
         Ok(true) => Outcome::Focused,
+        Ok(false) if s.tmux.is_some() => match attach_tab(s, cfg) {
+            Ok(()) => Outcome::Reopened,
+            Err(e) => {
+                log::warn!("attach {:?}: {e}", s.tmux);
+                Outcome::Failed
+            }
+        },
         Ok(false) if s.tag.is_none() => Outcome::Untagged,
         Ok(false) => Outcome::TabNotFound,
         Err(e) => {
@@ -129,7 +144,52 @@ fn bring_forward(hwnd: isize) {
     }
 }
 
-fn resume(s: &Session, cfg: &Config) -> Result<(), String> {
+/// A new Windows Terminal tab showing a tmux-hosted session.
+pub fn attach_tab(s: &Session, cfg: &Config) -> Result<(), String> {
+    let name = s.tmux.as_deref().ok_or("not in tmux")?;
+    let distro = s.distro.as_deref().unwrap_or(&cfg.distro);
+    let title = format!(
+        "[cc:{}] {}",
+        s.tag.as_deref().unwrap_or(""),
+        s.project.as_ref().map_or("claude", |p| p.name.as_str())
+    );
+    let argv = [
+        "-w",
+        &cfg.terminal_window,
+        "new-tab",
+        "--title",
+        &title,
+        "wsl.exe",
+        "-d",
+        distro,
+        "-e",
+        "tmux",
+        "-L",
+        "cc-sidebar",
+        "attach",
+        "-t",
+        name,
+    ];
+    if argv.iter().any(|a| a.contains(';')) {
+        return Err("argument contains ';'".into());
+    }
+    std::process::Command::new("wt.exe")
+        .args(argv)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Six hex digits, like the wrapper's own tags.
+fn new_tag() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("{:06x}", (nanos ^ (nanos >> 24)) as u32 & 0xff_ffff)
+}
+
+fn resume(s: &Session, cfg: &Config) -> Result<Option<String>, String> {
     let cwd = s.cwd.as_deref().ok_or("no cwd")?;
     let distro = s.distro.as_deref().unwrap_or(&cfg.distro);
     let name = s
@@ -147,9 +207,11 @@ fn resume(s: &Session, cfg: &Config) -> Result<(), String> {
     )
 }
 
-/// Open a new WT tab running the launcher (the `claudes` wrapper) in `cwd`:
-/// `wt.exe -w <window> new-tab … wsl.exe -d <distro> --cd <cwd> -e bash -lc "env … <launcher> <args> || true"`.
-/// wt.exe splits its command line on `;`, so nothing we pass may contain one.
+/// Start the launcher (the `claudes` wrapper) in `cwd`. Usually in a new WT tab:
+/// `wt.exe -w <window> new-tab … wsl.exe -d <distro> --cd <cwd> -e bash -lc "env … <launcher> <args> || true"`
+/// (wt.exe splits its command line on `;`, so nothing we pass may contain one). In tmux modes
+/// the wrapper runs it in tmux; in "window" mode it starts detached, with no tab, and the tmux
+/// session's name is returned for the sidebar's window to show.
 pub fn launch(
     cfg: &Config,
     distro: &str,
@@ -157,14 +219,35 @@ pub fn launch(
     name: &str,
     args: &str,
     extra_env: &[(&str, &str)],
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
+    let tag = new_tag();
+    let mut host_env: Vec<(&str, &str)> = Vec::new();
+    if cfg.tmux() {
+        host_env.push(("CC_SIDEBAR_HOST", "tmux"));
+        host_env.push(("CC_SIDEBAR_TAG", &tag));
+    }
+    if cfg.viewer() {
+        host_env.push(("CC_SIDEBAR_DETACHED", "1"));
+    }
     let env: String = cfg
         .launch_env
         .iter()
         .map(|(k, v)| (k.as_str(), v.as_str()))
         .chain(extra_env.iter().copied())
+        .chain(host_env)
         .map(|(k, v)| format!("{k}={v} "))
         .collect();
+    if cfg.viewer() {
+        let cmd = format!("env {env}{} {args}", cfg.launcher);
+        let status = crate::actions::hidden(&mut std::process::Command::new("wsl.exe"))
+            .args(["-d", distro, "--cd", cwd, "-e", "bash", "-lc", &cmd])
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err(format!("{} exited with {status}", cfg.launcher));
+        }
+        return Ok(Some(format!("cc-{tag}")));
+    }
     // `|| true`: Claude Code is the tab's only process, and Windows Terminal only closes a tab
     // by itself on a clean exit, so a session ended from the sidebar (SIGTERM, exit 143) would
     // leave a dead tab. (No `;` allowed: wt.exe splits on it.)
@@ -193,5 +276,5 @@ pub fn launch(
         .args(argv)
         .spawn()
         .map_err(|e| e.to_string())?;
-    Ok(())
+    Ok(None)
 }

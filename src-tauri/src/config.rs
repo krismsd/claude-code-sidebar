@@ -46,6 +46,10 @@ pub struct Config {
     pub tasks_command: String,
     /// Start cc-sidebar when you sign in to Windows (installed builds only).
     pub autostart: bool,
+    /// Where sessions run: "terminal" (in a Windows Terminal tab, as plain `claude` would),
+    /// "tmux" (in tmux, shown in Windows Terminal: closing the tab keeps it running) or
+    /// "window" (in tmux, shown in the sidebar's own terminal window).
+    pub session_mode: String,
 }
 
 fn default_sounds() -> BTreeMap<String, String> {
@@ -96,6 +100,7 @@ impl Default for Config {
             usage_command: "cc-usage".into(),
             tasks_command: "cc-tasks".into(),
             autostart: false,
+            session_mode: "terminal".into(),
         }
     }
 }
@@ -119,6 +124,7 @@ recap_min_interval_s = 30  # at most one Haiku recap per session this often
 usage_command = "cc-usage" # usage limits at startup: one tiny Haiku call ("" to skip)
 tasks_command = "cc-tasks" # lists project tasks via Claude + connectors (see projects.toml)
 autostart = false          # start cc-sidebar when you sign in to Windows
+session_mode = "terminal"  # "terminal", "tmux" (keeps running when the tab closes) or "window" (tmux, in the sidebar's own window)
 
 # Sound per alert: a .wav path, a Windows sound alias (e.g. "SystemHand"), or "" for none.
 [sounds]
@@ -173,6 +179,16 @@ impl Config {
             self.sounds.entry(k).or_insert(v);
         }
         self
+    }
+
+    /// Sessions run in tmux (they survive their terminal being closed).
+    pub fn tmux(&self) -> bool {
+        matches!(self.session_mode.as_str(), "tmux" | "window")
+    }
+
+    /// Sessions are shown in the sidebar's own terminal window.
+    pub fn viewer(&self) -> bool {
+        self.session_mode == "window"
     }
 
     pub fn floating(&self) -> bool {

@@ -45,6 +45,8 @@ function session(over: Partial<Session> = {}): Session {
     subagents_running: 0,
     background_running: 0,
     background: [],
+    tmux: null,
+    attached: null,
     alerts: [],
     closed_reason: null,
     starred: false,

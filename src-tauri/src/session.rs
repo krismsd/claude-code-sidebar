@@ -127,6 +127,12 @@ pub struct Session {
     pub pid: Option<u32>,
     pub wt_session: Option<String>,
     pub distro: Option<String>,
+    /// tmux session it runs in ("cc-<tag>"): closing its terminal only detaches.
+    #[serde(default)]
+    pub tmux: Option<String>,
+    /// For a tmux session: whether any terminal shows it (None until checked).
+    #[serde(default)]
+    pub attached: Option<bool>,
     /// The directory the session was started in, which decides its project. The payload `cwd`
     /// follows the session's `cd`s, so this is recovered from the transcript path (`start_dir`).
     pub cwd: Option<String>,
@@ -212,6 +218,8 @@ impl Session {
             pid: None,
             wt_session: None,
             distro: None,
+            tmux: None,
+            attached: None,
             cwd: None,
             shell_cwd: None,
             project: None,
@@ -344,7 +352,11 @@ impl Session {
             self.tag = m.tag.clone();
             self.pid = m.pid;
             self.wt_session = m.wt_session.clone();
+            self.tmux = m.tmux.clone();
         } else {
+            if m.tmux.is_some() {
+                self.tmux = m.tmux.clone();
+            }
             if m.tag.is_some() {
                 self.tag = m.tag.clone();
             }

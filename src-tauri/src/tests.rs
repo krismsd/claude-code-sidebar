@@ -1014,9 +1014,7 @@ fn haiku_can_say_background_commands_are_not_jobs() {
 
 #[test]
 fn awaited_background_commands() {
-    assert!(looks_awaited(
-        "Watch the nightly ML job until it finishes"
-    ));
+    assert!(looks_awaited("Watch the nightly ML job until it finishes"));
     assert!(looks_awaited("Poll the deploy status"));
     assert!(!looks_awaited("Start the dev server npm run dev"));
     assert!(!looks_awaited("sleep 90 sleep 90"));

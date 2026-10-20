@@ -1692,3 +1692,88 @@ button {
 .drawer-tile.drop-after::after {
   right: -5px;
 }
+
+/* ---- the sidebar's terminal window (M20) ---- */
+.term-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0c0c0c;
+}
+
+.term-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 6px 0;
+  background: #1c1c1c;
+  overflow-x: auto;
+  flex: none;
+}
+
+.term-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 5px 6px 5px 10px;
+  border-radius: 6px 6px 0 0;
+  border-top: 3px solid color-mix(in srgb, var(--project) 60%, transparent);
+  background: #262626;
+  color: #b8b8b8;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.term-tab.active {
+  background: #0c0c0c;
+  color: #f0f0f0;
+  border-top-color: var(--project);
+}
+
+.term-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.term-tab button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 14px;
+}
+
+.term-tab button:hover {
+  background: #3a3a3a;
+}
+
+.term-tab .chip {
+  font-size: 10px;
+  padding: 0 6px;
+}
+
+.term-panes {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.term-pane {
+  position: absolute;
+  inset: 4px 0 0 8px;
+}
+
+.term-empty {
+  color: #8a8a8a;
+  text-align: center;
+  margin-top: 30vh;
+}
+
+.card-hidden {
+  margin: 2px 0;
+  font-size: 11px;
+  color: var(--blue);
+}

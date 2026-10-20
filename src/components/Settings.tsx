@@ -384,6 +384,25 @@ function General({
       </Field>
 
       <h2>Sessions</h2>
+      <Field
+        label="Run sessions in"
+        hint={
+          config.session_mode === "terminal"
+            ? "Closing a tab ends its session."
+            : config.session_mode === "tmux"
+              ? "Sessions run in tmux: closing a tab keeps them running, and a click brings them back."
+              : "Sessions run in tmux and show in the sidebar's own terminal window. Closing it keeps them running."
+        }
+      >
+        <select
+          value={config.session_mode}
+          onChange={(e) => set("session_mode", e.target.value as Config["session_mode"])}
+        >
+          <option value="terminal">Windows Terminal tabs</option>
+          <option value="tmux">tmux, shown in Windows Terminal</option>
+          <option value="window">tmux, shown in the sidebar's own window</option>
+        </select>
+      </Field>
       <Field label="New and resumed tabs open in">
         <select
           value={wtKind}

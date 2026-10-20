@@ -79,7 +79,7 @@ pub fn start(
     name: &str,
     task: &Task,
     tc: Option<&TasksConfig>,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let safe_id: String = task
         .id
         .chars()

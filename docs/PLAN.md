@@ -197,6 +197,14 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] No hover overlay during a drag (its 300 ms timer could start as the drag began and pop it up mid-drag).
 - [x] Menus (session right-click, project ⋯, ⚙) close when the sidebar loses focus (window `blur`), e.g. on a click in another app.
 
+## M20: Sessions in tmux, and the sidebar's own terminal (2026-10-20, branch `tmux-sessions`)
+
+Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) again. See SPEC §3.14.
+- [x] WSL: `dev/tmux/tmux.conf` (installed by install.sh); `claudes` hosts in tmux when `CC_SIDEBAR_HOST`/`~/.config/cc-sidebar/host` says so; cc-hook sends `X-CC-Tmux`. Tested with a stub claude: arguments with spaces survive, Claude's PID is the wrapper's (liveness and End unchanged), and the title passes through.
+- [x] App: `session_mode` (terminal | tmux | window); the host marker is synced on config apply; `Session.tmux`/`attached`; the attach watcher (4 s); focus falls back to a new attached tab; Hide / Open in Windows Terminal; "Running in the background" on cards.
+- [x] Terminal window (`term.rs` + `TerminalWindow.tsx`): portable-pty ConPTY → `wsl.exe tmux attach`, UTF-8-safe output events, a waiter thread drops the console on exit (ConPTY only ends output then), tabs per session, and keys (copy/paste/image paste/Shift+Enter), web links, OSC 52.
+- [ ] Verify on screen: the window opens and attaches, typing, resize, Hide/close → background → click to reopen, End, mode `tmux` with Windows Terminal, Shift+Enter, Ctrl+B, image paste.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

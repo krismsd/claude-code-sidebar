@@ -26,6 +26,18 @@ const stop =
     f();
   };
 
+const HOUR = 3_600_000;
+
+/** A "ready" pill fades from green to grey between 1 and 2 hours: still ready, but old news. */
+function readyFade(s: Session, now: number): CSSProperties | undefined {
+  if (s.status !== "idle") return undefined;
+  const grey = Math.min(1, Math.max(0, (now - s.status_since - HOUR) / HOUR));
+  if (grey === 0) return undefined;
+  return {
+    background: `color-mix(in srgb, var(--grey) ${Math.round(grey * 100)}%, var(--green))`,
+  };
+}
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Session card. Compact in the list (its height never changes); the hover overlay draws the
@@ -93,7 +105,7 @@ export function SessionCard({
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
-        <span className={`chip chip-${s.status}`}>
+        <span className={`chip chip-${s.status}`} style={readyFade(s, now)}>
           {closed ? closedLabel(s) : STATUS_LABEL[s.status]} · {elapsed(s.status_since, now)}
         </span>
       </header>

@@ -3,6 +3,7 @@ import type { Project, Session } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
 import { arrange, projectStatus, reorder } from "../lib/view";
+import { elapsed, sessionName } from "../lib/format";
 import {
   DRAG_TYPE,
   draggedProject,
@@ -36,6 +37,8 @@ interface Props {
   onNewSession: (root: string) => void;
   onProjectAction: (root: string, action: "folder" | "vscode") => void;
   onCloseProject: (root: string) => void;
+  /** Delete a closed session's card for good. */
+  onDeleteSession: (s: Session) => void;
   /** Drag-to-reorder: a project was dropped just before or after this section. */
   onDropProject: (draggedRoot: string, ontoRoot: string, place: "before" | "after") => void;
   /** Put the project in the drawer. */
@@ -47,6 +50,8 @@ interface Props {
 
 /** Roughly the project menu's height, to decide whether it fits below the header. */
 const MENU_HEIGHT = 150;
+/** Height of one entry in the closed-sessions menu, for the same decision. */
+const CLOSED_ITEM_HEIGHT = 28;
 
 export function ProjectSection({
   project,
@@ -59,13 +64,14 @@ export function ProjectSection({
   onShelve,
   sessionOrder,
   onReorderSessions,
+  onDeleteSession,
   hasTasks,
   onSetupTasks,
   onMessage,
 }: Props) {
   const [showTasks, setShowTasks] = useState(false);
-  const [showClosed, setShowClosed] = useState(false);
-  const [menu, setMenu] = useState(false);
+  /** Open menu: the project's actions (⋯) or its closed sessions ("N closed"). */
+  const [menu, setMenu] = useState<"actions" | "closed" | false>(false);
   /** Open the menu upwards when there's no room under the header (the last project). */
   const [menuUp, setMenuUp] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -91,6 +97,13 @@ export function ProjectSection({
     };
   }, [menu]);
   const { visible, closed } = arrange(sessions, sessionOrder);
+  /** Open a header menu, upwards when there's no room under the header (the last project). */
+  const openMenu = (e: React.MouseEvent, which: "actions" | "closed", height: number) => {
+    const list = e.currentTarget.closest(".cards")?.getBoundingClientRect();
+    const head = e.currentTarget.getBoundingClientRect();
+    setMenuUp(!!list && head.bottom + height > list.bottom && head.top > height);
+    setMenu(menu === which ? false : which);
+  };
   const [cardDrop, setCardDrop] = useState<{ id: string; place: "before" | "after" } | null>(null);
   // Attention (dots, flashes) is shown on the sessions, not on their project.
   const status = projectStatus(sessions, cards.fresh);
@@ -132,7 +145,16 @@ export function ProjectSection({
           {project?.name ?? "Other"}
           {project?.label && <span className="label-tag">{project.label}</span>}
         </span>
-        <span className="muted small">{status.open > 0 ? `${status.open} open` : ""}</span>
+        {closed.length > 0 && (
+          <button
+            className="closed-link"
+            title="Closed sessions: pick one to reopen it"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => openMenu(e, "closed", closed.length * CLOSED_ITEM_HEIGHT + 10)}
+          >
+            {closed.length} closed
+          </button>
+        )}
         {root && (
           <>
             <button className="icon" title="New session here" onClick={() => onNewSession(root)}>
@@ -142,21 +164,37 @@ export function ProjectSection({
               className="icon"
               title="Project actions"
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                const list = e.currentTarget.closest(".cards")?.getBoundingClientRect();
-                const head = e.currentTarget.getBoundingClientRect();
-                setMenuUp(
-                  !!list && head.bottom + MENU_HEIGHT > list.bottom && head.top > MENU_HEIGHT,
-                );
-                setMenu(!menu);
-              }}
+              onClick={(e) => openMenu(e, "actions", MENU_HEIGHT)}
             >
               ⋯
             </button>
           </>
         )}
       </header>
-      {menu && root && (
+      {menu === "closed" && (
+        <div className={`project-menu closed-menu${menuUp ? " up" : ""}`} ref={menuRef}>
+          {closed.map((s) => (
+            <div className="closed-item" key={s.session_id}>
+              <button
+                className="closed-open"
+                title="Reopen"
+                onClick={() => (cards.onActivate(s), setMenu(false))}
+              >
+                <span className="closed-name">{sessionName(s)}</span>
+                <span className="muted small">{elapsed(s.status_since, cards.now)}</span>
+              </button>
+              <button
+                className="closed-delete"
+                title="Delete it from the sidebar"
+                onClick={() => onDeleteSession(s)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {menu === "actions" && root && (
         <div className={`project-menu${menuUp ? " up" : ""}`} ref={menuRef}>
           {hasTasks ? (
             <button onClick={() => (setShowTasks(true), setMenu(false))}>Tasks…</button>
@@ -176,7 +214,7 @@ export function ProjectSection({
           <button
             className={confirmClose ? "danger" : ""}
             disabled={status.open > 0}
-            title={status.open > 0 ? "End or close its sessions first" : undefined}
+            title={status.open > 0 ? "Remove its running sessions first" : undefined}
             onClick={() => {
               if (!confirmClose) {
                 setConfirmClose(true);
@@ -231,15 +269,9 @@ export function ProjectSection({
             <SessionCard session={s} {...cards} />
           </div>
         ))}
-        {visible.length === 0 && closed.length === 0 && (
+        {visible.length === 0 && (
           <div className="muted small empty-project">No sessions. + starts one.</div>
         )}
-        {closed.length > 0 && (
-          <button className="closed-toggle" onClick={() => setShowClosed(!showClosed)}>
-            {showClosed ? "▾" : "▸"} {closed.length} closed
-          </button>
-        )}
-        {showClosed && closed.map((s) => <SessionCard key={s.session_id} session={s} {...cards} />)}
       </div>
     </section>
   );

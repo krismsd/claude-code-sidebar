@@ -268,6 +268,8 @@ function App() {
     onDropProject: (dragged: string, onto: string, place: "before" | "after") =>
       placeProject(dragged, onto, place, false),
     onShelve: (root: string) => shelve(root, true),
+    onDeleteSession: (s: Session) =>
+      invoke("dismiss_session", { sessionId: s.session_id }).catch(report),
     onReorderSessions: (root: string, ids: string[]) =>
       invoke("set_session_order", { root, ids }).catch(report),
   };

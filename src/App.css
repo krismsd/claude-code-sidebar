@@ -313,7 +313,6 @@ body,
   cursor: pointer;
 }
 
-.closed-toggle,
 .link {
   border: none;
   background: none;
@@ -745,6 +744,59 @@ button {
 .project-menu button:disabled {
   color: var(--muted);
   cursor: default;
+}
+
+/* "N closed" in a project header, and its menu of closed sessions to reopen. */
+.closed-link {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+.closed-link:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.closed-menu {
+  width: 260px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.closed-item {
+  display: flex;
+  align-items: center;
+}
+
+.project-menu .closed-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.closed-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-menu .closed-delete {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 5px 6px;
+}
+
+.project-menu .closed-delete:hover {
+  color: var(--fg);
 }
 
 .project-menu .danger,

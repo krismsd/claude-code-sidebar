@@ -181,9 +181,10 @@ Decisions (2026-10-17): stable project order with drag to reorder; trackers via 
 - **Waiting on background work:** jobs Claude started in the background and will act on (a watcher, a poll loop, a background agent) are shown in a highlighted "Waiting on" block on the card, apart from services such as dev servers. Each is guessed from its description, then confirmed or overruled by Haiku's `WAITING:` verdict. When a job reports back and Claude has dealt with it, a ✅ alert sounds straight away (unless the user started that turn).
 - **Project header:** colour band, name, label, a status summary, **+** (new session in the project root) and a **⋯** menu: Tasks…, Open folder, VS Code, Close project. Closing untracks it and hides its closed sessions; a new session there brings it back.
 - **Kept until removed** (2026-10-21, replaces stars): every session stays in its project's list, whether it's running, dormant (its process ended: idle with nothing showing it, a tab closed, a crash; shown as "ready", and a click resumes it) or anything else.
-  - **Remove** (right-click) moves it to the folded "closed" section and ends its process tree, background tasks included. It asks first when that stops work: it's working, waiting on the user, or has background tasks.
+  - **Remove** (right-click) moves it to the project's closed sessions and ends its process tree, background tasks included. It asks first when that stops work: it's working, waiting on the user, or has background tasks.
   - `/exit` counts as removing. Resuming brings a session back into the list.
   - Only removed sessions are pruned after the retention period, and only they can be deleted.
+  - Closed sessions don't take room in the list: the project header shows "N closed" (in place of "N open"), and it opens a menu of them, newest first with their age. A click reopens one (resume); ✕ deletes it.
   - **Force end** kills a stuck session's tree (SIGKILL) and leaves it in the list.
   - Project headers show no status dot or flash: attention belongs to sessions. Drawer tiles keep theirs, since the drawer hides the sessions.
 - **Within a project:** starred first, then open sessions by start time, then closed ones (collapsed to a "n closed" line unless starred).

@@ -223,6 +223,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Removed the card's "Running in the background" line: with idle sessions ended, a session that survives without a window is working, waiting on you or has background work, all already on the card, and a click does the right thing either way.
 - [x] The ✅ finished alert has no card line to dismiss, so it pulsed the project dot until the next turn. Opening the session (a click on its card or strip marker) now counts as seeing it (`Store::seen`).
 - [x] Fix: Claude's status line got garbled after partial redraws in the terminal window. xterm.js's default (Unicode 6) width table counts some emoji as one column where tmux counts two. Now uses the Unicode 11 table (`@xterm/addon-unicode11`).
+- [x] Fix: the expanded card's "You:" showed the `<task-notification>` that Claude Code injects when a background job finishes. Any prompt starting with a tag is now treated as injected (`injected()`), and saved cards are cleaned on load.
 - [ ] Not yet tried: image paste, Ctrl+B to background a running command, copying with mouse selection in the window.
 
 

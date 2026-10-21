@@ -131,6 +131,12 @@ pub fn looks_awaited(text: &str) -> bool {
     !looks_service(&t) && WAIT_WORDS.iter().any(|w| t.contains(w))
 }
 
+/// A prompt Claude Code injected (`<task-notification>`, `<agent-message>`, …) rather than one
+/// the user typed: they start with a tag.
+fn injected(prompt: &str) -> bool {
+    prompt.trim_start().starts_with('<')
+}
+
 /// Is a background task a job Claude waits on? Agents always are, services never; for other
 /// commands Haiku's verdict on the session (if any) beats the guess from the text.
 fn awaited(agent: bool, text: &str, haiku: Option<bool>) -> bool {
@@ -321,6 +327,10 @@ impl Session {
                 .retain(|a| !matches!(a.kind, AlertKind::Waiting | AlertKind::Slow));
         }
         self.next_alert_id = self.alerts.iter().map(|a| a.id).max().unwrap_or(0) + 1;
+        // Saved by a build that took injected prompts (task notifications) for the user's.
+        if self.last_prompt.as_deref().is_some_and(injected) {
+            self.last_prompt = None;
+        }
         // Saved by a build that let Haiku's verdict mark services (dev servers) as jobs.
         let haiku = self.jobs_awaited;
         for b in &mut self.background {
@@ -436,11 +446,7 @@ impl Session {
             self.permission_released_at = None;
         }
 
-        // Prompts Claude Code injects (a background task or agent reporting back) start with a
-        // tag; anything else is the user.
-        if matches!(&hook.event, Event::UserPromptSubmit { prompt }
-            if !prompt.trim_start().starts_with('<'))
-        {
+        if matches!(&hook.event, Event::UserPromptSubmit { prompt } if !injected(prompt)) {
             self.user_turn = true;
         }
 
@@ -490,8 +496,9 @@ impl Session {
                 }
             }
             Event::UserPromptSubmit { prompt } => {
-                // Background subagent hand-backs arrive as prompts; they aren't the user's.
-                if !prompt.trim_start().starts_with("<agent-message") {
+                // Prompts Claude Code injects (an agent handing back, a background task
+                // reporting it finished) start with a tag; they aren't the user's.
+                if !injected(prompt) {
                     self.last_prompt = Some(truncate(prompt, 200));
                     if self.first_prompt.is_none() {
                         self.first_prompt = Some(truncate(prompt, 60));

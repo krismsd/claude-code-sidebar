@@ -1151,6 +1151,11 @@ fn opening_a_session_clears_job_finished() {
     st.apply(&ours("UserPromptSubmit.task-notification"), 2);
     st.apply(&ours("Stop"), 3);
     assert!(st.get(SID).unwrap().has_alert(AlertKind::Finished));
+    assert_eq!(
+        st.get(SID).unwrap().last_prompt,
+        None,
+        "a task notification isn't the user's prompt"
+    );
     assert!(st.seen(SID));
     assert!(!st.get(SID).unwrap().has_alert(AlertKind::Finished));
     assert!(!st.seen(SID), "nothing left to clear");

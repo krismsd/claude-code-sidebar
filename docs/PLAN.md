@@ -268,6 +268,10 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Follow-up: hover and minimise clashed (the preview, drawn expanded over a minimised card, hid its ▸). Now the title bar is for controls and the body for the preview: hovering the title bar never opens the preview, and a fold toggle (▾/▸) sits in the header's left padding, always shown on minimised cards and on hover otherwise, so one click folds or unfolds. Minimised cards, all title bar, have no preview. Tested on screen.
 - [x] `Session.minimized` (saved). A minimised card shows only its title bar, with a ▸ before the name that expands it. Right-click → Minimise/Expand; the project ⋯ → Minimise all/Expand all. It opens by itself while the session needs the user (permission, question, error), and the hover copy shows everything. Not double-click: a click already opens the session. Tested on screen with the dev session's own card.
 
+## M27: No header; controls in the footer (2026-10-22)
+
+- [x] The "cc-sidebar" title and "N open" count are gone. The +, ⚙ and collapse buttons sit right of the usage bars in one footer, which is the floating window's drag handle. The ⚙ menu opens upwards from it, and the add-project panel appears just above it.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

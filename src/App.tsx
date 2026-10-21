@@ -231,7 +231,6 @@ function App() {
   const drag = state.floating ? { "data-tauri-drag-region": true } : {};
 
   const { byRoot, other } = groupSessions(state);
-  const openCount = state.sessions.filter((s) => s.status !== "closed").length;
   const hovered = hover && state.sessions.find((s) => s.session_id === hover.id);
   const menuSession = menu && state.sessions.find((s) => s.session_id === menu.id);
 
@@ -281,45 +280,6 @@ function App() {
 
   return (
     <main className="sidebar">
-      <header className="sidebar-header" {...drag}>
-        <span {...drag}>cc-sidebar</span>
-        <span className="header-right">
-          <span className="muted small">{openCount} open</span>
-          <button className="plus" title="Add project" onClick={() => setCreating(!creating)}>
-            +
-          </button>
-          <button
-            className="plus"
-            title="Window and settings"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => setWindowMenu(!windowMenu)}
-          >
-            ⚙
-          </button>
-          <button
-            className="plus"
-            title="Collapse to a status strip"
-            onClick={() => setCollapsed(true)}
-          >
-            {state.left_edge ? "«" : "»"}
-          </button>
-        </span>
-      </header>
-      {windowMenu && (
-        <WindowMenu
-          floating={state.floating}
-          monitor={state.monitor}
-          onClose={() => setWindowMenu(false)}
-          onError={report}
-        />
-      )}
-      {creating && (
-        <AddProject
-          tracked={new Set(state.projects.map((t) => t.project.root))}
-          onClose={() => setCreating(false)}
-          onMessage={setToast}
-        />
-      )}
       <div className="cards" onScroll={() => setHover(null)}>
         {state.projects.length === 0 && other.length === 0 && (
           <p className="empty">No projects yet. Start a session, or use + above.</p>
@@ -381,7 +341,41 @@ function App() {
         onUnshelve={(root) => shelve(root, false)}
         onDropAt={(dragged, onto, place) => placeProject(dragged, onto, place, true)}
       />
-      <UsageFooter usage={state.usage} now={now} />
+      {windowMenu && (
+        <WindowMenu
+          floating={state.floating}
+          monitor={state.monitor}
+          onClose={() => setWindowMenu(false)}
+          onError={report}
+        />
+      )}
+      {creating && (
+        <AddProject
+          tracked={new Set(state.projects.map((t) => t.project.root))}
+          onClose={() => setCreating(false)}
+          onMessage={setToast}
+        />
+      )}
+      <UsageFooter usage={state.usage} now={now} drag={drag}>
+        <button className="plus" title="Add project" onClick={() => setCreating(!creating)}>
+          +
+        </button>
+        <button
+          className="plus"
+          title="Window and settings"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => setWindowMenu(!windowMenu)}
+        >
+          ⚙
+        </button>
+        <button
+          className="plus"
+          title="Collapse to a status strip"
+          onClick={() => setCollapsed(true)}
+        >
+          {state.left_edge ? "«" : "»"}
+        </button>
+      </UsageFooter>
       {toast && <div className="toast">{toast}</div>}
     </main>
   );

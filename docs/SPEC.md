@@ -165,7 +165,7 @@ Edited from a **settings window** (⚙ → Settings…, or the tray), with Gener
 
 ### 3.11 Add project (2026-10-17; was "new session")
 
-The header **+** adds a project (tracked, no session) from recents not already in the sidebar, or any folder; sessions start from the project's own **+**. Original design:
+The footer's **+** (the sidebar has no header since 2026-10-22: its +, ⚙ and collapse buttons sit beside the usage bars, and a floating window is dragged by the footer) adds a project (tracked, no session) from recents not already in the sidebar, or any folder; sessions start from the project's own **+**. Original design:
 
 A "+" button in the sidebar header opens a project picker:
 

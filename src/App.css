@@ -933,7 +933,8 @@ button {
 .window-menu {
   position: absolute;
   right: 8px;
-  top: 40px;
+  /* Opens upwards from the footer's ⚙. */
+  bottom: 52px;
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -1170,21 +1171,36 @@ button {
 }
 
 /* ---- usage footer (M14) ---- */
+/* The foot: usage on the left, the sidebar's controls (+, ⚙, collapse) on the right. */
 .usage {
   flex: none;
-  padding: 6px 10px 8px;
+  padding: 6px 8px 8px 10px;
   border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.usage-rows {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 11px;
+}
+
+.sidebar-controls {
+  flex: none;
+  display: flex;
+  gap: 4px;
 }
 
 .usage-row {
   display: grid;
-  grid-template-columns: 50px 1fr 32px 84px;
+  grid-template-columns: 44px 1fr 28px 72px;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .usage-row.stale {

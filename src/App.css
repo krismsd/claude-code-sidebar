@@ -94,6 +94,7 @@ body,
 }
 
 .card-head {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1886,15 +1887,28 @@ button {
   padding-bottom: 6px;
 }
 
-.unfold {
+/* Fold toggle: in the header's 10 px left padding, so the title never moves. */
+.fold {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 11px;
+  padding: 0;
   border: none;
   background: none;
   color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
-  padding: 0 4px 0 0;
-  font-size: 11px;
+  opacity: 0;
 }
 
-.unfold:hover {
+.card-head:hover .fold,
+.fold.folded {
+  opacity: 1;
+}
+
+.fold:hover {
   color: var(--fg);
 }

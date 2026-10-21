@@ -265,6 +265,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 ## M26: Minimised session cards (2026-10-21)
 
+- [x] Follow-up: hover and minimise clashed (the preview, drawn expanded over a minimised card, hid its ▸). Now the title bar is for controls and the body for the preview: hovering the title bar never opens the preview, and a fold toggle (▾/▸) sits in the header's left padding, always shown on minimised cards and on hover otherwise, so one click folds or unfolds. Minimised cards, all title bar, have no preview. Tested on screen.
 - [x] `Session.minimized` (saved). A minimised card shows only its title bar, with a ▸ before the name that expands it. Right-click → Minimise/Expand; the project ⋯ → Minimise all/Expand all. It opens by itself while the session needs the user (permission, question, error), and the hover copy shows everything. Not double-click: a click already opens the session. Tested on screen with the dev session's own card.
 
 ## Housekeeping (2026-10-17, v0.2.0)

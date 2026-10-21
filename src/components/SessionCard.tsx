@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import type { AwaySpell, Background, Session } from "../lib/types";
 import { dormant, presentTime } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
@@ -85,6 +85,7 @@ export function SessionCard({
   // error), when it opens until that's dealt with. The hover copy always shows everything.
   const needsYou = ["needs_permission", "needs_input", "error"].includes(s.status);
   const folded = s.minimized && !expanded && !needsYou;
+  const overBody = useRef(false);
   const activity =
     s.status === "needs_permission" && s.pending_permission
       ? `Wants to: ${s.pending_permission.summary}`
@@ -100,20 +101,37 @@ export function SessionCard({
       className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}`}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
-      onMouseEnter={(e) => onHover(s, e.currentTarget)}
-      onMouseLeave={() => onHover(s, null)}
+      // The title bar is for controls (the fold toggle), so only the body opens the hover
+      // copy; a minimised card, all title bar, never does.
+      onMouseOver={(e) => {
+        const body = !(e.target as Element).closest(".card-head");
+        if (body !== overBody.current) {
+          overBody.current = body;
+          onHover(s, body ? e.currentTarget : null);
+        }
+      }}
+      onMouseLeave={() => {
+        overBody.current = false;
+        onHover(s, null);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         onMenu(s, e.clientX, e.clientY);
       }}
     >
       <header className="card-head">
+        {/* Fold toggle, in the header's left padding (the title doesn't move): always shown on
+            a minimised card, on hover otherwise. Not on the hover copy. */}
+        {!expanded && (
+          <button
+            className={`fold${folded ? " folded" : ""}`}
+            title={folded ? "Expand" : "Minimise"}
+            onClick={stop(() => onMinimize(s, !s.minimized))}
+          >
+            {folded ? "▸" : "▾"}
+          </button>
+        )}
         <span className="card-title">
-          {folded && (
-            <button className="unfold" title="Expand" onClick={stop(() => onMinimize(s, false))}>
-              ▸
-            </button>
-          )}
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>

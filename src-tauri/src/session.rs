@@ -258,6 +258,9 @@ pub struct Session {
     /// in data saved before this existed (see `restored`).
     #[serde(default)]
     pub removed: Option<bool>,
+    /// Minimised by the user: its card shows only the title bar (unless it needs them).
+    #[serde(default)]
+    pub minimized: bool,
     /// Old: starred sessions were kept. Read once to migrate to `removed`.
     #[serde(default, skip_serializing)]
     pub starred: bool,
@@ -320,6 +323,7 @@ impl Session {
             alerts: Vec::new(),
             closed_reason: None,
             removed: Some(false),
+            minimized: false,
             starred: false,
             tool_failures: HashMap::new(),
             permission_released_at: None,

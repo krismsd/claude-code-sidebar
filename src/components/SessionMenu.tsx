@@ -8,6 +8,8 @@ interface Props {
   y: number;
   onClose: () => void;
   onRename: (s: Session, name: string) => void;
+  /** Minimise the card to its title bar, or expand it. */
+  onMinimize: (s: Session, minimized: boolean) => void;
   /** Move it to the closed section, ending it (and what it runs) if it's running. */
   onRemove: (s: Session) => void;
   /** Kill a stuck session and everything it started; it stays in the list. */
@@ -27,6 +29,7 @@ export function SessionMenu({
   y,
   onClose,
   onRename,
+  onMinimize,
   onRemove,
   onForceEnd,
   onDelete,
@@ -102,6 +105,14 @@ export function SessionMenu({
       ) : (
         <>
           <button onClick={() => setRenaming(true)}>Rename…</button>
+          <button
+            onClick={() => {
+              onMinimize(s, !s.minimized);
+              onClose();
+            }}
+          >
+            {s.minimized ? "Expand" : "Minimise"}
+          </button>
           {!closed && s.tmux && s.attached && (
             <button
               title="Close its terminal; Claude keeps running in the background"

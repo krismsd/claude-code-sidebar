@@ -187,6 +187,19 @@ fn peek_hide(app: tauri::AppHandle) {
     peek::hide(&app);
 }
 
+/// Minimise session cards to their title bar, or expand them.
+#[tauri::command]
+fn set_minimized(ctx: State<'_, Ctx>, session_ids: Vec<String>, minimized: bool) {
+    if ctx
+        .store
+        .lock()
+        .unwrap()
+        .set_minimized(&session_ids, minimized)
+    {
+        server::publish(&ctx);
+    }
+}
+
 /// Remove a session: it moves to its project's "closed" section, and if it's still running it
 /// is ended with everything it started (the card asks first when that loses work).
 #[tauri::command]
@@ -615,6 +628,7 @@ pub fn run() {
             #[cfg(windows)]
             start_task,
             remove_session,
+            set_minimized,
             peek_show,
             peek_resize,
             peek_hide,

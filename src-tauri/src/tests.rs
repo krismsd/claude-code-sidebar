@@ -1336,3 +1336,15 @@ fn titles_stick_but_a_stored_name_wins() {
     s.set_haiku_recap(s.stop_seq, recap(None, Some("Renamed in Claude Code")));
     assert_eq!(s.title.as_deref(), Some("Renamed in Claude Code"));
 }
+
+#[test]
+fn minimised_cards_persist() {
+    let mut st = Store::default();
+    with_project(&mut st, "a", "/p/alpha", 0);
+    assert!(st.set_minimized(&["a".into()], true));
+    assert!(!st.set_minimized(&["a".into()], true), "no change");
+    let json = serde_json::to_string(&st.snapshot()).unwrap();
+    let mut st2 = Store::default();
+    st2.restore(serde_json::from_str(&json).unwrap(), 1);
+    assert!(st2.get("a").unwrap().minimized);
+}

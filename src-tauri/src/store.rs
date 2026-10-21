@@ -214,6 +214,20 @@ impl Store {
         }
     }
 
+    /// Minimise (or expand) session cards. Returns whether any changed.
+    pub fn set_minimized(&mut self, session_ids: &[String], minimized: bool) -> bool {
+        let mut changed = false;
+        for id in session_ids {
+            if let Some(s) = self.sessions.get_mut(id)
+                && s.minimized != minimized
+            {
+                s.minimized = minimized;
+                changed = true;
+            }
+        }
+        changed
+    }
+
     /// Move a session to its project's "closed" section (its process is ended separately).
     pub fn set_removed(&mut self, session_id: &str, removed: bool) -> bool {
         self.sessions.get_mut(session_id).is_some_and(|s| {

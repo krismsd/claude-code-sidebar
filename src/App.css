@@ -1878,3 +1878,25 @@ button {
   text-align: center;
   margin-top: 30vh;
 }
+
+/* Minimised card: just the title bar. */
+.card.minimized {
+  padding-bottom: 0;
+}
+
+.card.minimized .card-head {
+  padding-bottom: 6px;
+}
+
+.unfold {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px 0 0;
+  font-size: 11px;
+}
+
+.unfold:hover {
+  color: var(--fg);
+}

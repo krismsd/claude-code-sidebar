@@ -60,6 +60,7 @@ function session(over: Partial<Session> = {}): Session {
     alerts: [],
     closed_reason: null,
     removed: false,
+    minimized: false,
     ...over,
   };
 }

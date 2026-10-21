@@ -49,6 +49,7 @@ export function Peek() {
           onAnswer={noop}
           onHover={noop}
           onMenu={noop}
+          onMinimize={noop}
           expanded
         />
       )}

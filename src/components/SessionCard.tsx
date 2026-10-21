@@ -17,6 +17,8 @@ interface Props {
   onHover: (s: Session, el: HTMLElement | null) => void;
   /** Right-click: the session menu at the cursor. */
   onMenu: (s: Session, x: number, y: number) => void;
+  /** Minimise the card to its title bar, or expand it. */
+  onMinimize: (s: Session, minimized: boolean) => void;
   /** The hover copy: full recap and details below the usual content. */
   expanded?: boolean;
 }
@@ -56,6 +58,7 @@ export function SessionCard({
   onAnswer,
   onHover,
   onMenu,
+  onMinimize,
   expanded = false,
 }: Props) {
   const isFresh = (alertId: number) => fresh.has(`${s.session_id}:${alertId}`);
@@ -78,6 +81,10 @@ export function SessionCard({
   const asleep = dormant(s);
   const closed = s.status === "closed" && !asleep;
   const status = asleep ? "idle" : s.status;
+  // Minimised: just the title bar, unless it needs the user (permission, a question, an
+  // error), when it opens until that's dealt with. The hover copy always shows everything.
+  const needsYou = ["needs_permission", "needs_input", "error"].includes(s.status);
+  const folded = s.minimized && !expanded && !needsYou;
   const activity =
     s.status === "needs_permission" && s.pending_permission
       ? `Wants to: ${s.pending_permission.summary}`
@@ -90,7 +97,7 @@ export function SessionCard({
 
   return (
     <article
-      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}`}
+      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}`}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
       onMouseEnter={(e) => onHover(s, e.currentTarget)}
@@ -102,6 +109,11 @@ export function SessionCard({
     >
       <header className="card-head">
         <span className="card-title">
+          {folded && (
+            <button className="unfold" title="Expand" onClick={stop(() => onMinimize(s, false))}>
+              ▸
+            </button>
+          )}
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
@@ -109,99 +121,107 @@ export function SessionCard({
           {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
         </span>
       </header>
-      {s.status !== "closed" && s.tag === null && (
-        <div className="card-warning" title="Run /exit in that tab, then: claudes --continue">
-          ⚠ Started with plain <code>claude</code>: can&apos;t focus or end it. Restart with{" "}
-          <code>claudes --continue</code>
-        </div>
-      )}
-      {activity && <div className="card-activity">{activity}</div>}
-      {s.status === "needs_permission" && s.pending_permission?.answerable && (
-        <div className="answer">
-          <button className="allow" onClick={stop(() => onAnswer(s, true))}>
-            Allow
-          </button>
-          <button className="deny" onClick={stop(() => onAnswer(s, false))}>
-            Deny
-          </button>
-        </div>
-      )}
-      {latest && (
-        <div className={`card-alert alert-${latest.kind}`}>
-          <span className="card-alert-text">
-            {ALERT_EMOJI[latest.kind]} {latest.text}
-          </span>
-          <button className="x" title="Dismiss" onClick={stop(() => onDismissAlert(s, latest.id))}>
-            ✕
-          </button>
-        </div>
-      )}
-      {/* Claude's last answer as written: the start on the card, all of it on hover. The
-          question it ended on, if any, is pinned below so it's never clipped. */}
-      {(s.last_answer ?? s.recap) && (
-        <div className={`card-recap${expanded ? " full" : ""}`}>{s.last_answer ?? s.recap}</div>
-      )}
-      {s.question && !expanded && <div className="card-question">{s.question}</div>}
-      {jobs.length > 0 && (
-        <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
-          <span className="card-jobs-label">
-            {jobs.length > 1 ? `Waiting on ${jobs.length} jobs` : "Waiting on"}
-          </span>
-          {jobs.map((b, i) => (
-            <JobLine
-              key={b.id || i}
-              job={b}
-              name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
-              expanded={expanded}
-            />
-          ))}
-        </div>
-      )}
-      {(shown.length > 1 || agents + services.length > 0) && (
-        <div className="card-badges">
-          {shown.length > 1 &&
-            shown.map((a) => (
-              <button
-                key={a.id}
-                className={`badge badge-${a.kind}${isFresh(a.id) ? " fresh" : ""}`}
-                title={`${a.text}\n(click to dismiss)`}
-                onClick={stop(() => onDismissAlert(s, a.id))}
-              >
-                {ALERT_EMOJI[a.kind]}
-              </button>
-            ))}
-          {agents > 0 && (
-            <span className="running running-agents">🤖 {plural(agents, "agent")} running</span>
-          )}
-          {services.length > 0 && (
-            <span className="running" title={services.map(jobName).join("\n")}>
-              ⧗ {plural(services.length, "background task")}
-            </span>
-          )}
-        </div>
-      )}
-      {expanded && (
-        <div className="card-more">
-          {s.last_prompt && (
-            <div>
-              <span className="muted">You: </span>
-              {s.last_prompt}
+      {!folded && (
+        <>
+          {s.status !== "closed" && s.tag === null && (
+            <div className="card-warning" title="Run /exit in that tab, then: claudes --continue">
+              ⚠ Started with plain <code>claude</code>: can&apos;t focus or end it. Restart with{" "}
+              <code>claudes --continue</code>
             </div>
           )}
-          {services.map((b, i) => (
-            <JobLine key={b.id || `bg${i}`} job={b} name={`⧗ ${jobName(b)}`} expanded />
-          ))}
-          {shown.length > 1 &&
-            shown.map((a) => (
-              <div key={a.id}>
-                {ALERT_EMOJI[a.kind]} {a.text}
+          {activity && <div className="card-activity">{activity}</div>}
+          {s.status === "needs_permission" && s.pending_permission?.answerable && (
+            <div className="answer">
+              <button className="allow" onClick={stop(() => onAnswer(s, true))}>
+                Allow
+              </button>
+              <button className="deny" onClick={stop(() => onAnswer(s, false))}>
+                Deny
+              </button>
+            </div>
+          )}
+          {latest && (
+            <div className={`card-alert alert-${latest.kind}`}>
+              <span className="card-alert-text">
+                {ALERT_EMOJI[latest.kind]} {latest.text}
+              </span>
+              <button
+                className="x"
+                title="Dismiss"
+                onClick={stop(() => onDismissAlert(s, latest.id))}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {/* Claude's last answer as written: the start on the card, all of it on hover. The
+          question it ended on, if any, is pinned below so it's never clipped. */}
+          {(s.last_answer ?? s.recap) && (
+            <div className={`card-recap${expanded ? " full" : ""}`}>{s.last_answer ?? s.recap}</div>
+          )}
+          {s.question && !expanded && <div className="card-question">{s.question}</div>}
+          {jobs.length > 0 && (
+            <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
+              <span className="card-jobs-label">
+                {jobs.length > 1 ? `Waiting on ${jobs.length} jobs` : "Waiting on"}
+              </span>
+              {jobs.map((b, i) => (
+                <JobLine
+                  key={b.id || i}
+                  job={b}
+                  name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
+                  expanded={expanded}
+                />
+              ))}
+            </div>
+          )}
+          {(shown.length > 1 || agents + services.length > 0) && (
+            <div className="card-badges">
+              {shown.length > 1 &&
+                shown.map((a) => (
+                  <button
+                    key={a.id}
+                    className={`badge badge-${a.kind}${isFresh(a.id) ? " fresh" : ""}`}
+                    title={`${a.text}\n(click to dismiss)`}
+                    onClick={stop(() => onDismissAlert(s, a.id))}
+                  >
+                    {ALERT_EMOJI[a.kind]}
+                  </button>
+                ))}
+              {agents > 0 && (
+                <span className="running running-agents">🤖 {plural(agents, "agent")} running</span>
+              )}
+              {services.length > 0 && (
+                <span className="running" title={services.map(jobName).join("\n")}>
+                  ⧗ {plural(services.length, "background task")}
+                </span>
+              )}
+            </div>
+          )}
+          {expanded && (
+            <div className="card-more">
+              {s.last_prompt && (
+                <div>
+                  <span className="muted">You: </span>
+                  {s.last_prompt}
+                </div>
+              )}
+              {services.map((b, i) => (
+                <JobLine key={b.id || `bg${i}`} job={b} name={`⧗ ${jobName(b)}`} expanded />
+              ))}
+              {shown.length > 1 &&
+                shown.map((a) => (
+                  <div key={a.id}>
+                    {ALERT_EMOJI[a.kind]} {a.text}
+                  </div>
+                ))}
+              <div className="muted small">
+                {[s.tag && `#${s.tag}`, s.model, s.permission_mode].filter(Boolean).join(" · ")}
               </div>
-            ))}
-          <div className="muted small">
-            {[s.tag && `#${s.tag}`, s.model, s.permission_mode].filter(Boolean).join(" · ")}
-          </div>
-          <div className="muted small right-click-hint">Right-click for more</div>
-        </div>
+              <div className="muted small right-click-hint">Right-click for more</div>
+            </div>
+          )}
+        </>
       )}
     </article>
   );

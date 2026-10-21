@@ -181,7 +181,10 @@ function App() {
     };
   }, []);
 
+  const minimize = (ids: string[], minimized: boolean) =>
+    invoke("set_minimized", { sessionIds: ids, minimized }).catch(report);
   const cards: CardHandlers = {
+    onMinimize: (s, minimized) => minimize([s.session_id], minimized),
     now,
     away: state?.away ?? [],
     fresh,
@@ -269,6 +272,7 @@ function App() {
     onDropProject: (dragged: string, onto: string, place: "before" | "after") =>
       placeProject(dragged, onto, place, false),
     onShelve: (root: string) => shelve(root, true),
+    onMinimizeAll: minimize,
     onDeleteSession: (s: Session) =>
       invoke("dismiss_session", { sessionId: s.session_id }).catch(report),
     onReorderSessions: (root: string, ids: string[]) =>
@@ -357,6 +361,7 @@ function App() {
           onRename={(s, name) =>
             invoke("rename_session", { sessionId: s.session_id, name }).catch(report)
           }
+          onMinimize={(s, minimized) => minimize([s.session_id], minimized)}
           onRemove={(s) => invoke("remove_session", { sessionId: s.session_id }).catch(report)}
           onForceEnd={(s) =>
             invoke("session_action", { sessionId: s.session_id, action: "force_end" }).catch(report)

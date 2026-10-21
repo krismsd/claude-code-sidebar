@@ -72,6 +72,8 @@ export interface Session {
   closed_reason: string | null;
   /** Removed by the user: in its project's "closed" section (null: not yet known). */
   removed: boolean | null;
+  /** Minimised by the user: the card shows only its title bar. */
+  minimized: boolean;
 }
 
 export interface Recent {

@@ -24,6 +24,7 @@ export interface CardHandlers {
   onAnswer: (s: Session, allow: boolean) => void;
   onHover: (s: Session, el: HTMLElement | null) => void;
   onMenu: (s: Session, x: number, y: number) => void;
+  onMinimize: (s: Session, minimized: boolean) => void;
 }
 
 interface Props {
@@ -38,6 +39,8 @@ interface Props {
   onNewSession: (root: string) => void;
   onProjectAction: (root: string, action: "folder" | "vscode") => void;
   onCloseProject: (root: string) => void;
+  /** Minimise (or expand) all the project's session cards. */
+  onMinimizeAll: (ids: string[], minimized: boolean) => void;
   /** Delete a closed session's card for good. */
   onDeleteSession: (s: Session) => void;
   /** Drag-to-reorder: a project was dropped just before or after this section. */
@@ -66,6 +69,7 @@ export function ProjectSection({
   sessionOrder,
   onReorderSessions,
   onDeleteSession,
+  onMinimizeAll,
   hasTasks,
   onSetupTasks,
   onMessage,
@@ -208,6 +212,20 @@ export function ProjectSection({
             </button>
           )}
           <button onClick={() => (onShelve(root), setMenu(false))}>Put in drawer</button>
+          {visible.length > 0 && (
+            <button
+              onClick={() => {
+                const allMin = visible.every((v) => v.minimized);
+                onMinimizeAll(
+                  visible.map((v) => v.session_id),
+                  !allMin,
+                );
+                setMenu(false);
+              }}
+            >
+              {visible.every((v) => v.minimized) ? "Expand all" : "Minimise all"}
+            </button>
+          )}
           <button onClick={() => (onProjectAction(root, "folder"), setMenu(false))}>
             Open folder
           </button>

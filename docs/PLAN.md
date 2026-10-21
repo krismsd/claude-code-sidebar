@@ -263,6 +263,10 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 - [x] The ready pill faded by wall-clock time, so sessions left over lunch or a night turned grey. `presence.rs` polls `GetLastInputInfo` every 10 s. No input for 5 minutes is an away spell counted from the last input, which also covers a locked screen and sleep. Spells are saved to `presence.json` (with `last_input`, so time the app or computer was off counts as away) and sent in the UI state. The fade (1–2 h) uses `presentTime()`, time since ready minus away spells. The pill's timer still shows real time.
 
+## M26: Minimised session cards (2026-10-21)
+
+- [x] `Session.minimized` (saved). A minimised card shows only its title bar, with a ▸ before the name that expands it. Right-click → Minimise/Expand; the project ⋯ → Minimise all/Expand all. It opens by itself while the session needs the user (permission, question, error), and the hover copy shows everything. Not double-click: a click already opens the session. Tested on screen with the dev session's own card.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

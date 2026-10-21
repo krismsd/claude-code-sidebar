@@ -392,7 +392,12 @@ impl Session {
         }
         self.recap_haiku = Some(recap.line);
         self.recap_detail = recap.detail;
-        if recap.title.is_some() {
+        // Titles stick: a name stored in the transcript (a /rename) applies, but Haiku's own
+        // suggestion only names a session that has no title yet, so a card doesn't change its
+        // name as the conversation moves on.
+        if recap.name.is_some() {
+            self.title = recap.name;
+        } else if self.title.is_none() {
             self.title = recap.title;
         }
         // Haiku read the turn: will Claude act on its background commands when they finish?

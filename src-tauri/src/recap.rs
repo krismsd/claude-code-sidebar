@@ -46,7 +46,10 @@ pub fn wait_for(now: Ms, last_run: Option<Ms>, min_interval_ms: Ms) -> Ms {
 pub struct Recap {
     pub line: String,
     pub detail: Option<String>,
+    /// Haiku's suggested title (`TITLE:`): only used while the session has none.
     pub title: Option<String>,
+    /// The title stored in the transcript (`NAME:`, a /rename or Claude Code's own): applies.
+    pub name: Option<String>,
     /// `WAITING: yes|no`: the turn ended waiting on background work that will resume it.
     pub waiting: Option<bool>,
     /// `BACKGROUND: job, service, …`: Haiku's label for each background command passed to
@@ -69,6 +72,7 @@ pub fn parse(out: &str) -> Option<Recap> {
             .to_string()
     };
     let mut title = None;
+    let mut name = None;
     let mut line = None;
     let mut waiting = None;
     let mut background = None;
@@ -86,7 +90,11 @@ pub fn parse(out: &str) -> Option<Recap> {
         if l.starts_with("BACKGROUND:") {
             continue;
         }
-        if let Some(w) = l.strip_prefix("WAITING:") {
+        if let Some(n) = l.strip_prefix("NAME:") {
+            name = Some(clean(n))
+                .filter(|n| !n.is_empty())
+                .map(|n| crate::events::truncate(&n, 60));
+        } else if let Some(w) = l.strip_prefix("WAITING:") {
             waiting = Some(w.trim().to_ascii_lowercase().starts_with('y'));
         } else if let Some(t) = l
             .strip_prefix("TITLE:")
@@ -114,6 +122,7 @@ pub fn parse(out: &str) -> Option<Recap> {
         line: crate::events::truncate(&line, 110),
         detail,
         title,
+        name,
         waiting,
         background,
         labels: Vec::new(),
@@ -280,6 +289,13 @@ mod tests {
         );
         assert_eq!(parse("WAITING: no\nDone\n").unwrap().waiting, Some(false));
         assert_eq!(parse("Done\n").unwrap().waiting, None);
+    }
+
+    #[test]
+    fn parses_stored_name() {
+        let r = parse("NAME: My session\nDid x\n").unwrap();
+        assert_eq!((r.name.as_deref(), r.title), (Some("My session"), None));
+        assert_eq!(r.line, "Did x");
     }
 
     #[test]

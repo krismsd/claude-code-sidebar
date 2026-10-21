@@ -38,7 +38,9 @@ out=$(printf '%s\n' "$raw" | jq -r 'select(.type=="result") | .result // empty')
 usage=$(printf '%s\n' "$raw" | jq -c 'select(.type=="rate_limit_event") | .rate_limit_info' | tail -n 1)
 [ -n "$out" ] || { echo "no reply" >&2; exit 4; }
 if [ -n "$known" ]; then
-  printf '%s\n' "$out" | sed "s|^TITLE:.*|TITLE: ${known//|/ }|"
+  # A title Claude Code stored (the user's /rename, or its own): NAME, which always applies;
+  # Haiku's TITLE is only a suggestion for sessions that have none.
+  printf '%s\n' "$out" | sed "s|^TITLE:.*|NAME: ${known//|/ }|"
 else
   printf '%s\n' "$out"
 fi

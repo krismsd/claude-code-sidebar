@@ -548,6 +548,7 @@ fn haiku_recap_applies_only_to_its_turn() {
             line: "Added goodbye()".into(),
             detail: Some("detail".into()),
             title: Some("Goodbye helper".into()),
+            name: None,
             waiting: None,
             background: None,
             labels: vec![],
@@ -563,6 +564,7 @@ fn haiku_recap_applies_only_to_its_turn() {
             line: "stale".into(),
             detail: None,
             title: None,
+            name: None,
             waiting: None,
             background: None,
             labels: vec![],
@@ -1004,6 +1006,7 @@ fn haiku(waiting: bool) -> crate::recap::Recap {
         line: "recap".into(),
         detail: None,
         title: None,
+        name: None,
         waiting: Some(waiting),
         background: None,
         labels: vec![],
@@ -1306,4 +1309,30 @@ fn last_assistant_text_from_transcript() {
         Some("New answer. Push it?")
     );
     assert_eq!(crate::session::last_assistant_text(""), None);
+}
+
+#[test]
+fn titles_stick_but_a_stored_name_wins() {
+    let mut s = Session::new(SID, 0);
+    let recap = |title: Option<&str>, name: Option<&str>| crate::recap::Recap {
+        line: "x".into(),
+        detail: None,
+        title: title.map(Into::into),
+        name: name.map(Into::into),
+        waiting: None,
+        background: None,
+        labels: vec![],
+    };
+    s.apply(&ours("Stop"), 1, &th());
+    s.set_haiku_recap(s.stop_seq, recap(Some("Seed the schedule"), None));
+    s.apply(&ours("Stop"), 2, &th());
+    s.set_haiku_recap(s.stop_seq, recap(Some("Debug a missing run"), None));
+    assert_eq!(
+        s.title.as_deref(),
+        Some("Seed the schedule"),
+        "Haiku names it once"
+    );
+    s.apply(&ours("Stop"), 3, &th());
+    s.set_haiku_recap(s.stop_seq, recap(None, Some("Renamed in Claude Code")));
+    assert_eq!(s.title.as_deref(), Some("Renamed in Claude Code"));
 }

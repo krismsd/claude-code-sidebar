@@ -255,6 +255,8 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 ## M24: Closed sessions in a header menu (2026-10-21)
 
+- [x] Titles stick. A session whose transcript has no stored title got a new Haiku title with every recap: the wrapper's `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` (needed to keep `[cc:<tag>]` tab titles) also stops Claude Code writing its own `ai-title`. Haiku's `TITLE:` now only names a session that has none. cc-recap reports a stored title (a /rename or Claude Code's own) as `NAME:`, which always applies.
+
 - [x] The project header's "N open" became an "N closed" link (only when there are any), opening a menu of the project's closed sessions: name and age, a click reopens, ✕ deletes. The folded "▸ N closed" list of cards under each project is gone. The menu opens upwards for the last project, like ⋯.
 
 ## Housekeeping (2026-10-17, v0.2.0)

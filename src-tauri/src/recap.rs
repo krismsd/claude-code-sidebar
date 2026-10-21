@@ -49,6 +49,11 @@ pub struct Recap {
     pub title: Option<String>,
     /// `WAITING: yes|no`: the turn ended waiting on background work that will resume it.
     pub waiting: Option<bool>,
+    /// `BACKGROUND: job, service, …`: Haiku's label for each background command passed to
+    /// cc-recap, in order (true = a job Claude waits on). Paired with descriptions in `labels`.
+    pub background: Option<Vec<bool>>,
+    /// Background command description → is a job, from `background`.
+    pub labels: Vec<(String, bool)>,
 }
 
 /// Parse cc-recap output: optional `TITLE: …` and `WAITING: yes|no` lines, the recap line,
@@ -66,7 +71,21 @@ pub fn parse(out: &str) -> Option<Recap> {
     let mut title = None;
     let mut line = None;
     let mut waiting = None;
+    let mut background = None;
+    // The BACKGROUND line comes last, after the detail.
+    for l in out.lines().map(str::trim) {
+        if let Some(b) = l.strip_prefix("BACKGROUND:") {
+            background = Some(
+                b.split(',')
+                    .map(|w| w.trim().to_ascii_lowercase().starts_with("job"))
+                    .collect(),
+            );
+        }
+    }
     for l in head.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        if l.starts_with("BACKGROUND:") {
+            continue;
+        }
         if let Some(w) = l.strip_prefix("WAITING:") {
             waiting = Some(w.trim().to_ascii_lowercase().starts_with('y'));
         } else if let Some(t) = l
@@ -86,7 +105,7 @@ pub fn parse(out: &str) -> Option<Recap> {
         .map(|d| {
             d.lines()
                 .map(str::trim)
-                .filter(|l| !l.is_empty() && *l != "-")
+                .filter(|l| !l.is_empty() && *l != "-" && !l.starts_with("BACKGROUND:"))
                 .collect::<Vec<_>>()
                 .join("\n")
         })
@@ -96,6 +115,8 @@ pub fn parse(out: &str) -> Option<Recap> {
         detail,
         title,
         waiting,
+        background,
+        labels: Vec::new(),
     })
 }
 
@@ -138,13 +159,21 @@ impl Recapper {
     /// Returns true if a newer turn finished while this ran, so it needs recapping too.
     async fn run(&self, ctx: &Ctx, id: &str, cfg: &crate::config::Config) -> bool {
         // Read the session as of now: the latest Stop is the one we recap.
-        let Some((seq, transcript, distro)) = ctx.store.lock().unwrap().get(id).and_then(|s| {
-            Some((
-                s.stop_seq,
-                s.transcript_path.clone()?,
-                s.distro.clone().unwrap_or_else(|| cfg.distro.clone()),
-            ))
-        }) else {
+        let Some((seq, transcript, distro, commands)) =
+            ctx.store.lock().unwrap().get(id).and_then(|s| {
+                Some((
+                    s.stop_seq,
+                    s.transcript_path.clone()?,
+                    s.distro.clone().unwrap_or_else(|| cfg.distro.clone()),
+                    // Background commands still running, for Haiku to label job or service.
+                    s.background
+                        .iter()
+                        .filter(|b| !b.agent)
+                        .map(|b| (b.description.clone(), b.command.clone()))
+                        .collect::<Vec<_>>(),
+                ))
+            })
+        else {
             return false;
         };
         let mut cmd = tokio::process::Command::new("wsl.exe");
@@ -155,10 +184,18 @@ impl Recapper {
             "-e",
             "bash",
             "-lc",
-            &format!("{} \"$1\"", cfg.recap_command),
+            &format!("{} \"$@\"", cfg.recap_command),
             "cc-recap",
             &transcript,
         ]);
+        cmd.args(commands.iter().map(|(d, c)| {
+            let c = crate::events::truncate(c, 120);
+            if c.is_empty() {
+                d.clone()
+            } else {
+                format!("{d}: {c}")
+            }
+        }));
         #[cfg(windows)]
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         let started = std::time::Instant::now();
@@ -183,11 +220,20 @@ impl Recapper {
         if let Some(json) = usage {
             crate::server::set_usage(ctx, &json);
         }
-        let Some(recap) = parse(&text) else {
+        let Some(mut recap) = parse(&text) else {
             log::warn!("recap {id}: unparseable output: {}", text.trim());
             return false;
         };
         log::info!("recap {id} in {:.1}s", started.elapsed().as_secs_f32());
+        if let Some(b) = &recap.background
+            && b.len() == commands.len()
+        {
+            recap.labels = commands
+                .into_iter()
+                .map(|(d, _)| d)
+                .zip(b.clone())
+                .collect();
+        }
         let applied = ctx.store.lock().unwrap().set_haiku_recap(id, seq, recap);
         if applied {
             publish(ctx);
@@ -234,6 +280,14 @@ mod tests {
         );
         assert_eq!(parse("WAITING: no\nDone\n").unwrap().waiting, Some(false));
         assert_eq!(parse("Done\n").unwrap().waiting, None);
+    }
+
+    #[test]
+    fn parses_background_labels() {
+        let r = parse("TITLE: T\nWAITING: yes\nDid x\n---\ndetail\nBACKGROUND: service, job\n")
+            .unwrap();
+        assert_eq!(r.background, Some(vec![false, true]));
+        assert_eq!(r.detail.as_deref(), Some("detail"));
     }
 
     #[test]

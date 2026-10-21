@@ -115,7 +115,8 @@ const WAIT_WORDS: [&str; 8] = [
 
 /// A background command that reads as a service Claude leaves running (a dev server, an app's
 /// backend, a log tail): never a job Claude waits on, whatever Haiku says about the session.
-/// "backend"/"frontend"/"localhost" only count when nothing in the text speaks of waiting
+/// "api"/"backend"/"frontend"/"localhost" (whole words) only count when nothing in the text
+/// speaks of waiting
 /// ("Watch the frontend deploy" is a job).
 pub fn looks_service(text: &str) -> bool {
     let t = text.to_lowercase();
@@ -130,9 +131,10 @@ pub fn looks_service(text: &str) -> bool {
         "docker compose up",
         "storybook",
     ];
-    const APP_PART: [&str; 3] = ["backend", "frontend", "localhost"];
+    const APP_PART: [&str; 4] = ["api", "backend", "frontend", "localhost"];
     let waits = WAIT_WORDS.iter().any(|w| t.contains(w));
-    SERVICE.iter().any(|w| t.contains(w)) || (!waits && APP_PART.iter().any(|w| t.contains(w)))
+    let words: Vec<&str> = t.split(|c: char| !c.is_ascii_alphanumeric()).collect();
+    SERVICE.iter().any(|w| t.contains(w)) || (!waits && APP_PART.iter().any(|w| words.contains(w)))
 }
 
 /// First guess, before Haiku's verdict: does this background command look like Claude waiting
@@ -148,10 +150,11 @@ fn injected(prompt: &str) -> bool {
     prompt.trim_start().starts_with('<')
 }
 
-/// Is a background task a job Claude waits on? Agents always are, services never; for other
-/// commands Haiku's verdict on the session (if any) beats the guess from the text.
-fn awaited(agent: bool, text: &str, haiku: Option<bool>) -> bool {
-    agent || (!looks_service(text) && haiku.unwrap_or_else(|| looks_awaited(text)))
+/// Is a background task a job Claude waits on? Agents always are, clear services never. For
+/// other commands: Haiku's label for this task, else its verdict on the session, else the guess
+/// from the text.
+fn awaited(agent: bool, text: &str, label: Option<bool>, haiku: Option<bool>) -> bool {
+    agent || (!looks_service(text) && label.or(haiku).unwrap_or_else(|| looks_awaited(text)))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,6 +245,10 @@ pub struct Session {
     /// Where Claude Code writes background task output (`…/<session>/tasks`, WSL path).
     #[serde(default)]
     pub tasks_dir: Option<String>,
+    /// Haiku's label for each background command it was shown, by description: a job Claude
+    /// waits on (true) or a service left running (false). Kept while the task runs on.
+    #[serde(default)]
+    pub job_labels: std::collections::BTreeMap<String, bool>,
     pub alerts: Vec<Alert>,
     /// Starred by the user: shown first in its project and never pruned (SPEC §3.12).
     #[serde(default)]
@@ -299,6 +306,7 @@ impl Session {
             user_turn: false,
             last_stop_at: None,
             tasks_dir: None,
+            job_labels: Default::default(),
             alerts: Vec::new(),
             closed_reason: None,
             starred: false,
@@ -349,7 +357,9 @@ impl Session {
         // Saved by a build that let Haiku's verdict mark services (dev servers) as jobs.
         let haiku = self.jobs_awaited;
         for b in &mut self.background {
-            b.awaited = awaited(b.agent, &b.description, haiku);
+            let text = format!("{} {}", b.description, b.command);
+            let label = self.job_labels.get(&b.description).copied();
+            b.awaited = awaited(b.agent, &text, label, haiku);
         }
         self.pending_jobs = self.awaited_jobs();
         self
@@ -366,10 +376,18 @@ impl Session {
             self.title = recap.title;
         }
         // Haiku read the turn: will Claude act on its background commands when they finish?
-        if recap.waiting.is_some() {
-            self.jobs_awaited = recap.waiting;
+        if recap.waiting.is_some() || !recap.labels.is_empty() {
+            if recap.waiting.is_some() {
+                self.jobs_awaited = recap.waiting;
+            }
+            // Labels only for tasks still running; earlier ones are done with.
+            self.job_labels
+                .retain(|d, _| self.background.iter().any(|b| &b.description == d));
+            self.job_labels.extend(recap.labels);
             for b in self.background.iter_mut() {
-                b.awaited = awaited(b.agent, &b.description, recap.waiting);
+                let text = format!("{} {}", b.description, b.command);
+                let label = self.job_labels.get(&b.description).copied();
+                b.awaited = awaited(b.agent, &text, label, self.jobs_awaited);
             }
             self.pending_jobs = self.awaited_jobs();
         }
@@ -735,7 +753,12 @@ impl Session {
                 let seen = before.iter().find(|b| !id.is_empty() && b.id == id);
                 Background {
                     agent: t.is_agent(),
-                    awaited: awaited(t.is_agent(), &text, self.jobs_awaited),
+                    awaited: awaited(
+                        t.is_agent(),
+                        &text,
+                        self.job_labels.get(&description).copied(),
+                        self.jobs_awaited,
+                    ),
                     last_line: seen.and_then(|b| b.last_line.clone()),
                     url: seen.and_then(|b| b.url.clone()),
                     id,

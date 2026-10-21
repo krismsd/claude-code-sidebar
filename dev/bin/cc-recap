@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # cc-recap: one-line Haiku recap of a Claude Code session (SPEC §3.5). Runs in WSL; the
 # sidebar calls it via `wsl.exe -e bash -l cc-recap <transcript.jsonl>`.
-# Output: TITLE: line, WAITING: yes|no line (background work Claude will act on is running), one recap line (< 90 chars), a line "---", 2-3 lines of detail, and a
+# Output: TITLE: line, (with background commands given: a BACKGROUND: job|service,… line), WAITING: yes|no line (background work Claude will act on is running), one recap line (< 90 chars), a line "---", 2-3 lines of detail, and a
 # last line "USAGE: <rate_limit_info JSON>" with the account's usage limits.
 # --setting-sources "" loads no user settings, so no hooks fire for this call (no recursion);
 # CC_SIDEBAR_INTERNAL=1 is a second guard in case they ever do.
-t="$1"
+t="$1"; shift
+# Further arguments: background commands still running ("description: command"), for Haiku to
+# label each one a job or a service (BACKGROUND: line).
+bg=""; n=0
+for b in "$@"; do n=$((n + 1)); bg+="$n. $b"$'\n'; done
 [ -r "$t" ] || { echo "no transcript: $t" >&2; exit 2; }
 # Condense the last 30 user/assistant entries: text, plus tool calls as "[Tool target]".
 # Read raw lines and skip any that don't parse (a transcript can hold a run of NUL bytes
@@ -24,9 +28,11 @@ ctx=$(tail -n 800 "$t" | tr -d '\000' | jq -rR 'fromjson? |
 # A title Claude Code already has wins: one set by the user (custom-title), else its ai-title.
 known=$(tr -d '\000' <"$t" | jq -rR 'fromjson? | select(.type=="custom-title") | (.customTitle // .title // empty)' 2>/dev/null | tail -n 1)
 [ -n "$known" ] || known=$(tr -d '\000' <"$t" | jq -rR 'fromjson? | select(.type=="ai-title") | (.aiTitle // empty)' 2>/dev/null | tail -n 1)
-raw=$(printf '%s\n' "$ctx" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
+input="$ctx"
+[ -n "$bg" ] && input+=$'\n\nBackground commands still running:\n'"$bg"
+raw=$(printf '%s\n' "$input" | CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence \
   --tools "" --strict-mcp-config --setting-sources "" --output-format stream-json --verbose \
-  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 0, "TITLE: " and a 3-6 word name for the session (its overall goal, like a tab title, no quotes); line 1, "WAITING: yes" if something the assistant started in the background is still running and the assistant intends to act on its result when it finishes (a job or deploy watcher, a poll loop, a background agent), even if the latest turn was about something else; otherwise "WAITING: no" (nothing running in the background, or only a service such as a dev server left running); line 2, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 3, three dashes "---"; then 2-3 short lines of detail. Plain text, no markdown.')
+  --system-prompt 'You write status recaps for a developer dashboard. Input is a condensed Claude Code session transcript (user/assistant turns, tool calls in [brackets]). Tool results are omitted from the input, so do not comment on whether things were verified or succeeded unless the assistant said so. Output exactly: line 0, "TITLE: " and a 3-6 word name for the session (its overall goal, like a tab title, no quotes); line 1, "WAITING: yes" if something the assistant started in the background is still running and the assistant intends to act on its result when it finishes (a job or deploy watcher, a poll loop, a background agent), even if the latest turn was about something else; otherwise "WAITING: no" (nothing running in the background, or only a service such as a dev server left running); line 2, under 90 characters, what the session did or is waiting on (past tense, no preamble, no quotes); line 3, three dashes "---"; then 2-3 short lines of detail. If the input ends with a numbered list of background commands still running, add a last line "BACKGROUND: " and one word per command in that order, comma-separated: "job" if the assistant is waiting for it to finish and will act on its result (a watcher, a poll loop, a pipeline, deploy or test run), "service" if it was started to keep running for use (an API, a server, a dev server, a database, an emulator, a log tail). Plain text, no markdown.')
 # The reply text, plus the account's usage limits that come with every call (rate_limit_event).
 out=$(printf '%s\n' "$raw" | jq -r 'select(.type=="result") | .result // empty')
 usage=$(printf '%s\n' "$raw" | jq -c 'select(.type=="rate_limit_event") | .rate_limit_info' | tail -n 1)

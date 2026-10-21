@@ -544,6 +544,8 @@ fn haiku_recap_applies_only_to_its_turn() {
             detail: Some("detail".into()),
             title: Some("Goodbye helper".into()),
             waiting: None,
+            background: None,
+            labels: vec![],
         },
     ));
     assert_eq!(s.recap_haiku.as_deref(), Some("Added goodbye()"));
@@ -557,6 +559,8 @@ fn haiku_recap_applies_only_to_its_turn() {
             detail: None,
             title: None,
             waiting: None,
+            background: None,
+            labels: vec![],
         },
     ));
     assert_eq!(s.recap_haiku, None);
@@ -955,6 +959,8 @@ fn haiku(waiting: bool) -> crate::recap::Recap {
         detail: None,
         title: None,
         waiting: Some(waiting),
+        background: None,
+        labels: vec![],
     }
 }
 
@@ -1031,6 +1037,10 @@ fn awaited_background_commands() {
     assert!(!looks_awaited("sleep 90 sleep 90"));
     assert!(!looks_awaited("tail -f app.log"));
     assert!(looks_awaited("Watch the CN, PL and frontend deploys"));
+    assert!(crate::session::looks_service(
+        "Start reports API with read-only groups"
+    ));
+    assert!(!crate::session::looks_service("Check capital gains"));
 }
 
 #[test]
@@ -1170,4 +1180,43 @@ fn opening_a_session_clears_job_finished() {
     assert!(st.seen(SID));
     assert!(!st.get(SID).unwrap().has_alert(AlertKind::Finished));
     assert!(!st.seen(SID), "nothing left to clear");
+}
+
+#[test]
+fn haiku_labels_each_background_task() {
+    // Seen live: "Start reports API …" matched no service word then, and the session-wide
+    // verdict said yes. Per-task labels from Haiku decide instead.
+    let mut s = Session::new(SID, 0);
+    s.apply(
+        &fx_with(
+            "Stop",
+            serde_json::json!({"session_id": SID, "background_tasks": [
+                {"id": "1", "type": "shell", "status": "running",
+                 "description": "Start reports API with read-only groups"},
+                {"id": "2", "type": "shell", "status": "running",
+                 "description": "Resume the retest after approval"}]}),
+        ),
+        1,
+        &th(),
+    );
+    let mut r = haiku(true);
+    r.labels = vec![
+        ("Start reports API with read-only groups".into(), false),
+        ("Resume the retest after approval".into(), true),
+    ];
+    s.set_haiku_recap(s.stop_seq, r);
+    let awaited: Vec<bool> = s.background.iter().map(|b| b.awaited).collect();
+    assert_eq!(awaited, [false, true]);
+    // The labels outlive a refresh of the list (a subagent finishing mid-turn).
+    s.apply(
+        &fx_with(
+            "SubagentStop",
+            serde_json::json!({"session_id": SID, "agent_type": "", "background_tasks": [
+                {"id": "1", "type": "shell", "status": "running",
+                 "description": "Start reports API with read-only groups"}]}),
+        ),
+        2,
+        &th(),
+    );
+    assert!(!s.background[0].awaited);
 }

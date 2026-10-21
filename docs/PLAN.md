@@ -233,6 +233,12 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] `jobs.rs`: reads each running background task's output file (`tasks_dir` from the hooks' `scratchpad_dir`, `Background.id` from `background_tasks[].id`) every 3 s. It keeps the latest line and a URL from the output (falling back to the command and description).
 - [x] Cards: the job line shows its latest output line in small monospace, with a ↗ link. Clicking a job (or the background-task count) runs `open_job_output`, which opens a `tail -f` tab in the terminal window (`term::show_command`: the window can run any registered command, not only `tmux attach`).
 - [x] Backfill: items without ids are matched by description to background commands in the transcript (tool_use with `run_in_background` + its "with ID … written to …" result).
+- [x] Fix: Haiku's session-wide `WAITING:` made "Start reports API …" (no service word) a job. Now:
+  - cc-recap gets the running background commands as extra arguments and answers `BACKGROUND: job|service,…` for each;
+  - the session keeps those labels by description (`job_labels`) while the tasks run;
+  - "api" (as a whole word) joined the weaker service words.
+
+  Checked on real transcripts: an API and a Vite server both came back as service, and a pipeline watcher as job.
 - [x] Tested live on a real session's pipeline watcher (backfilled): the card showed "##### step 5, cleanup delete: run …" and the click opened its full output following live. Background servers whose output Claude redirected elsewhere have empty files, so they show nothing.
 
 ## Housekeeping (2026-10-17, v0.2.0)

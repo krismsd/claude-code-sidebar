@@ -1276,7 +1276,7 @@ fn last_answer_as_plain_text_with_its_question() {
     let a = crate::session::answer_text(msg);
     assert_eq!(
         a,
-        "Done. Pushed main to origin.\n\nChanges\n• fixed the parser\n  • and its tests\n\ngit push\n\nWant me to open a PR? Or merge it.\nShall I commit and push it?"
+        "Done. Pushed main to origin.\nChanges\n• fixed the parser\n  • and its tests\ngit push\nWant me to open a PR? Or merge it.\nShall I commit and push it?"
     );
     assert_eq!(
         crate::session::ending_question(msg).as_deref(),

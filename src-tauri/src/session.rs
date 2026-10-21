@@ -990,7 +990,7 @@ pub fn transcript_names(jsonl: &str) -> (Option<String>, Option<String>) {
 /// emphasis and heading markers dropped, lines joined), up to ~400 characters. The card shows
 /// up to five lines of it.
 /// An assistant message as plain text for the card: Markdown emphasis, code markers, headings
-/// and quotes removed, bullets as "•", code fences dropped, blank lines collapsed.
+/// and quotes removed, bullets as "•", code fences and blank lines dropped.
 pub fn answer_text(msg: &str) -> String {
     let mut out: Vec<String> = Vec::new();
     for l in msg.lines() {
@@ -1004,13 +1004,10 @@ pub fn answer_text(msg: &str) -> String {
         if let Some(rest) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
             line = format!("{}• {rest}", " ".repeat(indent.min(6)));
         }
-        if line.is_empty() && out.last().is_none_or(|p| p.is_empty()) {
+        if line.trim().is_empty() {
             continue;
         }
         out.push(line);
-    }
-    while out.last().is_some_and(|l| l.is_empty()) {
-        out.pop();
     }
     // Cut by length, keeping the lines (`truncate` would join them).
     let text = out.join("\n");

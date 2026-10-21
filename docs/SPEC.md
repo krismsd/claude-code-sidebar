@@ -109,7 +109,7 @@ Liveness: with `CC_SIDEBAR_PID` known, check every 30 s via a single batched `ws
 
 ### 3.5 Recaps
 
-**Since 2026-10-21 the card shows Claude's last answer, not a summary.** The user found Haiku over-summarised, and what they want is the last action. `Stop.last_assistant_message` is kept as plain text (`answer_text`: Markdown markers removed, bullets as •). The card shows its first lines, and the hover copy shows all of it. A question it ends on (`ending_question`) is pinned under it. Old cards get theirs from the transcript at startup.
+**Since 2026-10-21 the card shows Claude's last answer, not a summary.** The user found Haiku over-summarised, and what they want is the last action. `Stop.last_assistant_message` is kept as plain text (`answer_text`: Markdown markers removed, bullets as •). The card shows its first 5 lines and the hover copy 12, blank lines left out. A question it ends on (`ending_question`) is pinned under it. Old cards get theirs from the transcript at startup.
 
 Haiku now runs only when a session has background commands to label as job or service (`BACKGROUND:`) or has no title yet. Otherwise a turn just refreshes the usage numbers if they're over 5 minutes old (`cc-usage`). The Haiku line it still writes isn't shown. The original design follows.
 

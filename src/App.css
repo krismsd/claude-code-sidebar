@@ -1082,12 +1082,10 @@ button {
     0 8px 24px rgb(0 0 0 / 0.45);
 }
 
+/* The hover copy: more of the answer, but not all of a long one. */
 .card-recap.full {
-  display: block;
-  -webkit-line-clamp: unset;
-  line-clamp: none;
-  /* A long answer stops short of the window's height. */
-  max-height: 60vh;
+  -webkit-line-clamp: 12;
+  line-clamp: 12;
 }
 
 /* The question the answer ended on: always visible, it's what Claude is waiting for. */

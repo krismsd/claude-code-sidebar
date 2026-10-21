@@ -250,7 +250,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 ## M23: Last answer instead of Haiku summaries (2026-10-21)
 
-- [x] The card shows Claude's last answer (`Session.last_answer` from `Stop.last_assistant_message`, plain text): first 5 lines on the card, all on hover (up to 60% of the window). An ending question (`Session.question`) is pinned in bold. Old cards are backfilled from the transcript tail at startup (`last_assistant_text`).
+- [x] The card shows Claude's last answer (`Session.last_answer` from `Stop.last_assistant_message`, plain text, no blank lines): first 5 lines on the card, 12 on hover. An ending question (`Session.question`) is pinned in bold. Old cards are backfilled from the transcript tail at startup (`last_assistant_text`).
 - [x] Haiku (cc-recap) runs only for sessions with background commands to label, or no title. Other turns refresh usage via `cc-usage` when it's over 5 minutes old.
 
 ## M24: Closed sessions in a header menu (2026-10-21)

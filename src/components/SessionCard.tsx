@@ -157,7 +157,13 @@ export function SessionCard({
           {/* Claude's last answer as written: the start on the card, all of it on hover. The
           question it ended on, if any, is pinned below so it's never clipped. */}
           {(s.last_answer ?? s.recap) && (
-            <div className={`card-recap${expanded ? " full" : ""}`}>{s.last_answer ?? s.recap}</div>
+            <div className={`card-recap${expanded ? " full" : ""}`}>
+              {/* No blank lines: they only take room (saved answers may still have them). */}
+              {(s.last_answer ?? s.recap ?? "")
+                .split("\n")
+                .filter((l) => l.trim())
+                .join("\n")}
+            </div>
           )}
           {s.question && !expanded && <div className="card-question">{s.question}</div>}
           {jobs.length > 0 && (

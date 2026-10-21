@@ -427,7 +427,7 @@ function General({
         <NumberInput
           value={config.closed_retention_days}
           min={1}
-          unit="days (starred ones stay)"
+          unit="days after you remove them"
           onChange={(n) => set("closed_retention_days", n)}
         />
       </Field>

@@ -1,13 +1,12 @@
 //! Background job progress without asking Claude (SPEC §3.14): Claude Code writes each
 //! background task's output to `<tasks_dir>/<id>.output` in WSL. Every few seconds, for open
 //! sessions, read the end of each running task's file (over \\wsl.localhost) and keep its
-//! latest line and any link in it (or in its command) on the card. A click opens the whole
-//! output, following live, in the terminal window (`tail -f`).
+//! latest line on the card.
 use crate::server::{Ctx, publish};
 use std::io::{Read, Seek, SeekFrom};
 use std::time::Duration;
 
-/// How much of the end of an output file to read for its latest line and links.
+/// How much of the end of an output file to read for its latest line.
 const TAIL_BYTES: u64 = 16 * 1024;
 
 pub async fn watch(ctx: Ctx) {
@@ -44,15 +43,11 @@ pub async fn watch(ctx: Ctx) {
             for f in files {
                 let text = read_tail(&crate::project::windows_path(&f.distro, &f.path));
                 let line = text.as_deref().and_then(last_line);
-                let url = text
-                    .as_deref()
-                    .and_then(last_url)
-                    .or_else(|| last_url(&f.hint));
-                changed |=
-                    ctx.store
-                        .lock()
-                        .unwrap()
-                        .set_job_output(&f.session_id, &f.id, line, url);
+                changed |= ctx
+                    .store
+                    .lock()
+                    .unwrap()
+                    .set_job_output(&f.session_id, &f.id, line);
             }
             if changed {
                 publish(&ctx);
@@ -69,8 +64,6 @@ pub struct JobFile {
     pub distro: String,
     /// WSL path of the output file.
     pub path: String,
-    /// Its command and description, to find a link in when the output has none.
-    pub hint: String,
 }
 
 /// A background command found in a transcript: its description, task id and output file.
@@ -183,20 +176,6 @@ pub fn last_line(text: &str) -> Option<String> {
         .map(|l| crate::events::truncate(&l, 160))
 }
 
-/// The last http(s) link in `text`, without trailing punctuation.
-pub fn last_url(text: &str) -> Option<String> {
-    let text = strip_ansi(text);
-    text.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '<' | '>' | '`'))
-        .filter_map(|w| {
-            w.find("https://")
-                .or_else(|| w.find("http://"))
-                .map(|i| &w[i..])
-        })
-        .map(|u| u.trim_end_matches(['.', ',', ';', ':', ')', ']', '}']))
-        .rfind(|u| u.len() > "https://".len())
-        .map(str::to_string)
-}
-
 /// Remove ANSI escape sequences (CSI, OSC and two-byte escapes).
 pub fn strip_ansi(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -264,17 +243,5 @@ mod tests {
                 output: "/tmp/claude-1000/-p/s1/tasks/bab12.output".into(),
             }]
         );
-    }
-
-    #[test]
-    fn links() {
-        let out = "queued https://dev.azure.com/org/proj/_build/results?buildId=1.\nsee (https://x.io/run/2)\n";
-        assert_eq!(last_url(out).as_deref(), Some("https://x.io/run/2"));
-        assert_eq!(
-            last_url("\x1b]8;;https://a.b/c\x1b\\link\x1b]8;;\x1b\\ done"),
-            None,
-            "OSC 8 targets are not shown text"
-        );
-        assert_eq!(last_url("nothing here"), None);
     }
 }

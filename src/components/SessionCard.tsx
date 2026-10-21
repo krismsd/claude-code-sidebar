@@ -1,6 +1,4 @@
 import type { CSSProperties } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Background, Session } from "../lib/types";
 import { dormant } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
@@ -13,7 +11,6 @@ interface Props {
   onActivate: (s: Session) => void;
   onDismissAlert: (s: Session, alertId: number) => void;
   onAnswer: (s: Session, allow: boolean) => void;
-  onStar: (s: Session) => void;
   /** Hover in/out, with the card element so the expanded copy can be drawn over it. */
   onHover: (s: Session, el: HTMLElement | null) => void;
   /** Right-click: the session menu at the cursor. */
@@ -52,7 +49,6 @@ export function SessionCard({
   onActivate,
   onDismissAlert,
   onAnswer,
-  onStar,
   onHover,
   onMenu,
   expanded = false,
@@ -100,13 +96,6 @@ export function SessionCard({
       }}
     >
       <header className="card-head">
-        <button
-          className={`star${s.starred ? " on" : ""}`}
-          title={s.starred ? "Unstar" : "Star: keep it here, even when closed"}
-          onClick={stop(() => onStar(s))}
-        >
-          {s.starred ? "★" : "☆"}
-        </button>
         <span className="card-title">
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
@@ -162,7 +151,6 @@ export function SessionCard({
           {jobs.map((b, i) => (
             <JobLine
               key={b.id || i}
-              session={s}
               job={b}
               name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
               expanded={expanded}
@@ -187,18 +175,7 @@ export function SessionCard({
             <span className="running running-agents">🤖 {plural(agents, "agent")} running</span>
           )}
           {services.length > 0 && (
-            <span
-              className="running clickable"
-              title={`${services.map(jobName).join("\n")}\n(click to show their output)`}
-              onClick={(e) => {
-                e.stopPropagation();
-                services
-                  .filter((b) => b.id)
-                  .forEach((b) =>
-                    invoke("open_job_output", { sessionId: s.session_id, taskId: b.id }),
-                  );
-              }}
-            >
+            <span className="running" title={services.map(jobName).join("\n")}>
               ⧗ {plural(services.length, "background task")}
             </span>
           )}
@@ -213,7 +190,7 @@ export function SessionCard({
             </div>
           )}
           {services.map((b, i) => (
-            <JobLine key={b.id || `bg${i}`} session={s} job={b} name={`⧗ ${jobName(b)}`} expanded />
+            <JobLine key={b.id || `bg${i}`} job={b} name={`⧗ ${jobName(b)}`} expanded />
           ))}
           {shown.length > 1 &&
             shown.map((a) => (
@@ -231,45 +208,11 @@ export function SessionCard({
   );
 }
 
-/** A background task on a card: its name, its latest output line, and a link to what it
- * watches if its output (or command) has one. A click follows its whole output live in the
- * terminal window. */
-function JobLine({
-  session,
-  job,
-  name,
-  expanded,
-}: {
-  session: Session;
-  job: Background;
-  name: string;
-  expanded: boolean;
-}) {
-  const open = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (job.id) invoke("open_job_output", { sessionId: session.session_id, taskId: job.id });
-  };
+/** A background task on a card: its name, and the latest line of its output. */
+function JobLine({ job, name, expanded }: { job: Background; name: string; expanded: boolean }) {
   return (
-    <div
-      className={`card-job${expanded ? " full" : ""}${job.id ? " clickable" : ""}`}
-      title={job.id ? "Show its output" : undefined}
-      onClick={open}
-    >
-      <span className="card-job-name">
-        {name}
-        {job.url && (
-          <button
-            className="card-job-link"
-            title={job.url}
-            onClick={(e) => {
-              e.stopPropagation();
-              openUrl(job.url!);
-            }}
-          >
-            ↗
-          </button>
-        )}
-      </span>
+    <div className={`card-job${expanded ? " full" : ""}`}>
+      <span className="card-job-name">{name}</span>
       {job.last_line && <span className="card-job-output">{job.last_line}</span>}
     </div>
   );

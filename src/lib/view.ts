@@ -1,32 +1,32 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
 import type { Session, UiState } from "./types";
 
-/** Ended by the sidebar for sitting idle with nothing showing it (tmux sessions): only the
- * process went, to save resources. To you it's still a ready conversation; a click resumes it. */
-export const dormant = (s: Session) => s.status === "closed" && s.closed_reason === "idle";
+/** Removed by the user (or `/exit`): in its project's "closed" section. */
+export const removed = (s: Session) => s.removed === true;
 
-/** Open as far as the user is concerned: running, or dormant. */
-export const isOpen = (s: Session) => s.status !== "closed" || dormant(s);
+/** Not running, but still in the list (not removed): its process ended (sitting idle with
+ * nothing showing it, a tab closed, a crash). To you it's a ready conversation; a click
+ * resumes it. */
+export const dormant = (s: Session) => s.status === "closed" && !removed(s);
 
-/** Within a project: starred first (open or closed), then open, then closed (newest first).
- * `order` (session ids the user dragged into order) comes first among the visible ones; the
- * rest follow in the usual order, so a new session goes to the bottom. */
+/** In the list, as far as the user is concerned: everything they haven't removed. */
+export const isOpen = (s: Session) => !removed(s);
+
+/** Within a project: the sessions in the list (in the order the user dragged them into, the
+ * rest by start, so a new one goes to the bottom), then the removed ones, newest first. */
 export function arrange(
   sessions: Session[],
   order: string[] = [],
 ): { visible: Session[]; closed: Session[] } {
   const byStart = (a: Session, b: Session) => a.started_at - b.started_at;
-  const starred = sessions.filter((s) => s.starred).sort(byStart);
-  const open = sessions.filter((s) => !s.starred && isOpen(s)).sort(byStart);
-  const closed = sessions
-    .filter((s) => !s.starred && !isOpen(s))
-    .sort((a, b) => b.status_since - a.status_since);
+  const open = sessions.filter(isOpen).sort(byStart);
+  const closed = sessions.filter(removed).sort((a, b) => b.status_since - a.status_since);
   const rank = (s: Session) => {
     const i = order.indexOf(s.session_id);
     return i < 0 ? Infinity : i;
   };
   // Array.sort is stable: unranked sessions keep the usual order.
-  const visible = [...starred, ...open].sort((a, b) => rank(a) - rank(b));
+  const visible = open.sort((a, b) => rank(a) - rank(b));
   return { visible, closed };
 }
 
@@ -49,7 +49,8 @@ export interface ProjectStatus {
 
 /** Summary for a project header or strip dot. */
 export function projectStatus(sessions: Session[], fresh: Set<string>): ProjectStatus {
-  const open = sessions.filter(isOpen);
+  // Running ones: what "N open" and a drawer tile's dot are about.
+  const open = sessions.filter((s) => s.status !== "closed");
   const attention = open.some(
     (s) => ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact"),
   );

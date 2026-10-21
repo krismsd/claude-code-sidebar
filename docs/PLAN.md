@@ -241,6 +241,13 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
   Checked on real transcripts: an API and a Vite server both came back as service, and a pipeline watcher as job.
 - [x] Tested live on a real session's pipeline watcher (backfilled): the card showed "##### step 5, cleanup delete: run …" and the click opened its full output following live. Background servers whose output Claude redirected elsewhere have empty files, so they show nothing.
 
+## M22: Simpler cards and session lifecycle (2026-10-21)
+
+- [x] "Waiting on" items: no ↗ link and no click-through to the output (the hover overlay made them unreachable anyway). The latest output line stays. The command view (`term::show_command`, `open_job_output`) and URL extraction are removed.
+- [x] Project headers: no status dot or flash; attention is on the sessions. Drawer tiles keep their dot.
+- [x] Stars replaced by "kept until removed" (`Session.removed`, migrated once: closed and not starred → removed). Remove moves a session to the closed section and ends its process tree (`actions::end_tree`: leaves first, then `tmux kill-session`), asking first when that stops work. `/exit` removes; resuming un-removes. Pruning and Delete only apply to removed sessions. The star button is gone, which gives the title more room.
+- [x] End session became **Force end** (SIGKILL tree, marked gone at once, stays in the list).
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

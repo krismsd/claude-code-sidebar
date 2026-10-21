@@ -116,34 +116,6 @@ fn term_open(
     views.open(&app, &name, &distro, cols, rows)
 }
 
-/// Follow a background task's output live in the terminal window (`tail -f`).
-#[cfg(windows)]
-#[tauri::command]
-async fn open_job_output(
-    app: tauri::AppHandle,
-    ctx: State<'_, Ctx>,
-    session_id: String,
-    task_id: String,
-) -> Result<(), String> {
-    let (path, distro, description) = ctx
-        .store
-        .lock()
-        .unwrap()
-        .job_file(&session_id, &task_id)
-        .ok_or("That task isn't running any more.")?;
-    let title = if description.is_empty() {
-        format!("Output {task_id}")
-    } else {
-        format!("Output: {description}")
-    };
-    let argv = [
-        "wsl.exe", "-d", &distro, "-e", "tail", "-n", "+1", "-f", &path,
-    ]
-    .map(String::from)
-    .to_vec();
-    term::show_command(&app, &format!("out-{task_id}"), &title, argv).map_err(|e| e.to_string())
-}
-
 #[cfg(windows)]
 #[tauri::command]
 fn term_write(views: State<'_, term::Views>, name: String, data: String) -> Result<(), String> {
@@ -214,11 +186,24 @@ fn peek_hide(app: tauri::AppHandle) {
     peek::hide(&app);
 }
 
+/// Remove a session: it moves to its project's "closed" section, and if it's still running it
+/// is ended with everything it started (the card asks first when that loses work).
 #[tauri::command]
-fn toggle_star(ctx: State<'_, Ctx>, session_id: String) {
-    if ctx.store.lock().unwrap().toggle_star(&session_id) {
-        server::publish(&ctx);
+async fn remove_session(ctx: State<'_, Ctx>, session_id: String) -> Result<(), String> {
+    let s = {
+        let mut store = ctx.store.lock().unwrap();
+        store.set_removed(&session_id, true);
+        store.get(&session_id).cloned()
+    };
+    server::publish(&ctx);
+    #[cfg(windows)]
+    if let Some(s) = s.filter(|s| s.status != session::Status::Closed && s.pid.is_some()) {
+        let cfg = ctx.config.read().unwrap().clone();
+        tauri::async_runtime::spawn_blocking(move || actions::end_tree(&s, &cfg, "TERM"))
+            .await
+            .map_err(|e| e.to_string())??;
     }
+    Ok(())
 }
 
 #[tauri::command]
@@ -371,8 +356,10 @@ async fn session_action(
         .cloned()
         .ok_or("unknown session")?;
     let cfg = ctx.config.read().unwrap().clone();
+    let (pid, forced) = (s.pid, action == "force_end");
     tauri::async_runtime::spawn_blocking(move || match action.as_str() {
-        "end" => actions::signal(&s, &cfg, "TERM"),
+        // Stuck: kill it and everything it started now. It stays in the list, resumable.
+        "force_end" => actions::end_tree(&s, &cfg, "KILL"),
         "hide" => actions::hide(&s, &cfg),
         "terminal" => focus::attach_tab(&s, &cfg),
         "folder" => actions::open_folder(&s, &cfg),
@@ -380,7 +367,16 @@ async fn session_action(
         other => Err(format!("unknown action {other}")),
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+    // A killed Claude sends no SessionEnd: don't wait for the liveness check to notice.
+    if forced && let Some(pid) = pid {
+        ctx.store
+            .lock()
+            .unwrap()
+            .pids_dead(&[pid], server::now_ms());
+        server::publish(&ctx);
+    }
+    Ok(())
 }
 
 /// folder | vscode for a tracked project's root.
@@ -604,8 +600,6 @@ pub fn run() {
             #[cfg(windows)]
             term_open,
             #[cfg(windows)]
-            open_job_output,
-            #[cfg(windows)]
             term_write,
             #[cfg(windows)]
             term_resize,
@@ -619,7 +613,7 @@ pub fn run() {
             open_projects_file,
             #[cfg(windows)]
             start_task,
-            toggle_star,
+            remove_session,
             peek_show,
             peek_resize,
             peek_hide,

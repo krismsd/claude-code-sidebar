@@ -411,6 +411,8 @@ fn closed_sessions_stay_until_dismissed_or_pruned() {
     assert_eq!(a.status, Status::Closed);
     assert_eq!(a.closed_reason.as_deref(), Some("other"));
     assert!(!st.dismiss_session("b"), "open sessions can't be dismissed");
+    assert!(!st.dismiss_session("a"), "only removed ones can be deleted");
+    st.set_removed("a", true);
     assert!(st.dismiss_session("a"));
     assert!(st.get("a").is_none());
 
@@ -422,7 +424,10 @@ fn closed_sessions_stay_until_dismissed_or_pruned() {
     assert_eq!(b.closed_reason.as_deref(), Some("lost"));
     assert!(st.pids().is_empty());
     st.tick(20_000 + st.closed_retention_ms);
-    assert!(st.get("b").is_none(), "pruned after retention");
+    assert!(st.get("b").is_some(), "never removed: kept");
+    st.set_removed("b", true);
+    st.tick(20_000 + st.closed_retention_ms);
+    assert!(st.get("b").is_none(), "removed: pruned after retention");
 }
 
 #[test]
@@ -703,12 +708,11 @@ fn close_project_only_when_no_open_sessions() {
             10,
         );
     }
-    st.toggle_star("a");
     assert!(st.close_project("/p/alpha").is_ok());
     assert!(st.projects().is_empty());
     assert!(
         st.get("a").is_none() && st.get("b").is_none(),
-        "closed sessions go too, starred included"
+        "its closed sessions go too"
     );
     // A new session there tracks it again, at the bottom.
     with_project(&mut st, "z", "/p/zulu", 20);
@@ -717,20 +721,72 @@ fn close_project_only_when_no_open_sessions() {
 }
 
 #[test]
-fn starred_sessions_are_never_pruned() {
+fn only_removed_sessions_are_pruned() {
     let mut st = Store::default();
     with_project(&mut st, "a", "/p/alpha", 0);
     with_project(&mut st, "b", "/p/alpha", 0);
     for id in ["a", "b"] {
         st.apply(
-            &fx_with("SessionEnd", serde_json::json!({"session_id": id})),
+            &fx_with(
+                "SessionEnd.tab-closed",
+                serde_json::json!({"session_id": id}),
+            ),
             10,
         );
     }
-    assert!(st.toggle_star("a"));
+    assert!(st.set_removed("b", true));
+    assert!(!st.dismiss_session("a"), "not removed: can't be deleted");
     st.tick(10 + st.closed_retention_ms);
-    assert!(st.get("a").is_some_and(|s| s.starred));
+    assert!(st.get("a").is_some(), "kept until the user removes it");
     assert!(st.get("b").is_none());
+}
+
+#[test]
+fn exit_removes_and_resuming_brings_back() {
+    let mut st = Store::default();
+    with_project(&mut st, "a", "/p/alpha", 0);
+    st.apply(
+        &fx_with(
+            "SessionEnd",
+            serde_json::json!({"session_id": "a", "reason": "prompt_input_exit"}),
+        ),
+        1,
+    );
+    assert!(
+        st.get("a").unwrap().is_removed(),
+        "/exit means done with it"
+    );
+    st.apply(
+        &fx_with(
+            "SessionStart",
+            serde_json::json!({"session_id": "a", "source": "resume"}),
+        ),
+        2,
+    );
+    assert!(!st.get("a").unwrap().is_removed());
+    // A tab closed or a process gone: still in the list.
+    st.apply(
+        &fx_with(
+            "SessionEnd.tab-closed",
+            serde_json::json!({"session_id": "a"}),
+        ),
+        3,
+    );
+    assert!(!st.get("a").unwrap().is_removed());
+}
+
+#[test]
+fn saved_closed_sessions_migrate_to_removed_unless_starred() {
+    let mk = |starred: bool| {
+        let mut s = Session::new(SID, 0);
+        s.apply(&ours("SessionEnd.tab-closed"), 1, &th());
+        let mut v = serde_json::to_value(&s).unwrap();
+        v.as_object_mut().unwrap().remove("removed");
+        v["starred"] = starred.into();
+        serde_json::from_value::<Session>(v).unwrap().restored()
+    };
+    assert!(mk(false).is_removed());
+    assert!(!mk(true).is_removed());
 }
 
 #[test]
@@ -818,24 +874,14 @@ fn unused_new_sessions_disappear_when_closed() {
         1,
     );
     assert!(st.get("old").is_some());
-    // Starred: kept. Process gone without SessionEnd: same rule.
-    st.apply(
-        &fx_with("SessionStart", serde_json::json!({"session_id": "star"})),
-        0,
-    );
-    st.toggle_star("star");
-    st.apply(
-        &fx_with("SessionEnd", serde_json::json!({"session_id": "star"})),
-        1,
-    );
-    assert!(st.get("star").is_some());
+    // Process gone without SessionEnd: same rule.
     st.apply(
         &fx_with("SessionStart", serde_json::json!({"session_id": "crash"})),
         0,
     );
     st.pids_dead(&[382308], 5);
     assert!(st.get("crash").is_none());
-    assert!(st.get("star").is_some() && st.get("used").is_some() && st.get("old").is_some());
+    assert!(st.get("used").is_some() && st.get("old").is_some());
 }
 
 #[test]

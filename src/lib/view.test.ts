@@ -49,20 +49,20 @@ function session(over: Partial<Session> = {}): Session {
     attached: null,
     alerts: [],
     closed_reason: null,
-    starred: false,
+    removed: false,
     ...over,
   };
 }
 
 describe("arrange", () => {
-  it("puts starred first, then open by start, with closed (newest first) separate", () => {
+  it("keeps every session not removed in the list, by start; removed ones newest first", () => {
     const a = session({ started_at: 3 });
     const b = session({ started_at: 1 });
-    const c = session({ status: "closed", status_since: 5 });
-    const d = session({ status: "closed", status_since: 9 });
-    const e = session({ status: "closed", starred: true, started_at: 99 });
+    const c = session({ status: "closed", removed: true, status_since: 5 });
+    const d = session({ status: "closed", removed: true, status_since: 9 });
+    const e = session({ status: "closed", started_at: 99 });
     const { visible, closed } = arrange([a, b, c, d, e]);
-    expect(visible.map((s) => s.session_id)).toEqual([e, b, a].map((s) => s.session_id));
+    expect(visible.map((s) => s.session_id)).toEqual([b, a, e].map((s) => s.session_id));
     expect(closed.map((s) => s.session_id)).toEqual([d, c].map((s) => s.session_id));
   });
 });
@@ -197,9 +197,9 @@ describe("session order", () => {
 });
 
 describe("dormant sessions", () => {
-  it("ended for sitting idle: shown with the open ones, not folded away as closed", () => {
+  it("process ended but not removed: shown in the list, not folded away as closed", () => {
     const a = session({ status: "closed", closed_reason: "idle" });
-    const b = session({ status: "closed", closed_reason: "other" });
+    const b = session({ status: "closed", closed_reason: "other", removed: true });
     const { visible, closed } = arrange([a, b]);
     expect(visible).toEqual([a]);
     expect(closed).toEqual([b]);

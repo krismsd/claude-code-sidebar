@@ -67,7 +67,8 @@ export interface Session {
   background: Background[];
   alerts: Alert[];
   closed_reason: string | null;
-  starred: boolean;
+  /** Removed by the user: in its project's "closed" section (null: not yet known). */
+  removed: boolean | null;
 }
 
 export interface Recent {
@@ -195,7 +196,6 @@ export interface Background {
   command: string;
   /** A job Claude will act on when it finishes (vs a service such as a dev server). */
   awaited: boolean;
-  /** Latest line of its output, and a link found in it or in its command. */
+  /** Latest line of its output. */
   last_line: string | null;
-  url: string | null;
 }

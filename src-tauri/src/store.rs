@@ -188,10 +188,12 @@ impl Store {
         }
     }
 
-    pub fn toggle_star(&mut self, session_id: &str) -> bool {
+    /// Move a session to its project's "closed" section (its process is ended separately).
+    pub fn set_removed(&mut self, session_id: &str, removed: bool) -> bool {
         self.sessions.get_mut(session_id).is_some_and(|s| {
-            s.starred = !s.starred;
-            true
+            let changed = s.removed != Some(removed);
+            s.removed = Some(removed);
+            changed
         })
     }
 
@@ -288,12 +290,12 @@ impl Store {
         s.alerts.len() != before
     }
 
-    /// Remove a closed session's card. Live sessions can't be dismissed.
+    /// Delete a removed session's card for good. Live sessions can't be deleted.
     pub fn dismiss_session(&mut self, session_id: &str) -> bool {
         if self
             .sessions
             .get(session_id)
-            .is_some_and(|s| s.status == Status::Closed)
+            .is_some_and(|s| s.status == Status::Closed && s.is_removed())
         {
             self.sessions.remove(session_id);
             return true;
@@ -306,8 +308,11 @@ impl Store {
             s.tick(now, &self.thresholds);
         }
         let keep = self.closed_retention_ms;
+        // Only removed sessions go; the rest stay until the user removes them.
         self.sessions.retain(|_, s| {
-            s.starred || s.status != Status::Closed || now.saturating_sub(s.status_since) < keep
+            !s.is_removed()
+                || s.status != Status::Closed
+                || now.saturating_sub(s.status_since) < keep
         });
     }
 
@@ -369,7 +374,6 @@ impl Store {
                     id: b.id.clone(),
                     distro: s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
                     path: format!("{dir}/{}.output", b.id),
-                    hint: format!("{} {}", b.command, b.description),
                 });
             }
         }
@@ -412,13 +416,7 @@ impl Store {
     }
 
     /// What `jobs::watch` read from a task's output. Returns whether the card changed.
-    pub fn set_job_output(
-        &mut self,
-        session_id: &str,
-        id: &str,
-        line: Option<String>,
-        url: Option<String>,
-    ) -> bool {
+    pub fn set_job_output(&mut self, session_id: &str, id: &str, line: Option<String>) -> bool {
         let Some(b) = self
             .sessions
             .get_mut(session_id)
@@ -426,23 +424,11 @@ impl Store {
         else {
             return false;
         };
-        if b.last_line == line && b.url == url {
+        if b.last_line == line {
             return false;
         }
         b.last_line = line;
-        b.url = url;
         true
-    }
-
-    /// A running task's output file (WSL path) and the session's distro.
-    pub fn job_file(&self, session_id: &str, id: &str) -> Option<(String, String, String)> {
-        let s = self.sessions.get(session_id)?;
-        let b = s.background.iter().find(|b| b.id == id)?;
-        Some((
-            format!("{}/{id}.output", s.tasks_dir.as_deref()?),
-            s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
-            b.description.clone(),
-        ))
     }
 
     /// Distros with open sessions hosted in tmux (to ask which have a terminal attached).

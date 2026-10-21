@@ -8,30 +8,49 @@ interface Props {
   y: number;
   onClose: () => void;
   onRename: (s: Session, name: string) => void;
-  onEnd: (s: Session) => void;
+  /** Move it to the closed section, ending it (and what it runs) if it's running. */
   onRemove: (s: Session) => void;
+  /** Kill a stuck session and everything it started; it stays in the list. */
+  onForceEnd: (s: Session) => void;
+  /** Delete a removed session's card for good. */
+  onDelete: (s: Session) => void;
   /** Hide it (detach every terminal) or open it in a Windows Terminal tab (tmux sessions). */
   onAction: (s: Session, action: "hide" | "terminal") => void;
   onMessage: (msg: string) => void;
 }
 
-/** Right-click menu for a session: rename, copy its ID, end it or remove it. */
+/** Right-click menu for a session: rename, copy its ID, show or hide it, remove it (asking
+ * first if that ends work in progress), force-end a stuck one, delete a removed one. */
 export function SessionMenu({
   session: s,
   x,
   y,
   onClose,
   onRename,
-  onEnd,
   onRemove,
+  onForceEnd,
+  onDelete,
   onAction,
   onMessage,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(s.user_title ?? sessionName(s));
-  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirm, setConfirm] = useState<"remove" | "force" | null>(null);
   const closed = s.status === "closed";
+  const running = !closed;
+  const removed = s.removed === true;
+  // Removing a running session ends it: say what that stops, and ask first.
+  const tasks = s.background.length;
+  const busy = !running
+    ? ""
+    : tasks > 0
+      ? `Ends it and ${tasks === 1 ? "its background task" : `its ${tasks} background tasks`}`
+      : s.status === "working"
+        ? "It's still working"
+        : s.status === "needs_permission" || s.status === "needs_input"
+          ? "It's waiting for you"
+          : "";
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -115,31 +134,45 @@ export function SessionMenu({
           >
             Copy session ID
           </button>
-          {!closed && (
+          {!removed && (
             <button
-              className={confirmEnd ? "danger" : ""}
-              disabled={s.pid === null}
-              title={
-                s.pid === null ? "Started with plain claude: its process isn't known" : undefined
-              }
+              className={confirm === "remove" ? "danger" : ""}
+              title="Move it to the closed section, ending it if it's still running"
               onClick={() => {
-                if (confirmEnd) {
-                  onEnd(s);
-                  onClose();
-                } else setConfirmEnd(true);
-              }}
-            >
-              {confirmEnd ? "Really end this session?" : "End session"}
-            </button>
-          )}
-          {closed && (
-            <button
-              onClick={() => {
+                if (busy && confirm !== "remove") return setConfirm("remove");
                 onRemove(s);
                 onClose();
               }}
             >
-              Remove from sidebar
+              {confirm === "remove" ? `Remove? ${busy}` : "Remove"}
+            </button>
+          )}
+          {running && (
+            <button
+              className={confirm === "force" ? "danger" : ""}
+              disabled={s.pid === null}
+              title={
+                s.pid === null
+                  ? "Started with plain claude: its process isn't known"
+                  : "For a stuck session: kill it and everything it started now. It stays in the list."
+              }
+              onClick={() => {
+                if (confirm !== "force") return setConfirm("force");
+                onForceEnd(s);
+                onClose();
+              }}
+            >
+              {confirm === "force" ? "Kill it now?" : "Force end"}
+            </button>
+          )}
+          {removed && closed && (
+            <button
+              onClick={() => {
+                onDelete(s);
+                onClose();
+              }}
+            >
+              Delete
             </button>
           )}
         </>

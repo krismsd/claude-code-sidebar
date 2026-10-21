@@ -97,12 +97,9 @@ pub struct Background {
     pub description: String,
     #[serde(default)]
     pub command: String,
-    /// Latest line of its output, and a link found in it (or in the command), read by
-    /// `jobs::watch` while it runs.
+    /// Latest line of its output, read by `jobs::watch` while it runs.
     #[serde(default)]
     pub last_line: Option<String>,
-    #[serde(default)]
-    pub url: Option<String>,
     /// A job Claude waits on and will act on when it finishes (a background agent, a watcher,
     /// a poll loop), as opposed to a service it leaves running such as a dev server.
     #[serde(default)]
@@ -250,8 +247,13 @@ pub struct Session {
     #[serde(default)]
     pub job_labels: std::collections::BTreeMap<String, bool>,
     pub alerts: Vec<Alert>,
-    /// Starred by the user: shown first in its project and never pruned (SPEC §3.12).
+    /// Removed by the user (or `/exit`): moved to its project's "closed" section, pruned after
+    /// the retention period. Every other session stays in the list, running or not. None only
+    /// in data saved before this existed (see `restored`).
     #[serde(default)]
+    pub removed: Option<bool>,
+    /// Old: starred sessions were kept. Read once to migrate to `removed`.
+    #[serde(default, skip_serializing)]
     pub starred: bool,
     /// Why it closed: the SessionEnd reason (`prompt_input_exit`, `other`, …) or `lost`.
     pub closed_reason: Option<String>,
@@ -309,6 +311,7 @@ impl Session {
             job_labels: Default::default(),
             alerts: Vec::new(),
             closed_reason: None,
+            removed: Some(false),
             starred: false,
             tool_failures: HashMap::new(),
             permission_released_at: None,
@@ -350,6 +353,15 @@ impl Session {
                 .retain(|a| !matches!(a.kind, AlertKind::Waiting | AlertKind::Slow));
         }
         self.next_alert_id = self.alerts.iter().map(|a| a.id).max().unwrap_or(0) + 1;
+        // Saved before `removed`: closed sessions that weren't starred were in the closed
+        // section; keep them there.
+        if self.removed.is_none() {
+            self.removed = Some(
+                self.status == Status::Closed
+                    && !self.starred
+                    && self.closed_reason.as_deref() != Some("idle"),
+            );
+        }
         // Saved by a build that took injected prompts (task notifications) for the user's.
         if self.last_prompt.as_deref().is_some_and(injected) {
             self.last_prompt = None;
@@ -403,10 +415,13 @@ impl Session {
     }
 
     /// A brand-new (or /clear-ed) session that ended before anything was asked: nothing to
-    /// resume, so its card goes. Resumed sessions have history and starred ones are kept.
+    /// resume, so its card goes. Resumed sessions have history and are kept.
+    pub fn is_removed(&self) -> bool {
+        self.removed == Some(true)
+    }
+
     pub fn is_unused(&self) -> bool {
-        !self.starred
-            && self.first_prompt.is_none()
+        self.first_prompt.is_none()
             && matches!(self.start_source.as_deref(), Some("startup" | "clear"))
     }
 
@@ -476,6 +491,10 @@ impl Session {
             }
         }
         self.last_event_at = now;
+        // Any sign of life brings a removed session back into the list (it was resumed).
+        if !matches!(hook.event, Event::SessionEnd { .. }) {
+            self.removed = Some(false);
+        }
         // Any sign of life brings a closed session back (e.g. it was resumed).
         if self.status == Status::Closed && !matches!(hook.event, Event::SessionEnd { .. }) {
             self.closed_reason = None;
@@ -518,6 +537,10 @@ impl Session {
                 }
             }
             Event::SessionEnd { reason } => {
+                // `/exit` is the user saying they're done with it.
+                if reason.as_deref() == Some("prompt_input_exit") {
+                    self.removed = Some(true);
+                }
                 let idle_end = std::mem::take(&mut self.ending_idle);
                 self.closed_reason = Some(if idle_end {
                     "idle".into()
@@ -760,7 +783,6 @@ impl Session {
                         self.jobs_awaited,
                     ),
                     last_line: seen.and_then(|b| b.last_line.clone()),
-                    url: seen.and_then(|b| b.url.clone()),
                     id,
                     description,
                     command,

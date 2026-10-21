@@ -17,13 +17,9 @@ struct View {
     killer: Box<dyn ChildKiller + Send + Sync>,
 }
 
-/// Open views by name: a tmux session ("cc-<tag>"), or a command registered with
-/// `show_command` (e.g. a background task's output, followed with `tail -f`).
+/// Open views by tmux session name.
 #[derive(Default, Clone)]
-pub struct Views(
-    Arc<Mutex<HashMap<String, View>>>,
-    Arc<Mutex<HashMap<String, Vec<String>>>>,
-);
+pub struct Views(Arc<Mutex<HashMap<String, View>>>);
 
 #[derive(Clone, Serialize)]
 struct Output<'a> {
@@ -33,53 +29,14 @@ struct Output<'a> {
 
 /// Show the terminal window (created on first use) and ask it to open `name`.
 pub fn show(app: &tauri::AppHandle, name: &str, session_id: &str) -> tauri::Result<()> {
-    show_titled(app, name, session_id, "")
-}
-
-/// Open a tab running `argv` (a Windows command line) in the terminal window, titled `title`.
-pub fn show_command(
-    app: &tauri::AppHandle,
-    name: &str,
-    title: &str,
-    argv: Vec<String>,
-) -> tauri::Result<()> {
-    app.state::<Views>()
-        .1
-        .lock()
-        .unwrap()
-        .insert(name.to_string(), argv);
-    show_titled(app, name, "", title)
-}
-
-fn show_titled(
-    app: &tauri::AppHandle,
-    name: &str,
-    session_id: &str,
-    title: &str,
-) -> tauri::Result<()> {
-    let open = serde_json::json!({ "name": name, "session_id": session_id, "title": title });
+    let open = serde_json::json!({ "name": name, "session_id": session_id });
     if let Some(w) = app.get_webview_window(LABEL) {
         let _ = app.emit_to(LABEL, "term-open", open);
         let _ = w.unminimize();
         let _ = w.show();
         return w.set_focus();
     }
-    let enc = |v: &str| -> String {
-        v.bytes()
-            .map(|b| match b {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' => {
-                    (b as char).to_string()
-                }
-                _ => format!("%{b:02X}"),
-            })
-            .collect()
-    };
-    let url = format!(
-        "index.html?view=term&open={}&session={}&title={}",
-        enc(name),
-        enc(session_id),
-        enc(title)
-    );
+    let url = format!("index.html?view=term&open={name}&session={session_id}");
     tauri::WebviewWindowBuilder::new(app, LABEL, tauri::WebviewUrl::App(url.into()))
         .title("Claude Code")
         .inner_size(1100.0, 760.0)
@@ -107,29 +64,18 @@ impl Views {
         let pty = NativePtySystem::default()
             .openpty(size(cols, rows))
             .map_err(|e| e.to_string())?;
-        let registered = self.1.lock().unwrap().get(name).cloned();
-        let cmd = match registered {
-            Some(argv) => {
-                let mut cmd = CommandBuilder::new(&argv[0]);
-                cmd.args(&argv[1..]);
-                cmd
-            }
-            None => {
-                let mut cmd = CommandBuilder::new("wsl.exe");
-                cmd.args([
-                    "-d",
-                    distro,
-                    "-e",
-                    "tmux",
-                    "-L",
-                    "cc-sidebar",
-                    "attach",
-                    "-t",
-                    name,
-                ]);
-                cmd
-            }
-        };
+        let mut cmd = CommandBuilder::new("wsl.exe");
+        cmd.args([
+            "-d",
+            distro,
+            "-e",
+            "tmux",
+            "-L",
+            "cc-sidebar",
+            "attach",
+            "-t",
+            name,
+        ]);
         let mut child = pty.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
         drop(pty.slave);
         let killer = child.clone_killer();

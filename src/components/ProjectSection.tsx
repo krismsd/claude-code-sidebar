@@ -20,7 +20,6 @@ export interface CardHandlers {
   onActivate: (s: Session) => void;
   onDismissAlert: (s: Session, alertId: number) => void;
   onAnswer: (s: Session, allow: boolean) => void;
-  onStar: (s: Session) => void;
   onHover: (s: Session, el: HTMLElement | null) => void;
   onMenu: (s: Session, x: number, y: number) => void;
 }
@@ -93,8 +92,8 @@ export function ProjectSection({
   }, [menu]);
   const { visible, closed } = arrange(sessions, sessionOrder);
   const [cardDrop, setCardDrop] = useState<{ id: string; place: "before" | "after" } | null>(null);
+  // Attention (dots, flashes) is shown on the sessions, not on their project.
   const status = projectStatus(sessions, cards.fresh);
-  const flashing = status.flashing;
   const root = project?.root;
   const color = project?.color ?? "#888";
 
@@ -122,13 +121,12 @@ export function ProjectSection({
       }}
     >
       <header
-        className={`project-head${flashing ? " flash" : ""}`}
+        className="project-head"
         draggable={!!root}
         onDragStart={(e) => root && startProjectDrag(e, root)}
         onDragEnd={endProjectDrag}
         title={root ? `${root}\nDrag to reorder, or onto the drawer to put it away` : undefined}
       >
-        <span className={`dot ${status.state}`} />
         <span className="project-name">
           {project?.emoji && <span className="emoji">{project.emoji}</span>}
           {project?.name ?? "Other"}

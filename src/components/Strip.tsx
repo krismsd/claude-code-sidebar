@@ -23,7 +23,7 @@ const needsYou = (s: Session) =>
   ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact");
 const PEEK_CLOSE_MS = 80;
 
-/** Collapsed sidebar: an expand button, one marker per open or starred session (in project
+/** Collapsed sidebar: an expand button, one marker per session in the list (in project
  * order), and the usage bars. Hovering a marker shows its card in the peek window. */
 export function Strip(props: Props) {
   const { projects, sessions, fresh, leftEdge, floating, usage, now, onExpand, onActivate } = props;
@@ -91,7 +91,6 @@ export function Strip(props: Props) {
             }}
           >
             <span className="strip-dot" />
-            {s.starred && <span className="strip-star">★</span>}
           </button>
         );
       })}

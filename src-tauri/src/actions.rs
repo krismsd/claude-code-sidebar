@@ -22,26 +22,30 @@ fn distro<'a>(s: &'a Session, cfg: &'a Config) -> &'a str {
     s.distro.as_deref().unwrap_or(&cfg.distro)
 }
 
-/// Send a signal to the session's claude process: "INT" interrupts the current turn (like
-/// Ctrl+C), "TERM" ends the session.
-pub fn signal(s: &Session, cfg: &Config, sig: &str) -> Result<(), String> {
+/// End a session and everything it started (background tasks, jobs, servers): signal its
+/// process tree from the leaves up, then close its tmux session. "TERM" lets Claude Code shut
+/// down cleanly (its SessionEnd hook runs); "KILL" is the force-end for a stuck one.
+pub fn end_tree(s: &Session, cfg: &Config, sig: &str) -> Result<(), String> {
     let pid = s
         .pid
         .ok_or("This session wasn't started with claudes, so its process isn't known.")?;
-    let status = hidden(Command::new("wsl.exe").args([
-        "-d",
-        distro(s, cfg),
-        "-e",
-        "kill",
-        &format!("-{sig}"),
-        &pid.to_string(),
-    ]))
-    .status()
-    .map_err(|e| e.to_string())?;
+    let mut script = format!(
+        "t() {{ for c in $(pgrep -P \"$1\"); do t \"$c\"; done; kill -{sig} \"$1\" 2>/dev/null; }}; t {pid}"
+    );
+    if let Some(name) = &s.tmux {
+        script.push_str(&format!(
+            "; sleep 1; tmux -L cc-sidebar kill-session -t {name} 2>/dev/null"
+        ));
+    }
+    script.push_str("; true");
+    let status =
+        hidden(Command::new("wsl.exe").args(["-d", distro(s, cfg), "-e", "sh", "-c", &script]))
+            .status()
+            .map_err(|e| e.to_string())?;
     if status.success() {
         Ok(())
     } else {
-        Err(format!("kill -{sig} {pid} failed"))
+        Err(format!("couldn't end process {pid}"))
     }
 }
 

@@ -45,7 +45,7 @@ Use this to verify UI work (docking, layout, alert flashes, tab focus) instead o
 - Recaps: **Haiku** one-line summary, with an instant non-LLM recap shown immediately while Haiku runs.
 - Alerts: flash an emoji badge when things go wrong, especially auto-mode denials (`PermissionDenied`).
 - Actions: focus tab, approve/deny permission, resume, kill (send prompt deferred, see below).
-- Projects are first class (tracked, stable order, drag to reorder); starred sessions; details as an expanded copy of the card on hover (ignores the mouse); session actions in a right-click menu (rename, copy ID, end, remove); tasks from trackers via Claude (`cc-tasks`: connectors or allowed CLI commands, read-only). Window: docked or floating, collapsible to a strip, choice of monitor.
+- Projects are first class (tracked, stable order, drag to reorder); sessions stay in the list until removed (no stars; Remove moves one to the closed section and ends what it runs); details as an expanded copy of the card on hover (ignores the mouse); session actions in a right-click menu (rename, copy ID, remove, force end, delete); tasks from trackers via Claude (`cc-tasks`: connectors or allowed CLI commands, read-only). Window: docked or floating, collapsible to a strip, choice of monitor.
 - The session wrapper is `claudes` (not `cc`: that's the C compiler).
 - Sessions can be hosted in tmux (`session_mode`, SPEC §3.14) on a private socket (`tmux -L cc-sidebar`); the user's own tmux is never touched. Only send keys (`tmux send-keys`) to tmux sessions your own tests started.
 - Send-prompt is **deferred**: it needs Claude Code Channels, which the user's org policy disables (S5). No keystroke-injection fallback. Revisit only if the org enables channels.

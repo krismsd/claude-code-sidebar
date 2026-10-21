@@ -168,7 +168,7 @@ A "+" button in the sidebar header opens a project picker:
 - **Other…:** type a WSL path (with completion) or pick a folder in the Windows folder dialog (`\\wsl.localhost\<distro>\…` paths are mapped back to Linux paths).
 - Launch: `wt.exe -w 0 new-tab --title "[cc:<tag>] <project>" wsl.exe -d <distro> --cd <path> -e bash -lc cc`, then the new card appears from its SessionStart.
 
-### 3.12 Projects, stars and tasks (M8, 2026-10-17)
+### 3.12 Projects, sessions and tasks (M8, 2026-10-17)
 
 Decisions (2026-10-17): stable project order with drag to reorder; trackers via Claude + claude.ai connectors; hover flyout for details; starred sessions at the top of their project.
 
@@ -176,7 +176,12 @@ Decisions (2026-10-17): stable project order with drag to reorder; trackers via 
 - **Drawer:** a project can be put away (⋯ → Put in drawer, or drag its header to the bottom). It becomes a small square tile on a shelf at the bottom of the sidebar, keeping its status dot and flash, and comes back with a click or a drag. Starting a new session in it takes it out of the drawer.
 - **Waiting on background work:** jobs Claude started in the background and will act on (a watcher, a poll loop, a background agent) are shown in a highlighted "Waiting on" block on the card, apart from services such as dev servers. Each is guessed from its description, then confirmed or overruled by Haiku's `WAITING:` verdict. When a job reports back and Claude has dealt with it, a ✅ alert sounds straight away (unless the user started that turn).
 - **Project header:** colour band, name, label, a status summary, **+** (new session in the project root) and a **⋯** menu: Tasks…, Open folder, VS Code, Close project. Closing untracks it and hides its closed sessions; a new session there brings it back.
-- **Starred sessions:** ☆ on each card toggles `starred`. Starred sessions sit first in their project, open or closed, and are never pruned (closed retention doesn't apply).
+- **Kept until removed** (2026-10-21, replaces stars): every session stays in its project's list, whether it's running, dormant (its process ended: idle with nothing showing it, a tab closed, a crash; shown as "ready", and a click resumes it) or anything else.
+  - **Remove** (right-click) moves it to the folded "closed" section and ends its process tree, background tasks included. It asks first when that stops work: it's working, waiting on the user, or has background tasks.
+  - `/exit` counts as removing. Resuming brings a session back into the list.
+  - Only removed sessions are pruned after the retention period, and only they can be deleted.
+  - **Force end** kills a stuck session's tree (SIGKILL) and leaves it in the list.
+  - Project headers show no status dot or flash: attention belongs to sessions. Drawer tiles keep theirs, since the drawer hides the sessions.
 - **Within a project:** starred first, then open sessions by start time, then closed ones (collapsed to a "n closed" line unless starred).
 - **Card details:** after a ~300 ms hover, the card is drawn expanded exactly over itself (an overlay that ignores the mouse), so hover keeps following the real cards; moving to another card swaps it immediately. Card height never changes. Session actions live in a right-click menu (rename, copy ID, end, remove).
 - **Tasks from an issue tracker:** per-project `[project.tasks]` in `projects.toml`: `connector` (claude.ai connector name, e.g. "Atlassian"), `query` (plain English, e.g. "Jira issues in project ACME assigned to me that aren't done") and optional `tools` (allowed MCP tool names; defaults per connector are read-only). `cc-tasks` runs `claude -p` with only those tools allowed (`--permission-mode dontAsk`, no built-in tools) and returns JSON `[{id, title, status, url, summary}]`. Picking a task starts a session in the project with a first prompt built from the task (passed via `CC_SIDEBAR_PROMPT_FILE`, so no quoting goes through wt.exe). Trackers without a connector (e.g. Azure DevOps) go through a CLI instead: `tools` holds permission rules such as `Bash(az boards query:*)`, and `cc-tasks` runs from the project folder. Write commands are refused (dontAsk); Claude Code still allows plain read-only commands.

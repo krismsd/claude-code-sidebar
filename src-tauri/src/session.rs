@@ -90,8 +90,19 @@ pub struct PendingPermission {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Background {
+    /// Claude Code's task id: its output is `<tasks_dir>/<id>.output`.
+    #[serde(default)]
+    pub id: String,
     pub agent: bool,
     pub description: String,
+    #[serde(default)]
+    pub command: String,
+    /// Latest line of its output, and a link found in it (or in the command), read by
+    /// `jobs::watch` while it runs.
+    #[serde(default)]
+    pub last_line: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
     /// A job Claude waits on and will act on when it finishes (a background agent, a watcher,
     /// a poll loop), as opposed to a service it leaves running such as a dev server.
     #[serde(default)]
@@ -228,6 +239,9 @@ pub struct Session {
     /// When the last turn ended: "ready" counts from here, through closing and resuming.
     #[serde(default)]
     pub last_stop_at: Option<Ms>,
+    /// Where Claude Code writes background task output (`…/<session>/tasks`, WSL path).
+    #[serde(default)]
+    pub tasks_dir: Option<String>,
     pub alerts: Vec<Alert>,
     /// Starred by the user: shown first in its project and never pruned (SPEC §3.12).
     #[serde(default)]
@@ -284,6 +298,7 @@ impl Session {
             pending_jobs: Vec::new(),
             user_turn: false,
             last_stop_at: None,
+            tasks_dir: None,
             alerts: Vec::new(),
             closed_reason: None,
             starred: false,
@@ -424,6 +439,13 @@ impl Session {
         }
         if c.model.is_some() {
             self.model = c.model.clone();
+        }
+        if let Some(dir) = c
+            .scratchpad_dir
+            .as_deref()
+            .and_then(|d| d.strip_suffix("/scratchpad"))
+        {
+            self.tasks_dir = Some(format!("{dir}/tasks"));
         }
         if let Some(cwd) = &c.cwd {
             match start_dir(cwd, self.transcript_path.as_deref()) {
@@ -700,17 +722,25 @@ impl Session {
     }
 
     fn set_background(&mut self, tasks: &[crate::events::BackgroundTask]) {
+        let before = std::mem::take(&mut self.background);
         self.background = tasks
             .iter()
             .filter(|t| t.running())
             .map(|t| {
+                let id = t.id.clone().unwrap_or_default();
                 let description = t.description.clone().unwrap_or_default();
-                let command = t.command.as_deref().unwrap_or_default();
+                let command = t.command.clone().unwrap_or_default();
                 let text = format!("{description} {command}");
+                // Keep what was already read from its output.
+                let seen = before.iter().find(|b| !id.is_empty() && b.id == id);
                 Background {
                     agent: t.is_agent(),
                     awaited: awaited(t.is_agent(), &text, self.jobs_awaited),
+                    last_line: seen.and_then(|b| b.last_line.clone()),
+                    url: seen.and_then(|b| b.url.clone()),
+                    id,
                     description,
+                    command,
                 }
             })
             .collect();

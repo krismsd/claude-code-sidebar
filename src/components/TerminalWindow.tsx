@@ -13,8 +13,10 @@ import type { Session, UiState } from "../lib/types";
 import { STATUS_LABEL, sessionName } from "../lib/format";
 
 interface Tab {
-  /** tmux session name, "cc-<tag>". */
+  /** tmux session name ("cc-<tag>"), or a command view's name ("out-<task id>"). */
   name: string;
+  /** For command views: the tab's label. */
+  title?: string;
 }
 
 /** Windows Terminal's default ("Campbell") colours, so sessions look as they did there. */
@@ -49,8 +51,9 @@ const terminals = new Map<string, Terminal>();
  * Claude keeps running and the sidebar card says so. */
 export function TerminalWindow() {
   const [tabs, setTabs] = useState<Tab[]>(() => {
-    const open = new URLSearchParams(window.location.search).get("open");
-    return open ? [{ name: open }] : [];
+    const q = new URLSearchParams(window.location.search);
+    const open = q.get("open");
+    return open ? [{ name: open, title: q.get("title") || undefined }] : [];
   });
   const [active, setActive] = useState<string | null>(tabs[0]?.name ?? null);
   const [state, setState] = useState<UiState | null>(null);
@@ -59,8 +62,10 @@ export function TerminalWindow() {
     invoke<UiState>("get_state").then(setState);
     const subs = [
       listen<UiState>("state", (e) => setState(e.payload)),
-      listen<{ name: string }>("term-open", ({ payload: { name } }) => {
-        setTabs((t) => (t.some((x) => x.name === name) ? t : [...t, { name }]));
+      listen<{ name: string; title?: string }>("term-open", ({ payload: { name, title } }) => {
+        setTabs((t) =>
+          t.some((x) => x.name === name) ? t : [...t, { name, title: title || undefined }],
+        );
         setActive(name);
       }),
       listen<{ name: string; data: string }>("term-output", ({ payload }) =>
@@ -91,7 +96,7 @@ export function TerminalWindow() {
   return (
     <main className="term-window">
       <nav className="term-tabs">
-        {tabs.map(({ name }) => {
+        {tabs.map(({ name, title }) => {
           const s = byName(name);
           return (
             <div
@@ -100,12 +105,12 @@ export function TerminalWindow() {
               style={{ "--project": s?.project?.color ?? "#888" } as CSSProperties}
               onClick={() => setActive(name)}
               onAuxClick={(e) => e.button === 1 && close(name)}
-              title={s ? `${s.project?.name ?? ""}\n${sessionName(s)}` : name}
+              title={s ? `${s.project?.name ?? ""}\n${sessionName(s)}` : (title ?? name)}
             >
-              <span className="term-tab-name">{s ? sessionName(s) : name}</span>
+              <span className="term-tab-name">{s ? sessionName(s) : (title ?? name)}</span>
               {s && <span className={`chip chip-${s.status}`}>{STATUS_LABEL[s.status]}</span>}
               <button
-                title="Close (the session keeps running)"
+                title={s ? "Close (the session keeps running)" : "Close"}
                 onClick={(e) => (e.stopPropagation(), close(name))}
               >
                 ×

@@ -64,7 +64,7 @@ export interface Session {
   subagents_running: number;
   background_running: number;
   /** What runs in the background, as of the last Stop/SubagentStop. */
-  background: { agent: boolean; description: string; awaited: boolean }[];
+  background: Background[];
   alerts: Alert[];
   closed_reason: string | null;
   starred: boolean;
@@ -184,4 +184,18 @@ export interface Settings {
   palette: string[];
   config_path: string;
   projects_path: string;
+}
+
+/** Something running in the background of a session (from Stop/SubagentStop). */
+export interface Background {
+  /** Claude Code's task id; its output file is read for `last_line`/`url`. */
+  id: string;
+  agent: boolean;
+  description: string;
+  command: string;
+  /** A job Claude will act on when it finishes (vs a service such as a dev server). */
+  awaited: boolean;
+  /** Latest line of its output, and a link found in it or in its command. */
+  last_line: string | null;
+  url: string | null;
 }

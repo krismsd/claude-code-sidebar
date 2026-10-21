@@ -355,6 +355,96 @@ impl Store {
 
     /// Load saved sessions (app start). Open sessions without a PID can't be checked, so they
     /// start closed and revive on their next event; the rest are confirmed by liveness.
+    /// Output files of running background tasks in open sessions (see `jobs::watch`).
+    pub fn job_files(&self) -> Vec<crate::jobs::JobFile> {
+        let mut out = Vec::new();
+        for s in self.sessions.values() {
+            let Some(dir) = &s.tasks_dir else { continue };
+            if s.status == Status::Closed {
+                continue;
+            }
+            for b in s.background.iter().filter(|b| !b.id.is_empty()) {
+                out.push(crate::jobs::JobFile {
+                    session_id: s.session_id.clone(),
+                    id: b.id.clone(),
+                    distro: s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
+                    path: format!("{dir}/{}.output", b.id),
+                    hint: format!("{} {}", b.command, b.description),
+                });
+            }
+        }
+        out
+    }
+
+    /// Open sessions with background items lacking a task id: (session id, distro,
+    /// transcript path).
+    pub fn jobs_without_ids(&self) -> Vec<(String, String, String)> {
+        self.sessions
+            .values()
+            .filter(|s| s.status != Status::Closed && s.background.iter().any(|b| b.id.is_empty()))
+            .filter_map(|s| {
+                Some((
+                    s.session_id.clone(),
+                    s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
+                    s.transcript_path.clone()?,
+                ))
+            })
+            .collect()
+    }
+
+    /// Ids (and the output folder) found for a session's background items, matched by
+    /// description, the latest start winning.
+    pub fn set_job_ids(&mut self, session_id: &str, found: &[crate::jobs::Started]) -> bool {
+        let Some(s) = self.sessions.get_mut(session_id) else {
+            return false;
+        };
+        let mut changed = false;
+        for b in s.background.iter_mut().filter(|b| b.id.is_empty()) {
+            if let Some(f) = found.iter().rev().find(|f| f.description == b.description) {
+                b.id = f.id.clone();
+                if s.tasks_dir.is_none() {
+                    s.tasks_dir = f.output.rsplit_once('/').map(|(d, _)| d.to_string());
+                }
+                changed = true;
+            }
+        }
+        changed
+    }
+
+    /// What `jobs::watch` read from a task's output. Returns whether the card changed.
+    pub fn set_job_output(
+        &mut self,
+        session_id: &str,
+        id: &str,
+        line: Option<String>,
+        url: Option<String>,
+    ) -> bool {
+        let Some(b) = self
+            .sessions
+            .get_mut(session_id)
+            .and_then(|s| s.background.iter_mut().find(|b| b.id == id))
+        else {
+            return false;
+        };
+        if b.last_line == line && b.url == url {
+            return false;
+        }
+        b.last_line = line;
+        b.url = url;
+        true
+    }
+
+    /// A running task's output file (WSL path) and the session's distro.
+    pub fn job_file(&self, session_id: &str, id: &str) -> Option<(String, String, String)> {
+        let s = self.sessions.get(session_id)?;
+        let b = s.background.iter().find(|b| b.id == id)?;
+        Some((
+            format!("{}/{id}.output", s.tasks_dir.as_deref()?),
+            s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
+            b.description.clone(),
+        ))
+    }
+
     /// Distros with open sessions hosted in tmux (to ask which have a terminal attached).
     pub fn tmux_distros(&self) -> Vec<Option<String>> {
         let mut out: Vec<Option<String>> = Vec::new();

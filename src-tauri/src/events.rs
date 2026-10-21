@@ -47,10 +47,16 @@ pub struct Common {
     pub permission_mode: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
+    /// `/tmp/claude-<uid>/<project>/<session>/scratchpad`: background tasks write their output
+    /// next to it, in `tasks/<id>.output`.
+    #[serde(default)]
+    pub scratchpad_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BackgroundTask {
+    #[serde(default)]
+    pub id: Option<String>,
     #[serde(default)]
     pub status: Option<String>,
     /// "subagent" for agents, "shell" for background commands.

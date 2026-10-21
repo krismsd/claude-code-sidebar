@@ -201,6 +201,12 @@ A footer shows the account's 5-hour and weekly usage (% and reset time), read fr
 
 **Processes only live while they're needed** (2026-10-21). A conversation (the card) is permanent; its process is not. A tmux session with no terminal showing it, for 5 s with no new event, is ended (SIGTERM) when it has nothing to do: it's idle, new or errored, with no pending permission, nothing in the background (jobs, dev servers, background agents) and no agents running. Working, waiting-on-you and background work keep it alive. Its SessionEnd is recorded as `idle`, and the UI treats that as **dormant**: shown and sorted as a ready conversation (green pill, ✅ alert kept), and a click resumes it. Resumed sessions start as "ready", not "new".
 
+**Background task progress** (2026-10-21). Claude Code writes each background task's output to `<session>/tasks/<id>.output` next to the scratchpad the hooks report (`scratchpad_dir`). `jobs::watch` reads the end of each running task's file every 3 s (over \\wsl.localhost) without involving Claude. Cards show:
+- each job's latest output line under its name (ANSI stripped, after the last `\r`), and a ↗ link when its output (or command) contains an http(s) URL;
+- clicking a job, or the "⧗ N background tasks" count, opens its whole output following live (`tail -f`) as a tab in the sidebar's terminal window.
+
+Items recorded without a task id (older builds, or events the app missed) get theirs from the transcript, where each background command's result says "running in background with ID: … Output is being written to: …".
+
 **Known differences from a plain Windows Terminal tab:**
 - scrollback lives in tmux (mouse wheel), so Windows Terminal's search only sees the screen;
 - mouse selection goes through tmux (Shift+drag for a native selection);

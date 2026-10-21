@@ -169,13 +169,24 @@ fn stop_with_background_tasks() {
     assert_eq!(s.background[0].description, "Count lines in README.md");
     s.apply(&ours("Stop.background-shell"), 2, &th());
     assert_eq!((s.subagents_running, s.background_running), (0, 1));
+    let b = &s.background[0];
     assert_eq!(
-        s.background,
-        vec![crate::session::Background {
-            agent: false,
-            description: "sleep 90".into(),
-            awaited: false,
-        }]
+        (
+            b.id.as_str(),
+            b.agent,
+            b.description.as_str(),
+            b.command.as_str(),
+            b.awaited
+        ),
+        ("bxyho0k31", false, "sleep 90", "sleep 90", false)
+    );
+    // Its output file sits next to the scratchpad the hooks report.
+    assert!(
+        s.tasks_dir
+            .as_deref()
+            .is_some_and(|d| d.ends_with("/d60030c3-51ca-429b-bf09-a8efbfa2013a/tasks")),
+        "{:?}",
+        s.tasks_dir
     );
     s.apply(&ours("Stop"), 3, &th());
     assert_eq!((s.subagents_running, s.background_running), (0, 0));

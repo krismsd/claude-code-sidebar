@@ -14,6 +14,7 @@ mod desktop;
 pub mod events;
 #[cfg(windows)]
 mod focus;
+mod jobs;
 mod liveness;
 pub mod peek;
 pub mod project;
@@ -113,6 +114,34 @@ fn term_open(
         .and_then(|s| s.distro.clone())
         .unwrap_or_else(|| ctx.config.read().unwrap().distro.clone());
     views.open(&app, &name, &distro, cols, rows)
+}
+
+/// Follow a background task's output live in the terminal window (`tail -f`).
+#[cfg(windows)]
+#[tauri::command]
+async fn open_job_output(
+    app: tauri::AppHandle,
+    ctx: State<'_, Ctx>,
+    session_id: String,
+    task_id: String,
+) -> Result<(), String> {
+    let (path, distro, description) = ctx
+        .store
+        .lock()
+        .unwrap()
+        .job_file(&session_id, &task_id)
+        .ok_or("That task isn't running any more.")?;
+    let title = if description.is_empty() {
+        format!("Output {task_id}")
+    } else {
+        format!("Output: {description}")
+    };
+    let argv = [
+        "wsl.exe", "-d", &distro, "-e", "tail", "-n", "+1", "-f", &path,
+    ]
+    .map(String::from)
+    .to_vec();
+    term::show_command(&app, &format!("out-{task_id}"), &title, argv).map_err(|e| e.to_string())
 }
 
 #[cfg(windows)]
@@ -575,6 +604,8 @@ pub fn run() {
             #[cfg(windows)]
             term_open,
             #[cfg(windows)]
+            open_job_output,
+            #[cfg(windows)]
             term_write,
             #[cfg(windows)]
             term_resize,
@@ -693,6 +724,7 @@ pub fn run() {
             tauri::async_runtime::spawn(server::watch_config(ctx.clone()));
             tauri::async_runtime::spawn(server::probe_usage(ctx.clone()));
             tauri::async_runtime::spawn(liveness::watch_attached(ctx.clone()));
+            tauri::async_runtime::spawn(jobs::watch(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())
         })

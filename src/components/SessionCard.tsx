@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
-import type { Session } from "../lib/types";
+import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import type { Background, Session } from "../lib/types";
 import { dormant } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
@@ -158,9 +160,13 @@ export function SessionCard({
             {jobs.length > 1 ? `Waiting on ${jobs.length} jobs` : "Waiting on"}
           </span>
           {jobs.map((b, i) => (
-            <span key={i} className={`card-job${expanded ? " full" : ""}`}>
-              {b.agent ? "🤖" : "⏱"} {jobName(b)}
-            </span>
+            <JobLine
+              key={b.id || i}
+              session={s}
+              job={b}
+              name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
+              expanded={expanded}
+            />
           ))}
         </div>
       )}
@@ -181,7 +187,18 @@ export function SessionCard({
             <span className="running running-agents">🤖 {plural(agents, "agent")} running</span>
           )}
           {services.length > 0 && (
-            <span className="running" title={services.map(jobName).join("\n")}>
+            <span
+              className="running clickable"
+              title={`${services.map(jobName).join("\n")}\n(click to show their output)`}
+              onClick={(e) => {
+                e.stopPropagation();
+                services
+                  .filter((b) => b.id)
+                  .forEach((b) =>
+                    invoke("open_job_output", { sessionId: s.session_id, taskId: b.id }),
+                  );
+              }}
+            >
               ⧗ {plural(services.length, "background task")}
             </span>
           )}
@@ -196,9 +213,7 @@ export function SessionCard({
             </div>
           )}
           {services.map((b, i) => (
-            <div key={`bg${i}`} className="muted">
-              ⧗ {jobName(b)}
-            </div>
+            <JobLine key={b.id || `bg${i}`} session={s} job={b} name={`⧗ ${jobName(b)}`} expanded />
           ))}
           {shown.length > 1 &&
             shown.map((a) => (
@@ -213,5 +228,49 @@ export function SessionCard({
         </div>
       )}
     </article>
+  );
+}
+
+/** A background task on a card: its name, its latest output line, and a link to what it
+ * watches if its output (or command) has one. A click follows its whole output live in the
+ * terminal window. */
+function JobLine({
+  session,
+  job,
+  name,
+  expanded,
+}: {
+  session: Session;
+  job: Background;
+  name: string;
+  expanded: boolean;
+}) {
+  const open = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (job.id) invoke("open_job_output", { sessionId: session.session_id, taskId: job.id });
+  };
+  return (
+    <div
+      className={`card-job${expanded ? " full" : ""}${job.id ? " clickable" : ""}`}
+      title={job.id ? "Show its output" : undefined}
+      onClick={open}
+    >
+      <span className="card-job-name">
+        {name}
+        {job.url && (
+          <button
+            className="card-job-link"
+            title={job.url}
+            onClick={(e) => {
+              e.stopPropagation();
+              openUrl(job.url!);
+            }}
+          >
+            ↗
+          </button>
+        )}
+      </span>
+      {job.last_line && <span className="card-job-output">{job.last_line}</span>}
+    </div>
   );
 }

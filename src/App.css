@@ -245,19 +245,60 @@ body,
 }
 
 .card-job {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.card-job.clickable {
+  cursor: pointer;
+}
+
+.card-job.clickable:hover .card-job-name {
+  text-decoration: underline;
+}
+
+.card-job-name,
+.card-job-output {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.card-job.full {
+.card-job.full .card-job-name,
+.card-job.full .card-job-output {
   white-space: normal;
+}
+
+/* Latest output line: terminal text, quiet. */
+.card-job-output {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--muted);
+  padding-left: 1.4em;
+}
+
+.card-job-link {
+  border: none;
+  background: none;
+  color: var(--blue);
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  font-size: 12px;
 }
 
 .running {
   font-size: 11px;
   color: var(--muted);
   margin-right: 6px;
+}
+
+.running.clickable {
+  cursor: pointer;
+}
+
+.running.clickable:hover {
+  text-decoration: underline;
 }
 
 .running-agents {

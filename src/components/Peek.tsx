@@ -42,6 +42,7 @@ export function Peek() {
         <SessionCard
           session={session}
           now={now}
+          away={state?.away ?? []}
           fresh={new Set()}
           onActivate={noop}
           onDismissAlert={noop}

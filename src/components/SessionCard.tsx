@@ -1,11 +1,13 @@
 import type { CSSProperties } from "react";
-import type { Background, Session } from "../lib/types";
-import { dormant } from "../lib/view";
+import type { AwaySpell, Background, Session } from "../lib/types";
+import { dormant, presentTime } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
   session: Session;
   now: number;
+  /** Away spells: the ready pill's fade skips them. */
+  away: AwaySpell[];
   /** Alert/permission keys that just appeared (see App useFresh). */
   fresh: Set<string>;
   onActivate: (s: Session) => void;
@@ -29,9 +31,11 @@ const stop =
 const HOUR = 3_600_000;
 
 /** A "ready" pill fades from green to grey between 1 and 2 hours: still ready, but old news. */
-function readyFade(s: Session, now: number): CSSProperties | undefined {
+function readyFade(s: Session, now: number, away: AwaySpell[]): CSSProperties | undefined {
   if (s.status !== "idle" && !dormant(s)) return undefined;
-  const grey = Math.min(1, Math.max(0, (now - s.status_since - HOUR) / HOUR));
+  // Time you were at the computer: a session left over lunch or a night stays green.
+  const left = presentTime(s.status_since, now, away);
+  const grey = Math.min(1, Math.max(0, (left - HOUR) / HOUR));
   if (grey === 0) return undefined;
   return {
     background: `color-mix(in srgb, var(--grey) ${Math.round(grey * 100)}%, var(--green))`,
@@ -45,6 +49,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export function SessionCard({
   session: s,
   now,
+  away,
   fresh,
   onActivate,
   onDismissAlert,
@@ -100,7 +105,7 @@ export function SessionCard({
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
-        <span className={`chip chip-${status}`} style={readyFade(s, now)}>
+        <span className={`chip chip-${status}`} style={readyFade(s, now, away)}>
           {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
         </span>
       </header>

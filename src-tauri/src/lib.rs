@@ -17,6 +17,7 @@ mod focus;
 mod jobs;
 mod liveness;
 pub mod peek;
+mod presence;
 pub mod project;
 mod recap;
 mod server;
@@ -661,6 +662,7 @@ pub fn run() {
                 holds: Default::default(),
                 prefs: Arc::new(Mutex::new(prefs)),
                 usage: Default::default(),
+                presence: Arc::new(Mutex::new(presence::load())),
             };
             // Restored alerts are old news: mark them seen without a sound.
             ctx.notifier
@@ -720,6 +722,7 @@ pub fn run() {
             tauri::async_runtime::spawn(server::probe_usage(ctx.clone()));
             tauri::async_runtime::spawn(liveness::watch_attached(ctx.clone()));
             tauri::async_runtime::spawn(jobs::watch(ctx.clone()));
+            tauri::async_runtime::spawn(presence::watch(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())
         })

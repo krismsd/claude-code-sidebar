@@ -1,5 +1,5 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
-import type { Session, UiState } from "./types";
+import type { AwaySpell, Session, UiState } from "./types";
 
 /** Removed by the user (or `/exit`): in its project's "closed" section. */
 export const removed = (s: Session) => s.removed === true;
@@ -97,4 +97,16 @@ export function reorder(
   if (at < 0) return ids;
   rest.splice(place === "after" ? at + 1 : at, 0, moved);
   return rest;
+}
+
+/** Time from `from` to `now` that the user was at the computer: the away spells (lunch, a
+ * night, the computer off) don't count. */
+export function presentTime(from: number, now: number, away: AwaySpell[]): number {
+  let gone = 0;
+  for (const [start, end] of away) {
+    const a = Math.max(start, from);
+    const b = Math.min(end ?? now, now);
+    if (b > a) gone += b - a;
+  }
+  return Math.max(0, now - from - gone);
 }

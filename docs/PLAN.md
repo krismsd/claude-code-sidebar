@@ -259,6 +259,10 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 - [x] The project header's "N open" became an "N closed" link (only when there are any), opening a menu of the project's closed sessions: name and age, a click reopens, ✕ deletes. The folded "▸ N closed" list of cards under each project is gone. The menu opens upwards for the last project, like ⋯.
 
+## M25: Ready fade counts only time at the computer (2026-10-21)
+
+- [x] The ready pill faded by wall-clock time, so sessions left over lunch or a night turned grey. `presence.rs` polls `GetLastInputInfo` every 10 s. No input for 5 minutes is an away spell counted from the last input, which also covers a locked screen and sleep. Spells are saved to `presence.json` (with `last_input`, so time the app or computer was off counts as away) and sent in the UI state. The fade (1–2 h) uses `presentTime()`, time since ready minus away spells. The pill's timer still shows real time.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

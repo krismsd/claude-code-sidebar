@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
-import { arrange, dropIndex, freshKeys, groupSessions, projectStatus, reorder } from "./view";
+import {
+  arrange,
+  dropIndex,
+  freshKeys,
+  groupSessions,
+  presentTime,
+  projectStatus,
+  reorder,
+} from "./view";
 import { elapsed, sessionName, usageLevel, usageNow } from "./format";
 
 let n = 0;
@@ -113,6 +121,7 @@ describe("groupSessions", () => {
       left_edge: false,
       monitor: 0,
       usage: null,
+      away: [],
     };
     const { byRoot, other } = groupSessions(state);
     expect(byRoot.get("/p/a")).toEqual([a]);
@@ -205,5 +214,18 @@ describe("dormant sessions", () => {
     const { visible, closed } = arrange([a, b]);
     expect(visible).toEqual([a]);
     expect(closed).toEqual([b]);
+  });
+});
+
+describe("presentTime", () => {
+  const H = 3_600_000;
+  it("skips away spells, including one still going", () => {
+    expect(presentTime(0, 3 * H, [])).toBe(3 * H);
+    // Ready at 0, lunch from 1h to 2h: 2h at the computer by 3h.
+    expect(presentTime(0, 3 * H, [[H, 2 * H]])).toBe(2 * H);
+    // Away since before it became ready, still away.
+    expect(presentTime(H, 10 * H, [[0, null]])).toBe(0);
+    // Only the part after it became ready counts.
+    expect(presentTime(2 * H, 4 * H, [[H, 3 * H]])).toBe(H);
   });
 });

@@ -183,6 +183,7 @@ function App() {
 
   const cards: CardHandlers = {
     now,
+    away: state?.away ?? [],
     fresh,
     onHover,
     onMenu: (s, x, y) => {

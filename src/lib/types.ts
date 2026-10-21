@@ -104,7 +104,11 @@ export interface UiState {
   /** 0 = primary, n = nth monitor from the left. */
   monitor: number;
   usage: Usage | null;
+  /** Away spells (from, until; until null while away), for the ready pill's fade. */
+  away: AwaySpell[];
 }
+
+export type AwaySpell = [number, number | null];
 
 export interface UsageWindow {
   /** 0–100 */

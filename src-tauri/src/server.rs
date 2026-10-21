@@ -38,6 +38,8 @@ pub struct Ctx {
     pub prefs: Arc<Mutex<crate::ui::UiPrefs>>,
     /// Latest subscription usage limits, if known.
     pub usage: Arc<Mutex<Option<crate::usage::Usage>>>,
+    /// When the user has been away from the computer (the ready pill's fade skips it).
+    pub presence: Arc<Mutex<crate::presence::Presence>>,
 }
 
 static HOLD_SEQ: AtomicU64 = AtomicU64::new(1);
@@ -85,6 +87,8 @@ pub struct UiState {
     /// Configured monitor: 0 = primary, n = nth from the left.
     pub monitor: usize,
     pub usage: Option<crate::usage::Usage>,
+    /// Away spells (from, until or null while away), for the ready pill's fade.
+    pub away: Vec<(Ms, Option<Ms>)>,
 }
 
 pub fn ui_state(ctx: &Ctx) -> UiState {
@@ -106,6 +110,7 @@ pub fn ui_state(ctx: &Ctx) -> UiState {
         left_edge: cfg.edge.eq_ignore_ascii_case("left"),
         monitor: cfg.monitor,
         usage: ctx.usage.lock().unwrap().clone(),
+        away: ctx.presence.lock().unwrap().away.clone(),
     }
 }
 

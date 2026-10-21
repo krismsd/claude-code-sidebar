@@ -154,6 +154,7 @@ These still appear (hooks are global after install) but have no tag, PID or chan
   - hover or expand for detail recap, last prompt and action buttons
 - Ordering: needs-attention first (permission or alerts), then working, then idle. Within each group, keep a stable order by start time. No jumping around while the mouse is over the sidebar.
 - Notification sound per alert type (`[sounds]` in config: system sound alias, .wav path or ""), Windows toast when the sidebar is hidden (`toasts = "when_hidden"`: a full-screen app covers it; or "always"/"never"), and a global hotkey (`jump_hotkey`, default Ctrl+Alt+J) to focus the session waiting on you longest. New alerts flash their card for 4 s.
+- A "ready" pill fades from green to grey between 1 and 2 hours of the user being **at the computer** since it became ready. Away spells (5 minutes with no keyboard or mouse input, a locked screen, sleep, the computer off) don't count, so a session finished just before lunch or the end of the day is still green on return. The timer on the pill shows real time.
 - Theme follows Windows light/dark.
 
 ### 3.10 Config

@@ -143,7 +143,7 @@ body,
 
 .card-recap {
   color: var(--muted);
-  /* Up to five lines: the Haiku line plus its detail, or the start of the last reply. */
+  /* Up to five lines: the start of Claude's last answer. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
@@ -1034,6 +1034,20 @@ button {
   display: block;
   -webkit-line-clamp: unset;
   line-clamp: none;
+  /* A long answer stops short of the window's height. */
+  max-height: 60vh;
+}
+
+/* The question the answer ended on: always visible, it's what Claude is waiting for. */
+.card-question {
+  margin-top: 3px;
+  color: var(--fg);
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .card-more {

@@ -202,7 +202,23 @@ async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String
     announce(&ctx);
     refresh_project(&ctx, &hook);
     if matches!(hook.event, Event::Stop { .. }) {
-        ctx.recapper.on_stop(&ctx, &hook.common.session_id);
+        // The card shows Claude's own last answer. Haiku is only needed for what it alone can
+        // tell: whether background commands are jobs or services, and a title when Claude Code
+        // hasn't set one. Otherwise just keep the usage numbers fresh (a tinier call).
+        let needs_haiku = ctx
+            .store
+            .lock()
+            .unwrap()
+            .get(&hook.common.session_id)
+            .is_some_and(|s| {
+                (s.title.is_none() && s.user_title.is_none())
+                    || s.background.iter().any(|b| !b.agent)
+            });
+        if needs_haiku {
+            ctx.recapper.on_stop(&ctx, &hook.common.session_id);
+        } else {
+            refresh_usage_if_stale(&ctx);
+        }
     }
     if matches!(hook.event, Event::SessionStart { .. }) {
         backfill_names(&ctx);
@@ -327,6 +343,36 @@ pub fn backfill_names(ctx: &Ctx) {
     });
 }
 
+/// Cards with no last answer yet (data from before it was kept): read it from the transcript,
+/// the last assistant text there. Only the end of the file is read.
+pub fn backfill_answers(ctx: &Ctx) {
+    let todo = ctx.store.lock().unwrap().unanswered();
+    if todo.is_empty() {
+        return;
+    }
+    let ctx = ctx.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::io::{Read, Seek, SeekFrom};
+        let default_distro = ctx.config.read().unwrap().distro.clone();
+        for (id, path, distro) in todo {
+            let file = project::windows_path(distro.as_deref().unwrap_or(&default_distro), &path);
+            let Ok(mut f) = std::fs::File::open(&file) else {
+                continue;
+            };
+            let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+            let _ = f.seek(SeekFrom::Start(len.saturating_sub(1 << 20)));
+            let mut buf = Vec::new();
+            if f.read_to_end(&mut buf).is_err() {
+                continue;
+            }
+            if let Some(msg) = crate::session::last_assistant_text(&String::from_utf8_lossy(&buf)) {
+                ctx.store.lock().unwrap().set_answer(&id, &msg);
+            }
+        }
+        publish(&ctx);
+    });
+}
+
 /// Write sidebar names of closed sessions into their transcripts as `custom-title` records
 /// (what `claude --name` / `/rename` write), so Claude Code's /resume picker shows them. Waits
 /// a few seconds first: an exiting Claude Code re-writes its own title on the way out.
@@ -376,9 +422,36 @@ pub fn set_usage(ctx: &Ctx, json: &str) {
     }
 }
 
+/// Usage numbers older than this are refreshed after a turn that didn't need Haiku.
+const USAGE_STALE_MS: Ms = 5 * 60_000;
+
+fn refresh_usage_if_stale(ctx: &Ctx) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static RUNNING: AtomicBool = AtomicBool::new(false);
+    let fresh = ctx
+        .usage
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|u| now_ms().saturating_sub(u.updated_at) < USAGE_STALE_MS);
+    if fresh || RUNNING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let ctx = ctx.clone();
+    tauri::async_runtime::spawn(async move {
+        fetch_usage(&ctx).await;
+        RUNNING.store(false, Ordering::SeqCst);
+    });
+}
+
 /// At startup: one tiny `claude -p` call (`cc-usage`) so the usage footer has numbers before
-/// the first recap. Later updates come with each recap.
+/// the first recap. Later they come with each recap, or from another such call when stale.
 pub async fn probe_usage(ctx: Ctx) {
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    fetch_usage(&ctx).await;
+}
+
+async fn fetch_usage(ctx: &Ctx) {
     let (cmd_name, distro) = {
         let cfg = ctx.config.read().unwrap();
         (cfg.usage_command.clone(), cfg.distro.clone())
@@ -386,7 +459,6 @@ pub async fn probe_usage(ctx: Ctx) {
     if cmd_name.is_empty() {
         return;
     }
-    tokio::time::sleep(Duration::from_secs(3)).await;
     let mut cmd = tokio::process::Command::new("wsl.exe");
     cmd.args(["-d", &distro, "-e", "bash", "-lc", &cmd_name]);
     #[cfg(windows)]
@@ -395,7 +467,7 @@ pub async fn probe_usage(ctx: Ctx) {
         Ok(Ok(out)) if out.status.success() => {
             let text = String::from_utf8_lossy(&out.stdout);
             if let Some(line) = text.lines().rev().find(|l| l.trim_start().starts_with('{')) {
-                set_usage(&ctx, line);
+                set_usage(ctx, line);
             }
         }
         _ => log::warn!("usage: {cmd_name} failed"),

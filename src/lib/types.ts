@@ -59,6 +59,9 @@ export interface Session {
   recap: string | null;
   recap_haiku: string | null;
   recap_detail: string | null;
+  /** Claude's last answer as plain text, and the question it ended on (if any). */
+  last_answer: string | null;
+  question: string | null;
   stop_seq: number;
   pending_permission: PendingPermission | null;
   subagents_running: number;

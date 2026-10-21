@@ -144,6 +144,32 @@ impl Store {
             .collect()
     }
 
+    /// Sessions whose card has no last answer yet (saved before it existed, or first seen
+    /// mid-turn): (id, transcript, distro).
+    pub fn unanswered(&self) -> Vec<(String, String, Option<String>)> {
+        self.sessions
+            .values()
+            .filter(|s| s.last_answer.is_none() && !s.is_removed())
+            .filter_map(|s| {
+                Some((
+                    s.session_id.clone(),
+                    s.transcript_path.clone()?,
+                    s.distro.clone(),
+                ))
+            })
+            .collect()
+    }
+
+    /// The last answer read from a transcript, unless a Stop brought a newer one meanwhile.
+    pub fn set_answer(&mut self, session_id: &str, msg: &str) {
+        if let Some(s) = self.sessions.get_mut(session_id)
+            && s.last_answer.is_none()
+        {
+            s.last_answer = Some(crate::session::answer_text(msg)).filter(|a| !a.is_empty());
+            s.question = crate::session::ending_question(msg);
+        }
+    }
+
     /// Fill in names read from a transcript, without overwriting what's already known.
     pub fn set_names(
         &mut self,

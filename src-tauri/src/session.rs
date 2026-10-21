@@ -208,6 +208,12 @@ pub struct Session {
     pub start_source: Option<String>,
     /// Instant recap: first sentence of the last assistant message.
     pub recap: Option<String>,
+    /// Claude's last answer, as written (Markdown markers removed): what the card shows.
+    #[serde(default)]
+    pub last_answer: Option<String>,
+    /// The question it ended on, if any ("Shall I commit it?"): pinned under the answer.
+    #[serde(default)]
+    pub question: Option<String>,
     /// Haiku recap of the latest turn (SPEC §3.5); replaces `recap` on the card when present.
     #[serde(default)]
     pub recap_haiku: Option<String>,
@@ -296,6 +302,8 @@ impl Session {
             user_title_synced: false,
             start_source: None,
             recap: None,
+            last_answer: None,
+            question: None,
             recap_haiku: None,
             recap_detail: None,
             stop_seq: 0,
@@ -684,6 +692,8 @@ impl Session {
                 self.recap_detail = None;
                 if let Some(msg) = last_assistant_message {
                     self.recap = Some(recap_text(msg));
+                    self.last_answer = Some(answer_text(msg)).filter(|a| !a.is_empty());
+                    self.question = ending_question(msg);
                 }
                 // A new turn: Haiku's verdict on the last one no longer applies.
                 self.jobs_awaited = None;
@@ -913,6 +923,24 @@ pub fn start_dir(cwd: &str, transcript_path: Option<&str>) -> Option<String> {
     None
 }
 
+/// The text of the last assistant message in a transcript (JSONL; unreadable lines skipped).
+pub fn last_assistant_text(jsonl: &str) -> Option<String> {
+    jsonl.lines().rev().find_map(|line| {
+        let v: serde_json::Value = serde_json::from_str(line).ok()?;
+        if v.get("type")?.as_str()? != "assistant" {
+            return None;
+        }
+        let text: Vec<&str> = v
+            .pointer("/message/content")?
+            .as_array()?
+            .iter()
+            .filter(|p| p["type"] == "text")
+            .filter_map(|p| p["text"].as_str())
+            .collect();
+        Some(text.join("\n")).filter(|t| !t.trim().is_empty())
+    })
+}
+
 pub fn transcript_names(jsonl: &str) -> (Option<String>, Option<String>) {
     let (mut custom, mut ai, mut first) = (None, None, None);
     for line in jsonl.lines() {
@@ -952,6 +980,58 @@ pub fn transcript_names(jsonl: &str) -> (Option<String>, Option<String>) {
 /// The instant recap: the start of the last assistant message as plain text (Markdown code,
 /// emphasis and heading markers dropped, lines joined), up to ~400 characters. The card shows
 /// up to five lines of it.
+/// An assistant message as plain text for the card: Markdown emphasis, code markers, headings
+/// and quotes removed, bullets as "•", code fences dropped, blank lines collapsed.
+pub fn answer_text(msg: &str) -> String {
+    let mut out: Vec<String> = Vec::new();
+    for l in msg.lines() {
+        let t = l.trim_end();
+        if t.trim_start().starts_with("```") {
+            continue;
+        }
+        let indent = t.len() - t.trim_start().len();
+        let mut line = t.trim_start().replace("**", "").replace('`', "");
+        line = line.trim_start_matches(['#', '>']).trim_start().to_string();
+        if let Some(rest) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
+            line = format!("{}• {rest}", " ".repeat(indent.min(6)));
+        }
+        if line.is_empty() && out.last().is_none_or(|p| p.is_empty()) {
+            continue;
+        }
+        out.push(line);
+    }
+    while out.last().is_some_and(|l| l.is_empty()) {
+        out.pop();
+    }
+    // Cut by length, keeping the lines (`truncate` would join them).
+    let text = out.join("\n");
+    match text.char_indices().nth(2000) {
+        Some((i, _)) => format!("{}…", &text[..i]),
+        None => text,
+    }
+}
+
+/// The question a message ends on: the last sentence of its last line, if it asks something.
+pub fn ending_question(msg: &str) -> Option<String> {
+    let text = answer_text(msg);
+    let last = text.lines().rev().find(|l| !l.trim().is_empty())?.trim();
+    let last = last.trim_start_matches("• ");
+    if !last.ends_with('?') {
+        return None;
+    }
+    // From the end of the previous sentence, if the line has several.
+    let body = &last[..last.len() - 1];
+    let start = body
+        .char_indices()
+        .filter(|&(i, c)| {
+            matches!(c, '.' | '!' | '?' | ':') && body[i + c.len_utf8()..].starts_with(' ')
+        })
+        .map(|(i, c)| i + c.len_utf8())
+        .next_back()
+        .unwrap_or(0);
+    Some(truncate(last[start..].trim(), 200))
+}
+
 pub fn recap_text(msg: &str) -> String {
     let plain: Vec<String> = msg
         .lines()

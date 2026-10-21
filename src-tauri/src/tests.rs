@@ -1266,3 +1266,44 @@ fn haiku_labels_each_background_task() {
     );
     assert!(!s.background[0].awaited);
 }
+
+#[test]
+fn last_answer_as_plain_text_with_its_question() {
+    let msg = "**Done.** Pushed `main` to origin.\n\n## Changes\n- fixed the parser\n  - and its tests\n\n```sh\ngit push\n```\n\nWant me to open a PR? Or merge it.\nShall I commit and push it?";
+    let a = crate::session::answer_text(msg);
+    assert_eq!(
+        a,
+        "Done. Pushed main to origin.\n\nChanges\n• fixed the parser\n  • and its tests\n\ngit push\n\nWant me to open a PR? Or merge it.\nShall I commit and push it?"
+    );
+    assert_eq!(
+        crate::session::ending_question(msg).as_deref(),
+        Some("Shall I commit and push it?")
+    );
+    assert_eq!(
+        crate::session::ending_question("Done. Anything else? I fixed it.").as_deref(),
+        None
+    );
+    assert_eq!(
+        crate::session::ending_question("I fixed it. Want me to push?").as_deref(),
+        Some("Want me to push?")
+    );
+}
+
+#[test]
+fn last_assistant_text_from_transcript() {
+    let t = concat!(
+        r#"{"type":"assistant","message":{"content":[{"type":"text","text":"Old answer."}]}}"#,
+        "\n",
+        r#"{"type":"assistant","message":{"content":[{"type":"text","text":"New answer. Push it?"},{"type":"tool_use","name":"Bash"}]}}"#,
+        "\n",
+        r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"}]}}"#,
+        "\n",
+        r#"{"type":"user","message":{"content":"thanks"}}"#,
+        "\n\u{0}\u{0}\n",
+    );
+    assert_eq!(
+        crate::session::last_assistant_text(t).as_deref(),
+        Some("New answer. Push it?")
+    );
+    assert_eq!(crate::session::last_assistant_text(""), None);
+}

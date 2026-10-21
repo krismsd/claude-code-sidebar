@@ -40,6 +40,8 @@ function session(over: Partial<Session> = {}): Session {
     recap: null,
     recap_haiku: null,
     recap_detail: null,
+    last_answer: null,
+    question: null,
     stop_seq: 0,
     pending_permission: null,
     subagents_running: 0,

@@ -248,6 +248,11 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Stars replaced by "kept until removed" (`Session.removed`, migrated once: closed and not starred → removed). Remove moves a session to the closed section and ends its process tree (`actions::end_tree`: leaves first, then `tmux kill-session`), asking first when that stops work. `/exit` removes; resuming un-removes. Pruning and Delete only apply to removed sessions. The star button is gone, which gives the title more room.
 - [x] End session became **Force end** (SIGKILL tree, marked gone at once, stays in the list).
 
+## M23: Last answer instead of Haiku summaries (2026-10-21)
+
+- [x] The card shows Claude's last answer (`Session.last_answer` from `Stop.last_assistant_message`, plain text): first 5 lines on the card, all on hover (up to 60% of the window). An ending question (`Session.question`) is pinned in bold. Old cards are backfilled from the transcript tail at startup (`last_assistant_text`).
+- [x] Haiku (cc-recap) runs only for sessions with background commands to label, or no title. Other turns refresh usage via `cc-usage` when it's over 5 minutes old.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

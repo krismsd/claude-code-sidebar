@@ -672,6 +672,7 @@ pub fn run() {
             server::apply_config(&ctx);
             server::refresh_all_projects(&ctx);
             server::backfill_names(&ctx);
+            server::backfill_answers(&ctx);
             #[cfg(windows)]
             {
                 register_hotkey(app.handle(), &ctx);

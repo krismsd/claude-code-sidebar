@@ -131,18 +131,12 @@ export function SessionCard({
           </button>
         </div>
       )}
-      {(s.recap_haiku ?? s.recap) && (
-        <div className={`card-recap${s.recap_haiku ? "" : " instant"}${expanded ? " full" : ""}`}>
-          {s.recap_haiku ? (
-            <>
-              <span className="recap-line">{s.recap_haiku}</span>
-              {s.recap_detail && `\n${s.recap_detail}`}
-            </>
-          ) : (
-            s.recap
-          )}
-        </div>
+      {/* Claude's last answer as written: the start on the card, all of it on hover. The
+          question it ended on, if any, is pinned below so it's never clipped. */}
+      {(s.last_answer ?? s.recap) && (
+        <div className={`card-recap${expanded ? " full" : ""}`}>{s.last_answer ?? s.recap}</div>
       )}
+      {s.question && !expanded && <div className="card-question">{s.question}</div>}
       {jobs.length > 0 && (
         <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
           <span className="card-jobs-label">

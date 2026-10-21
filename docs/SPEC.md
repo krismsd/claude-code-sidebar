@@ -109,6 +109,10 @@ Liveness: with `CC_SIDEBAR_PID` known, check every 30 s via a single batched `ws
 
 ### 3.5 Recaps
 
+**Since 2026-10-21 the card shows Claude's last answer, not a summary.** The user found Haiku over-summarised, and what they want is the last action. `Stop.last_assistant_message` is kept as plain text (`answer_text`: Markdown markers removed, bullets as •). The card shows its first lines, and the hover copy shows all of it. A question it ends on (`ending_question`) is pinned under it. Old cards get theirs from the transcript at startup.
+
+Haiku now runs only when a session has background commands to label as job or service (`BACKGROUND:`) or has no title yet. Otherwise a turn just refreshes the usage numbers if they're over 5 minutes old (`cc-usage`). The Haiku line it still writes isn't shown. The original design follows.
+
 - **Instant** (under 100 ms, on Stop): last user prompt (truncated) plus the first sentence of the last assistant message. `Stop` carries `last_assistant_message` (S1), so no transcript read is needed. The last user prompt comes from `UserPromptSubmit`; skip prompts starting `<agent-message` (subagent hand-backs).
 - **Haiku** (async, on Stop, debounced): take the last ~20 transcript entries, condensed, and ask for a one-line recap (max ~90 chars) plus a 2–3 line detail for hover or expand. Swap it in when it arrives.
   - Runner, chosen by the auth type (see env check): with a claude.ai login, `wsl.exe -- bash -l recap.sh <transcript>`, which runs `CC_SIDEBAR_INTERNAL=1 claude -p --model haiku --no-session-persistence --tools "" --strict-mcp-config --setting-sources "" --system-prompt …` with the condensed transcript on stdin. Measured 5.7–6.3 s, no transcript left behind, no hooks loaded (S7). Option (b), the API with a stored key, is not needed.

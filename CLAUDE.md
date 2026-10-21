@@ -42,7 +42,7 @@ Use this to verify UI work (docking, layout, alert flashes, tab focus) instead o
 - Tauri v2, Rust backend, React + TypeScript + Vite frontend.
 - Docked as a Windows **AppBar** that reserves screen space (default: right edge of primary monitor, 320 px, configurable).
 - Data feed: Claude Code **command hooks** running the `cc-hook` shim, which curls a server inside the app on the WSL host IP. WSL stays on NAT networking (Tailscale + VPNs): never switch it to mirrored.
-- Recaps: **Haiku** one-line summary, with an instant non-LLM recap shown immediately while Haiku runs.
+- Cards show **Claude's last answer** as written (a question it ends on pinned below), not a summary. Haiku runs only to label background commands (job or service), to title untitled sessions, and with them refreshes usage.
 - Alerts: flash an emoji badge when things go wrong, especially auto-mode denials (`PermissionDenied`).
 - Actions: focus tab, approve/deny permission, resume, kill (send prompt deferred, see below).
 - Projects are first class (tracked, stable order, drag to reorder); sessions stay in the list until removed (no stars; Remove moves one to the closed section and ends what it runs); details as an expanded copy of the card on hover (ignores the mouse); session actions in a right-click menu (rename, copy ID, remove, force end, delete); tasks from trackers via Claude (`cc-tasks`: connectors or allowed CLI commands, read-only). Window: docked or floating, collapsible to a strip, choice of monitor.

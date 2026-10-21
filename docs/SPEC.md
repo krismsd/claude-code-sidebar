@@ -213,10 +213,9 @@ A footer shows the account's 5-hour and weekly usage (% and reset time), read fr
 
 **Processes only live while they're needed** (2026-10-21). A conversation (the card) is permanent; its process is not. A tmux session with no terminal showing it, for 5 s with no new event, is ended (SIGTERM) when it has nothing to do: it's idle, new or errored, with no pending permission, nothing in the background (jobs, dev servers, background agents) and no agents running. Working, waiting-on-you and background work keep it alive. Its SessionEnd is recorded as `idle`, and the UI treats that as **dormant**: shown and sorted as a ready conversation (green pill, ✅ alert kept), and a click resumes it. Resumed sessions start as "ready", not "new".
 
-**Job or service** (2026-10-21): each running background command is classified as follows.
-- **Clear services** ("server", "vite", `tail -f`, …) never count as jobs.
-- **Everything else:** cc-recap is given the running commands and labels each `job` or `service` (`BACKGROUND:` line). The label is kept per task.
-- **Before a label arrives:** the session-wide `WAITING:` verdict, then the wording ("watch", "until", "poll" vs "api", "backend", …).
+**Job or service** (2026-10-21, revised 2026-10-22): each running background command is classified as follows.
+- **Haiku's label wins:** cc-recap is given the running commands and labels each `job` or `service` (`BACKGROUND:` line). The label is kept per task.
+- **Before a label arrives:** services are recognised by their *description* (Claude writes it for people: "server", "serve", and "api", "backend", "frontend" or "localhost" when nothing speaks of waiting), plus unmistakable server commands (`npm run dev`, `vite`, `tail -f`, `docker compose up`, …). A long script's other words are ignored, since its `api-version=` once made a pipeline watcher look like a service. Then the session-wide `WAITING:` verdict, then waiting words in the description ("watch", "until", "poll", "follow", "track", …).
 
 **Background task progress** (2026-10-21). Claude Code writes each background task's output to `<session>/tasks/<id>.output` next to the scratchpad the hooks report (`scratchpad_dir`). `jobs::watch` reads the end of each running task's file every 3 s (over \\wsl.localhost) without involving Claude. Cards show:
 - each job's latest output line under its name (ANSI stripped, after the last `\r`), and a ↗ link when its output (or command) contains an http(s) URL;

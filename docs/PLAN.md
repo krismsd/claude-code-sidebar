@@ -270,6 +270,8 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 ## M27: No header; controls in the footer (2026-10-22)
 
+- [x] Fix: a pipeline watcher ("Follow the … optimisation through dispatch, ML job and ingestion") showed as a background task although Haiku labelled it a job. Its script's `api-version=` matched the weak service word "api", and the keyword guard overrode the label. Haiku's per-task label now wins outright. Keyword guesses read the description, plus only unmistakable server commands from the command. "follow" and "track" joined the waiting words.
+
 - [x] The "cc-sidebar" title and "N open" count are gone. The +, ⚙ and collapse buttons sit right of the usage bars in one footer, which is the floating window's drag handle. The ⚙ menu opens upwards from it, and the add-project panel appears just above it.
 
 ## Housekeeping (2026-10-17, v0.2.0)

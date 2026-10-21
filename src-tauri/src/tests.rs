@@ -1080,16 +1080,33 @@ fn haiku_can_say_background_commands_are_not_jobs() {
 
 #[test]
 fn awaited_background_commands() {
-    assert!(looks_awaited("Watch the nightly ML job until it finishes"));
-    assert!(looks_awaited("Poll the deploy status"));
-    assert!(!looks_awaited("Start the dev server npm run dev"));
-    assert!(!looks_awaited("sleep 90 sleep 90"));
-    assert!(!looks_awaited("tail -f app.log"));
-    assert!(looks_awaited("Watch the CN, PL and frontend deploys"));
-    assert!(crate::session::looks_service(
-        "Start reports API with read-only groups"
+    assert!(looks_awaited(
+        "Watch the nightly ML job until it finishes",
+        ""
     ));
-    assert!(!crate::session::looks_service("Check capital gains"));
+    assert!(looks_awaited("Poll the deploy status", ""));
+    assert!(!looks_awaited("Start the dev server npm run dev", ""));
+    assert!(!looks_awaited("sleep 90 sleep 90", ""));
+    assert!(!looks_awaited("tail -f app.log", ""));
+    assert!(looks_awaited("Watch the CN, PL and frontend deploys", ""));
+    assert!(crate::session::looks_service(
+        "Start reports API with read-only groups",
+        ""
+    ));
+    assert!(!crate::session::looks_service("Check capital gains", ""));
+    // Seen live: a pipeline watcher whose script calls REST APIs (`api-version=`): the
+    // command's words don't make it a service; its description does the talking.
+    let (d, c) = (
+        "Follow the optimisation through dispatch, ML job and ingestion",
+        "az rest --uri \"https://management.azure.com/x?api-version=2023-01-01\"",
+    );
+    assert!(!crate::session::looks_service(d, c));
+    assert!(looks_awaited(d, c));
+    // A dev server is still recognised from its command.
+    assert!(crate::session::looks_service(
+        "Start the app",
+        "cd web && npm run dev"
+    ));
 }
 
 #[test]

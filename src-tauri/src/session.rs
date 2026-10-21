@@ -106,39 +106,44 @@ pub struct Background {
     pub awaited: bool,
 }
 
-const WAIT_WORDS: [&str; 8] = [
-    "wait", "until", "poll", "watch", "monitor", "finish", "complete", "status",
+const WAIT_WORDS: [&str; 10] = [
+    "wait", "until", "poll", "watch", "monitor", "follow", "track", "finish", "complete", "status",
 ];
 
 /// A background command that reads as a service Claude leaves running (a dev server, an app's
-/// backend, a log tail): never a job Claude waits on, whatever Haiku says about the session.
-/// "api"/"backend"/"frontend"/"localhost" (whole words) only count when nothing in the text
-/// speaks of waiting
-/// ("Watch the frontend deploy" is a job).
-pub fn looks_service(text: &str) -> bool {
-    let t = text.to_lowercase();
-    const SERVICE: [&str; 9] = [
-        "server",
-        "serve",
+/// backend, a log tail). Judged from its description, which Claude writes for people, plus only
+/// unmistakable server commands from the command itself: a long script is full of words like
+/// "api" (`api-version=`) that mean nothing here. "api"/"backend"/"frontend"/"localhost" only
+/// count when the description doesn't speak of waiting ("Watch the frontend deploy" is a job).
+pub fn looks_service(description: &str, command: &str) -> bool {
+    let d = description.to_lowercase();
+    let c = command.to_lowercase();
+    const SERVER_COMMANDS: [&str; 8] = [
         "npm run dev",
         "npm start",
         "vite",
-        "watch mode",
         "tail -f",
         "docker compose up",
         "storybook",
+        "uvicorn",
+        "flask run",
     ];
+    const SERVICE_WORDS: [&str; 3] = ["server", "serve", "watch mode"];
     const APP_PART: [&str; 4] = ["api", "backend", "frontend", "localhost"];
-    let waits = WAIT_WORDS.iter().any(|w| t.contains(w));
-    let words: Vec<&str> = t.split(|c: char| !c.is_ascii_alphanumeric()).collect();
-    SERVICE.iter().any(|w| t.contains(w)) || (!waits && APP_PART.iter().any(|w| words.contains(w)))
+    let waits = WAIT_WORDS.iter().any(|w| d.contains(w));
+    let words: Vec<&str> = d.split(|ch: char| !ch.is_ascii_alphanumeric()).collect();
+    SERVER_COMMANDS
+        .iter()
+        .any(|w| d.contains(w) || c.contains(w))
+        || SERVICE_WORDS.iter().any(|w| d.contains(w))
+        || (!waits && APP_PART.iter().any(|w| words.contains(w)))
 }
 
-/// First guess, before Haiku's verdict: does this background command look like Claude waiting
+/// First guess, before Haiku's label: does this background command look like Claude waiting
 /// for something to finish (a deploy watcher, a poll loop) rather than a service?
-pub fn looks_awaited(text: &str) -> bool {
-    let t = text.to_lowercase();
-    !looks_service(&t) && WAIT_WORDS.iter().any(|w| t.contains(w))
+pub fn looks_awaited(description: &str, command: &str) -> bool {
+    let d = description.to_lowercase();
+    !looks_service(description, command) && WAIT_WORDS.iter().any(|w| d.contains(w))
 }
 
 /// A prompt Claude Code injected (`<task-notification>`, `<agent-message>`, …) rather than one
@@ -147,11 +152,25 @@ fn injected(prompt: &str) -> bool {
     prompt.trim_start().starts_with('<')
 }
 
-/// Is a background task a job Claude waits on? Agents always are, clear services never. For
-/// other commands: Haiku's label for this task, else its verdict on the session, else the guess
-/// from the text.
-fn awaited(agent: bool, text: &str, label: Option<bool>, haiku: Option<bool>) -> bool {
-    agent || (!looks_service(text) && label.or(haiku).unwrap_or_else(|| looks_awaited(text)))
+/// Is a background task a job Claude waits on? Agents always are. Otherwise Haiku's label for
+/// this task decides; without one, services (by their wording) aren't, and for the rest
+/// Haiku's verdict on the session, else the guess from the wording, decides.
+fn awaited(
+    agent: bool,
+    description: &str,
+    command: &str,
+    label: Option<bool>,
+    haiku: Option<bool>,
+) -> bool {
+    if agent {
+        return true;
+    }
+    // Haiku read the conversation about this very task: its label wins.
+    if let Some(label) = label {
+        return label;
+    }
+    !looks_service(description, command)
+        && haiku.unwrap_or_else(|| looks_awaited(description, command))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -381,9 +400,8 @@ impl Session {
         // Saved by a build that let Haiku's verdict mark services (dev servers) as jobs.
         let haiku = self.jobs_awaited;
         for b in &mut self.background {
-            let text = format!("{} {}", b.description, b.command);
             let label = self.job_labels.get(&b.description).copied();
-            b.awaited = awaited(b.agent, &text, label, haiku);
+            b.awaited = awaited(b.agent, &b.description, &b.command, label, haiku);
         }
         self.pending_jobs = self.awaited_jobs();
         self
@@ -414,9 +432,14 @@ impl Session {
                 .retain(|d, _| self.background.iter().any(|b| &b.description == d));
             self.job_labels.extend(recap.labels);
             for b in self.background.iter_mut() {
-                let text = format!("{} {}", b.description, b.command);
                 let label = self.job_labels.get(&b.description).copied();
-                b.awaited = awaited(b.agent, &text, label, self.jobs_awaited);
+                b.awaited = awaited(
+                    b.agent,
+                    &b.description,
+                    &b.command,
+                    label,
+                    self.jobs_awaited,
+                );
             }
             self.pending_jobs = self.awaited_jobs();
         }
@@ -790,14 +813,14 @@ impl Session {
                 let id = t.id.clone().unwrap_or_default();
                 let description = t.description.clone().unwrap_or_default();
                 let command = t.command.clone().unwrap_or_default();
-                let text = format!("{description} {command}");
                 // Keep what was already read from its output.
                 let seen = before.iter().find(|b| !id.is_empty() && b.id == id);
                 Background {
                     agent: t.is_agent(),
                     awaited: awaited(
                         t.is_agent(),
-                        &text,
+                        &description,
+                        &command,
                         self.job_labels.get(&description).copied(),
                         self.jobs_awaited,
                     ),

@@ -144,6 +144,10 @@ function Pane({ name, active, session }: { name: string; active: boolean; sessio
       scrollback: 1000,
       allowProposedApi: true,
       macOptionIsMeta: true,
+      // Hyperlinks the program marks (OSC 8; Claude Code uses them and tmux passes them on).
+      // xterm.js's default asks with confirm() and calls window.open, neither of which does
+      // anything in the app's webview: open them in the default browser instead.
+      linkHandler: { activate: (_, uri) => void openUrl(uri) },
     });
     const f = new FitAddon();
     t.loadAddon(f);

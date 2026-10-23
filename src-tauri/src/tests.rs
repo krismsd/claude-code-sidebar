@@ -1176,6 +1176,47 @@ fn idle_sessions_nothing_shows_are_ended() {
 }
 
 #[test]
+fn closing_the_view_of_an_unprompted_session_ends_it_at_once() {
+    let attached = |on: bool| std::collections::HashMap::from([("cc-t1".to_string(), on)]);
+    let mut st = Store::default();
+    st.apply(
+        &fx_with(
+            "SessionStart",
+            serde_json::json!({"session_id": "n", "source": "startup",
+                "_headers": {"x-cc-pid": "4242", "x-cc-tag": "t1", "x-cc-tmux": "cc-t1"}}),
+        ),
+        1_000,
+    );
+    let d = st.get("n").unwrap().distro.clone();
+    // Not yet attached right after launch: the grace still applies.
+    st.set_attached(&d, &attached(false), 1_500);
+    assert!(st.take_idle_unwatched(2_000).is_empty());
+    st.set_attached(&d, &attached(true), 2_500);
+    // The user closes its view: ended on the next check, no grace.
+    st.view_closed("cc-t1");
+    st.set_attached(&d, &attached(false), 3_000);
+    assert_eq!(st.take_idle_unwatched(3_000).len(), 1);
+    // Its SessionEnd removes the card.
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "n"})),
+        3_500,
+    );
+    assert!(st.get("n").is_none());
+
+    // A prompted session keeps the grace (it stays listed, resumable).
+    let mut st = Store::default();
+    tmux_session(&mut st, "a", 0);
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "a"})),
+        1,
+    );
+    st.apply(&fx_with("Stop", serde_json::json!({"session_id": "a"})), 2);
+    st.view_closed("cc-t1");
+    st.set_attached(&d, &attached(false), 10_000);
+    assert!(st.take_idle_unwatched(10_000).is_empty());
+}
+
+#[test]
 fn sessions_with_something_to_do_stay() {
     let attached = std::collections::HashMap::from([("cc-t1".to_string(), false)]);
     // Working.

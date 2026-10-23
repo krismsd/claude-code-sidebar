@@ -136,8 +136,10 @@ fn term_resize(
 
 #[cfg(windows)]
 #[tauri::command]
-fn term_close(views: State<'_, term::Views>, name: String) {
+fn term_close(ctx: State<'_, Ctx>, views: State<'_, term::Views>, name: String) {
     views.close(&name);
+    ctx.store.lock().unwrap().view_closed(&name);
+    ctx.recheck.notify_one();
 }
 
 /// Open projects.toml (created from a commented template the first time).
@@ -677,6 +679,7 @@ pub fn run() {
                 prefs: Arc::new(Mutex::new(prefs)),
                 usage: Default::default(),
                 presence: Arc::new(Mutex::new(presence::load())),
+                recheck: Default::default(),
             };
             // Restored alerts are old news: mark them seen without a sound.
             ctx.notifier
@@ -748,7 +751,13 @@ pub fn run() {
             if let tauri::WindowEvent::Destroyed = event
                 && window.label() == term::LABEL
             {
-                window.state::<term::Views>().close_all();
+                let ctx = window.state::<Ctx>();
+                let mut store = ctx.store.lock().unwrap();
+                for name in window.state::<term::Views>().close_all() {
+                    store.view_closed(&name);
+                }
+                drop(store);
+                ctx.recheck.notify_one();
             }
             if let tauri::WindowEvent::CloseRequested { .. } = event
                 && window.label() == "main"

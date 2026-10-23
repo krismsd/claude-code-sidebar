@@ -40,6 +40,8 @@ pub struct Ctx {
     pub usage: Arc<Mutex<Option<crate::usage::Usage>>>,
     /// When the user has been away from the computer (the ready pill's fade skips it).
     pub presence: Arc<Mutex<crate::presence::Presence>>,
+    /// Check tmux attachments now rather than at the next tick (a view was closed).
+    pub recheck: Arc<tokio::sync::Notify>,
 }
 
 static HOLD_SEQ: AtomicU64 = AtomicU64::new(1);

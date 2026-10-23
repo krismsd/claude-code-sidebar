@@ -41,7 +41,11 @@ pub async fn run(ctx: Ctx) {
 /// only detaches, so the card says when a session runs with nothing showing it.)
 pub async fn watch_attached(ctx: Ctx) {
     loop {
-        tokio::time::sleep(Duration::from_secs(4)).await;
+        tokio::select! {
+            _ = tokio::time::sleep(Duration::from_secs(4)) => {}
+            // A view closed: give its tmux client a moment to go, then look.
+            _ = ctx.recheck.notified() => tokio::time::sleep(Duration::from_millis(300)).await,
+        }
         let distros = ctx.store.lock().unwrap().tmux_distros();
         let mut changed = false;
         for distro in distros {

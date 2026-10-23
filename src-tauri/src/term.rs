@@ -146,11 +146,14 @@ impl Views {
         }
     }
 
-    /// Every view (the window closed).
-    pub fn close_all(&self) {
-        for (_, mut v) in self.0.lock().unwrap().drain() {
+    /// Every view (the window closed). Returns the tmux sessions they showed.
+    pub fn close_all(&self) -> Vec<String> {
+        let mut names = Vec::new();
+        for (name, mut v) in self.0.lock().unwrap().drain() {
             let _ = v.killer.kill();
+            names.push(name);
         }
+        names
     }
 
     fn forget(&self, name: &str) {

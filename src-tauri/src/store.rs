@@ -503,11 +503,23 @@ impl Store {
             }
             match seen {
                 Some(false) if s.unattached_since.is_none() => s.unattached_since = Some(now),
-                Some(true) => s.unattached_since = None,
+                Some(true) => {
+                    s.unattached_since = None;
+                    s.view_closed = false;
+                }
                 _ => {}
             }
         }
         changed
+    }
+
+    /// The terminal window stopped showing tmux session `name`.
+    pub fn view_closed(&mut self, name: &str) {
+        for s in self.sessions.values_mut() {
+            if s.tmux.as_deref() == Some(name) && s.status != Status::Closed {
+                s.view_closed = true;
+            }
+        }
     }
 
     /// Sessions to end for sitting idle with nothing showing them (see

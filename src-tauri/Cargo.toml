@@ -23,7 +23,7 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 axum = "0.8"
-tokio = { version = "1", features = ["net", "time", "process", "sync"] }
+tokio = { version = "1", features = ["net", "time", "process", "sync", "macros"] }
 if-addrs = "0.13"
 toml = "0.9"
 log = "0.4"

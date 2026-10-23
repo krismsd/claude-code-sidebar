@@ -39,6 +39,8 @@ pub fn show(app: &tauri::AppHandle, name: &str, session_id: &str) -> tauri::Resu
     let url = format!("index.html?view=term&open={name}&session={session_id}");
     tauri::WebviewWindowBuilder::new(app, LABEL, tauri::WebviewUrl::App(url.into()))
         .title("Claude Code")
+        // No title bar: the tabs share a row with the window buttons, as in Windows Terminal.
+        .decorations(false)
         .inner_size(1100.0, 760.0)
         .min_inner_size(500.0, 300.0)
         .center()

@@ -1823,33 +1823,48 @@ button {
   background: #0c0c0c;
 }
 
+/* Title row as in Windows Terminal: tabs, then drag space, then the window buttons. */
 .term-tabs {
   display: flex;
+  align-items: flex-end;
   gap: 2px;
-  padding: 6px 6px 0;
-  background: #1c1c1c;
-  overflow-x: auto;
+  height: 40px;
+  padding: 0 0 0 8px;
+  background: #202020;
   flex: none;
+  user-select: none;
+}
+
+.term-drag {
+  flex: 1;
+  align-self: stretch;
+  min-width: 40px;
 }
 
 .term-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
   max-width: 260px;
-  padding: 5px 6px 5px 10px;
-  border-radius: 6px 6px 0 0;
-  border-top: 3px solid color-mix(in srgb, var(--project) 60%, transparent);
-  background: #262626;
+  height: 32px;
+  padding: 0 4px 0 12px;
+  border-radius: 8px 8px 0 0;
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--project) 50%, transparent);
   color: #b8b8b8;
-  cursor: pointer;
+  cursor: default;
+  font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
   font-size: 12px;
+}
+
+.term-tab:hover:not(.active) {
+  background: #2d2d2d;
 }
 
 .term-tab.active {
   background: #0c0c0c;
-  color: #f0f0f0;
-  border-top-color: var(--project);
+  color: #ffffff;
+  box-shadow: inset 0 2px 0 var(--project);
 }
 
 .term-tab-name {
@@ -1859,22 +1874,49 @@ button {
 }
 
 .term-tab button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
   border: none;
+  border-radius: 4px;
   background: none;
   color: inherit;
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 0 5px;
-  font-size: 14px;
+  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+  font-size: 9px;
+  opacity: 0.8;
 }
 
 .term-tab button:hover {
   background: #3a3a3a;
+  opacity: 1;
 }
 
 .term-tab .chip {
   font-size: 10px;
   padding: 0 6px;
+}
+
+.caption-buttons {
+  display: flex;
+  align-self: stretch;
+}
+
+.caption-buttons button {
+  width: 46px;
+  border: none;
+  background: none;
+  color: #ffffff;
+  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+  font-size: 10px;
+}
+
+.caption-buttons button:hover {
+  background: #2d2d2d;
+}
+
+.caption-buttons .caption-close:hover {
+  background: #c42b1c;
 }
 
 .term-panes {

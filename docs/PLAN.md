@@ -270,6 +270,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 ## M27: No header; controls in the footer (2026-10-22)
 
+- [x] The terminal window looks like Windows Terminal (2026-10-23): no title bar; the tabs, drag space and caption buttons (Segoe Fluent Icons, red close on hover) share one 40 px row. Tested on screen: maximise fits beside the sidebar, restore, drag by the tab row, close.
 - [x] Fix (2026-10-23): closing a new session before any prompt left its card up ~10 s (the 4 s attach poll plus the 5 s grace). Closing a view now marks it closed and wakes the attach check; a never-prompted session with a closed view ends at once. Tested on screen: gone 1 s after the tab closed.
 - [x] Fix: a pipeline watcher ("Follow the … optimisation through dispatch, ML job and ingestion") showed as a background task although Haiku labelled it a job. Its script's `api-version=` matched the weak service word "api", and the keyword guard overrode the label. Haiku's per-task label now wins outright. Keyword guesses read the description, plus only unmistakable server commands from the command. "follow" and "track" joined the waiting words.
 

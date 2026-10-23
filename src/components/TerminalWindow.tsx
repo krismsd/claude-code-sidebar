@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -83,6 +84,15 @@ export function TerminalWindow() {
     document.title = current ? `${sessionName(current)} · Claude Code` : "Claude Code";
   }, [current]);
 
+  const [maximized, setMaximized] = useState(false);
+  useEffect(() => {
+    const w = getCurrentWindow();
+    const check = () => void w.isMaximized().then(setMaximized);
+    check();
+    const sub = w.onResized(check);
+    return () => void sub.then((f) => f());
+  }, []);
+
   const close = (name: string) => {
     invoke("term_close", { name });
     setTabs((t) => t.filter((x) => x.name !== name));
@@ -90,7 +100,7 @@ export function TerminalWindow() {
 
   return (
     <main className="term-window">
-      <nav className="term-tabs">
+      <nav className="term-tabs" data-tauri-drag-region>
         {tabs.map(({ name }) => {
           const s = byName(name);
           return (
@@ -108,11 +118,13 @@ export function TerminalWindow() {
                 title="Close (the session keeps running)"
                 onClick={(e) => (e.stopPropagation(), close(name))}
               >
-                ×
+                {"\uE8BB"}
               </button>
             </div>
           );
         })}
+        <div className="term-drag" data-tauri-drag-region />
+        <WindowButtons maximized={maximized} />
       </nav>
       <div className="term-panes">
         {tabs.length === 0 && (
@@ -125,6 +137,24 @@ export function TerminalWindow() {
         ))}
       </div>
     </main>
+  );
+}
+
+/** Minimise, maximise/restore and close, drawn like Windows' own (Segoe Fluent Icons). */
+function WindowButtons({ maximized }: { maximized: boolean }) {
+  const w = getCurrentWindow();
+  return (
+    <div className="caption-buttons">
+      <button title="Minimise" onClick={() => w.minimize()}>
+        {"\uE921"}
+      </button>
+      <button title={maximized ? "Restore" : "Maximise"} onClick={() => w.toggleMaximize()}>
+        {maximized ? "\uE923" : "\uE922"}
+      </button>
+      <button className="caption-close" title="Close" onClick={() => w.close()}>
+        {"\uE8BB"}
+      </button>
+    </div>
   );
 }
 

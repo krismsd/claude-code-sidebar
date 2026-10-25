@@ -828,6 +828,29 @@ fn ask_user_question_is_not_a_permission_decision() {
 }
 
 #[test]
+fn idle_prompt_leaves_a_finished_turn_ready() {
+    let mut s = Session::new(SID, 0);
+    s.apply(
+        &fx_with("Stop", serde_json::json!({"session_id": SID})),
+        1_000,
+        &th(),
+    );
+    assert_eq!(s.status, Status::Idle);
+    // A minute later Claude Code says the prompt has been idle: still ready, not "your turn".
+    s.apply(
+        &fx_with(
+            "Notification",
+            serde_json::json!({"session_id": SID, "notification_type": "idle_prompt",
+                "message": "Claude is waiting for your input"}),
+        ),
+        61_000,
+        &th(),
+    );
+    assert_eq!(s.status, Status::Idle);
+    assert_eq!(s.status_since, 1_000);
+}
+
+#[test]
 fn unused_new_sessions_disappear_when_closed() {
     let mut st = Store::default();
     // Started and closed without a prompt: gone.

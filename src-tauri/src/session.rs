@@ -709,12 +709,11 @@ impl Session {
                 {
                     self.set_status(Status::NeedsPermission, now)
                 }
-                Some(
-                    "idle_prompt"
-                    | "elicitation_dialog"
-                    | "elicitation_url_dialog"
-                    | "agent_needs_input",
-                ) => self.set_status(Status::NeedsInput, now),
+                // Not `idle_prompt`: Claude Code sends it a minute after any finished turn,
+                // which stays "ready".
+                Some("elicitation_dialog" | "elicitation_url_dialog" | "agent_needs_input") => {
+                    self.set_status(Status::NeedsInput, now)
+                }
                 _ => {}
             },
             Event::Stop {

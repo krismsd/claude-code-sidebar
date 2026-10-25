@@ -77,7 +77,7 @@ Status state machine:
 | `starting` | SessionStart | grey |
 | `working` | UserPromptSubmit, PreToolUse, SubagentStart | animated; shows the current tool ("Editing auth.ts") |
 | `needs_permission` | PermissionRequest, or Notification `permission_prompt` | amber, pulsing; approve/deny buttons |
-| `needs_input` | Notification `idle_prompt` / `elicitation_dialog` / `agent_needs_input` | amber |
+| `needs_input` | AskUserQuestion, ExitPlanMode, an interrupt, a permission declined in the terminal; Notification `elicitation_dialog` / `agent_needs_input` (not `idle_prompt`) | amber |
 | `idle` | Stop | green "ready" plus recap |
 | `error` | StopFailure | red ⚠️ |
 | `closed` | SessionEnd (`/exit` → reason `prompt_input_exit`; closing the tab → reason `other`), or PID gone without SessionEnd (crash, kill) | dimmed, in a "Closed" group at the bottom; click resumes it in a new tab |
@@ -85,7 +85,7 @@ Status state machine:
 
 Decision (2026-10-17): sessions stay visible after Claude Code exits, so they can be resumed. Closed sessions are saved to `%APPDATA%\cc-sidebar\sessions.json` so they survive app restarts. If a closed session is resumed with the same `session_id`, its card comes back to life.
 
-Event quirks (S1): ignore `SubagentStart`/`SubagentStop` with empty `agent_type` (Claude Code's internal helper agents). `Stop` with non-empty `background_tasks` means idle with a subagent still running, so show that rather than "ready". `idle_prompt` notifications were not observed in testing, so don't rely on them; use our own idle timer.
+Event quirks (S1): ignore `SubagentStart`/`SubagentStop` with empty `agent_type` (Claude Code's internal helper agents). `Stop` with non-empty `background_tasks` means idle with a subagent still running, so show that rather than "ready". `idle_prompt` was not observed in testing at first; since 2026-10 Claude Code sends it a minute after every finished turn, so it's ignored (a finished turn stays ready).
 
 Alerts are separate from status, sticky until clicked or dismissed, and shown as an emoji badge with a flash animation:
 

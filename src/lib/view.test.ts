@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Session, UiState } from "./types";
 import {
   arrange,
+  cacheState,
   dropIndex,
   freshKeys,
   groupSessions,
   presentTime,
   projectStatus,
   reorder,
+  tokens,
 } from "./view";
 import { elapsed, sessionName, usageLevel, usageNow } from "./format";
 
@@ -61,6 +63,8 @@ function session(over: Partial<Session> = {}): Session {
     closed_reason: null,
     removed: false,
     minimized: false,
+    cache: null,
+    compacted: null,
     ...over,
   };
 }
@@ -228,5 +232,26 @@ describe("presentTime", () => {
     expect(presentTime(H, 10 * H, [[0, null]])).toBe(0);
     // Only the part after it became ready counts.
     expect(presentTime(2 * H, 4 * H, [[H, 3 * H]])).toBe(H);
+  });
+});
+
+describe("cacheState", () => {
+  const H = 3_600_000;
+  const big = { at: 0, ttl: H, tokens: 350_000 };
+  it("counts down for sizeable idle sessions, then says what a prompt re-sends", () => {
+    expect(cacheState(session({ cache: big }), 50 * 60_000)).toMatchObject({
+      warm: true,
+      left: 10 * 60_000,
+    });
+    expect(cacheState(session({ cache: big }), H)).toMatchObject({ warm: false, tokens: 350_000 });
+  });
+  it("stays quiet while working, for small caches, and after a compaction", () => {
+    expect(cacheState(session({ cache: big, status: "working" }), 0)).toBeNull();
+    expect(cacheState(session({ cache: { ...big, tokens: 40_000 } }), 0)).toBeNull();
+    const compacted = { at: 1, pre_tokens: 350_000, post_tokens: 21_000, idle: true };
+    expect(cacheState(session({ cache: big, compacted }), 0)).toBeNull();
+  });
+  it("formats token counts", () => {
+    expect([950, 21_000, 908_123, 1_250_000].map(tokens)).toEqual(["950", "21k", "908k", "1.3M"]);
   });
 });

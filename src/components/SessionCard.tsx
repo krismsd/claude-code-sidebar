@@ -1,6 +1,6 @@
 import { useRef, type CSSProperties } from "react";
 import type { AwaySpell, Background, Session } from "../lib/types";
-import { dormant, presentTime } from "../lib/view";
+import { cacheState, dormant, presentTime, tokens } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
@@ -42,6 +42,14 @@ function readyFade(s: Session, now: number, away: AwaySpell[]): CSSProperties | 
   return {
     background: `color-mix(in srgb, var(--grey) ${Math.round(grey * 100)}%, var(--green))`,
   };
+}
+
+const clock = (ms: number) =>
+  new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+function cacheDetail(c: NonNullable<ReturnType<typeof cacheState>>): string {
+  const life = c.ttl >= 3_600_000 ? "1 h" : `${Math.round(c.ttl / 60_000)} min`;
+  return `Prompt cache: ${tokens(c.tokens)} tokens, ${life} lifetime, ${c.warm ? "expires" : "expired"} ${clock(c.expires)}`;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -92,6 +100,7 @@ export function SessionCard({
       : s.status === "working" || s.status === "needs_input"
         ? (s.current_tool ?? (s.status === "working" ? "Thinking…" : null))
         : null;
+  const cache = s.status === "closed" && !asleep ? null : cacheState(s, now);
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
     .filter(Boolean)
     .join(" · ");
@@ -199,6 +208,22 @@ export function SessionCard({
               ))}
             </div>
           )}
+          {s.compacted && (
+            <div className="card-cache" title={`Compacted at ${clock(s.compacted.at)}`}>
+              📦 {s.compacted.idle ? "Compacted while idle" : "Compacted"} ·{" "}
+              {tokens(s.compacted.pre_tokens)} → {tokens(s.compacted.post_tokens)}
+            </div>
+          )}
+          {cache && (
+            <div
+              className={`card-cache${cache.warm && cache.left < 10 * 60_000 ? " soon" : ""}${cache.warm ? "" : " cold"}`}
+              title={cacheDetail(cache)}
+            >
+              {cache.warm
+                ? `◷ Cache warm · ${elapsed(0, cache.left)} left`
+                : `❄ Cache expired · next prompt re-sends ${tokens(cache.tokens)}`}
+            </div>
+          )}
           {(shown.length > 1 || agents + services.length > 0) && (
             <div className="card-badges">
               {shown.length > 1 &&
@@ -239,6 +264,7 @@ export function SessionCard({
                     {ALERT_EMOJI[a.kind]} {a.text}
                   </div>
                 ))}
+              {cache && <div className="muted small">{cacheDetail(cache)}</div>}
               <div className="muted small">
                 {[s.tag && `#${s.tag}`, s.model, s.permission_mode].filter(Boolean).join(" · ")}
               </div>

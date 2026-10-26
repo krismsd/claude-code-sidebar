@@ -230,6 +230,14 @@ Items recorded without a task id (older builds, or events the app missed) get th
 
 In the sidebar's window: Ctrl+C copies a selection, Ctrl+V pastes (an image paste sends ^V so Claude reads the clipboard), and Shift+Enter sends Alt+Enter (newline).
 
+### 3.15 Prompt cache and idle compaction (2026-10-26)
+
+Claude Code caches the conversation so far; every request refreshes it for its lifetime, 1 hour or 5 minutes (each assistant record's `usage.cache_creation` says which; a request that only reads keeps the last lifetime). Once it lapses, the next prompt sends the whole context again at full price. Since 2.1.310 Claude Code also **compacts while idle**: at 90% of a 1-hour lifetime (54 min idle), for contexts over 200k tokens (`idleCompaction` setting), logging "Compacted while idle, before the prompt cache expired". It runs through the normal compaction path (PreCompact hook, trigger `auto`), but while the user is away, so the 📦 line only lasts the minute it takes.
+
+- Every 30 s the app reads the tail of each kept session's transcript (only when it has grown): the last main-chain request's time, lifetime and size (`Session.cache`), and any compaction since (`Session.compacted`, `idle` when Claude Code says it was idle compaction). Subagents' requests are another cache and are skipped.
+- Cards not working, with over 100k tokens: "◷ Cache warm · 42m left" (amber in the last 10 min), then "❄ Cache expired · next prompt re-sends 908k". After a compaction: "📦 Compacted while idle · 350k → 21k" instead, until the next request. The hover copy adds "Prompt cache: 908k tokens, 1 h lifetime, expires 2:38 pm".
+- No keep-warm: it would need sending a prompt (deferred, S5).
+
 ## 4. Testing denials
 
 Prefer a harmless, deterministic trigger: add a test-only auto-mode rule in `dev/hooks.json` (see the "Configure auto mode" docs) that denies any command containing `CC_SIDEBAR_DENY_TEST`, then ask the test session to run `echo CC_SIDEBAR_DENY_TEST`. Verified in S4: the `autoMode.soft_deny` prose rule (read from `--settings`) denies it and emits `PermissionDenied`. It is a classifier judgement, not a regex, but it fired reliably. A plain `permissions.deny` match does not emit `PermissionDenied`.

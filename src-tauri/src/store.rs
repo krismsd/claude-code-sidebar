@@ -401,6 +401,35 @@ impl Store {
     /// Load saved sessions (app start). Open sessions without a PID can't be checked, so they
     /// start closed and revive on their next event; the rest are confirmed by liveness.
     /// Output files of running background tasks in open sessions (see `jobs::watch`).
+    /// Sessions not removed, with a transcript: (session id, distro, transcript path).
+    pub fn transcripts(&self) -> Vec<(String, String, String)> {
+        self.sessions
+            .values()
+            .filter(|s| !s.is_removed())
+            .filter_map(|s| {
+                let t = s.transcript_path.clone()?;
+                Some((
+                    s.session_id.clone(),
+                    s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
+                    t,
+                ))
+            })
+            .collect()
+    }
+
+    /// What `cache::scan` found in a session's transcript. Returns whether it changed.
+    pub fn set_cache(&mut self, session_id: &str, scan: crate::cache::Scan) -> bool {
+        let Some(s) = self.sessions.get_mut(session_id) else {
+            return false;
+        };
+        // A tail without any request (a long tool output) says nothing new about the cache.
+        let cache = scan.cache.or_else(|| s.cache.clone());
+        let changed = s.cache != cache || s.compacted != scan.compacted;
+        s.cache = cache;
+        s.compacted = scan.compacted;
+        changed
+    }
+
     pub fn job_files(&self) -> Vec<crate::jobs::JobFile> {
         let mut out = Vec::new();
         for s in self.sessions.values() {

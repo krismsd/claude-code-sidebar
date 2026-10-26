@@ -148,7 +148,7 @@ pub fn looks_awaited(description: &str, command: &str) -> bool {
 
 /// A prompt Claude Code injected (`<task-notification>`, `<agent-message>`, …) rather than one
 /// the user typed: they start with a tag.
-fn injected(prompt: &str) -> bool {
+pub fn injected(prompt: &str) -> bool {
     prompt.trim_start().starts_with('<')
 }
 
@@ -283,6 +283,12 @@ pub struct Session {
     /// Minimised by the user: its card shows only the title bar (unless it needs them).
     #[serde(default)]
     pub minimized: bool,
+    /// The prompt cache as the last request left it (read from the transcript, `cache`).
+    #[serde(default)]
+    pub cache: Option<crate::cache::Cache>,
+    /// A compaction since the last request, e.g. Claude Code's idle compaction.
+    #[serde(default)]
+    pub compacted: Option<crate::cache::Compacted>,
     /// Old: starred sessions were kept. Read once to migrate to `removed`.
     #[serde(default, skip_serializing)]
     pub starred: bool,
@@ -347,6 +353,8 @@ impl Session {
             closed_reason: None,
             removed: Some(false),
             minimized: false,
+            cache: None,
+            compacted: None,
             starred: false,
             tool_failures: HashMap::new(),
             permission_released_at: None,

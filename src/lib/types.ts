@@ -74,6 +74,26 @@ export interface Session {
   removed: boolean | null;
   /** Minimised by the user: the card shows only its title bar. */
   minimized: boolean;
+  /** The prompt cache as the last request left it (from the transcript). */
+  cache: PromptCache | null;
+  /** A compaction since the last request (e.g. Claude Code's idle compaction). */
+  compacted: Compacted | null;
+}
+
+export interface PromptCache {
+  /** When the last request was answered; the cache lives `ttl` ms from here. */
+  at: number;
+  ttl: number;
+  /** Tokens the next prompt sends (cached while warm). */
+  tokens: number;
+}
+
+export interface Compacted {
+  at: number;
+  pre_tokens: number;
+  post_tokens: number;
+  /** Claude Code's idle compaction, before the cache expired. */
+  idle: boolean;
 }
 
 export interface Recent {

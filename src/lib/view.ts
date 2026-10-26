@@ -110,3 +110,31 @@ export function presentTime(from: number, now: number, away: AwaySpell[]): numbe
   }
   return Math.max(0, now - from - gone);
 }
+
+/** Caches smaller than this aren't worth a line on the card. */
+export const CACHE_SHOWN_FROM = 100_000;
+
+/** The prompt cache line for a card, or null: only while the session isn't working (a turn
+ * keeps it warm), and only for sizeable conversations. */
+export function cacheState(
+  s: Session,
+  now: number,
+): { warm: boolean; left: number; expires: number; tokens: number; ttl: number } | null {
+  if (!s.cache || s.compacted || s.status === "working" || s.removed) return null;
+  if (s.cache.tokens < CACHE_SHOWN_FROM) return null;
+  const expires = s.cache.at + s.cache.ttl;
+  return {
+    warm: now < expires,
+    left: expires - now,
+    expires,
+    tokens: s.cache.tokens,
+    ttl: s.cache.ttl,
+  };
+}
+
+/** 908_123 → "908k", 1_250_000 → "1.3M". */
+export function tokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
+  return String(n);
+}

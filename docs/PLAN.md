@@ -277,6 +277,11 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 - [x] The "cc-sidebar" title and "N open" count are gone. The +, ⚙ and collapse buttons sit right of the usage bars in one footer, which is the floating window's drag handle. The ⚙ menu opens upwards from it, and the add-project panel appears just above it.
 
+## M28: Prompt cache and idle compaction (2026-10-26)
+
+- [x] SPEC §3.15. Cards show the prompt cache's countdown, "expired · next prompt re-sends N", and "Compacted while idle · pre → post", read from transcripts every 30 s; details on hover. Seen on screen with the live sessions (an expired 538k cache; three idle compactions).
+- [ ] Unverified: whether the PreCompact hook fires for idle compaction (the code path suggests it does). Testing needs a 200k+ context left idle for 54 min.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

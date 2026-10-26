@@ -8,6 +8,7 @@ mod actions;
 mod alerts;
 #[cfg(windows)]
 mod appbar;
+mod cache;
 mod config;
 #[cfg(windows)]
 mod desktop;
@@ -739,6 +740,7 @@ pub fn run() {
             tauri::async_runtime::spawn(server::probe_usage(ctx.clone()));
             tauri::async_runtime::spawn(liveness::watch_attached(ctx.clone()));
             tauri::async_runtime::spawn(jobs::watch(ctx.clone()));
+            tauri::async_runtime::spawn(cache::watch(ctx.clone()));
             tauri::async_runtime::spawn(presence::watch(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())

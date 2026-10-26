@@ -288,6 +288,21 @@ body,
   font-size: 12px;
 }
 
+/* Prompt cache: quiet while warm, amber near expiry, blue-grey once cold. */
+.card-cache {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.card-cache.soon {
+  color: var(--amber);
+}
+
+.card-cache.cold {
+  color: var(--blue);
+}
+
 .running {
   font-size: 11px;
   color: var(--muted);

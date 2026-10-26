@@ -238,6 +238,13 @@ Claude Code caches the conversation so far; every request refreshes it for its l
 - The ready pill shows warm (green) or not (grey), see §3.9. Cards not working, with over 100k tokens, add "❄ Cache expired · next prompt re-sends 908k" once it has expired. After a compaction: "📦 Compacted while idle · 350k → 21k" instead, until the next request. The hover copy adds "Prompt cache: 908k tokens, 1 h lifetime, expires 2:38 pm".
 - No keep-warm: it would need sending a prompt (deferred, S5).
 
+### 3.16 Pull requests the session opened (2026-10-26)
+
+- **Found** in the transcript: Claude Code's `pr-link` records (GitHub), and the results of `gh pr create` and `az repos pr create` tool calls (the URL in gh's output; for Azure DevOps the organisation from that command's `--org`, and the id from whatever it printed: JSON `pullRequestId`/`id`, a `/pullrequest/<n>` link or a bare number). PRs only mentioned or viewed don't count. Each transcript is searched in full once (`prs_scanned`), then its new tail with the cache scan (§3.15). An Azure DevOps PR created without `--org` takes the organisation of the session's other PRs; failing that, the lookup runs in the session's directory so `az` reads it from the git remote.
+- **Looked up** read-only with the user's logins in WSL, every 5 minutes while open and after each turn: `gh pr view --json state,isDraft,title,reviewDecision,statusCheckRollup`; `az repos pr show` (status, draft, title, reviewer votes) plus `az repos pr policy list` (Build policies are the checks). Merged and closed PRs aren't looked up again.
+- **Card:** one line per open PR, "🔀 #1142 Title · draft · checks ✓/✗/… · approved / changes requested / review needed" (red when failing or changes requested, green when approved with checks done); click opens it in the browser. Merged and closed ones drop off.
+- **Alerts** (🔀, sound `pr`): checks start failing, changes requested, merged. Never on a PR's first successful lookup.
+
 ## 4. Testing denials
 
 Prefer a harmless, deterministic trigger: add a test-only auto-mode rule in `dev/hooks.json` (see the "Configure auto mode" docs) that denies any command containing `CC_SIDEBAR_DENY_TEST`, then ask the test session to run `echo CC_SIDEBAR_DENY_TEST`. Verified in S4: the `autoMode.soft_deny` prose rule (read from `--settings`) denies it and emits `PermissionDenied`. It is a classifier judgement, not a regex, but it fired reliably. A plain `permissions.deny` match does not emit `PermissionDenied`.

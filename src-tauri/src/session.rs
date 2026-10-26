@@ -68,6 +68,8 @@ pub enum AlertKind {
     Finished,
     /// 📦 context compaction (informational)
     Compact,
+    /// 🔀 a PR the session opened: checks failed, changes requested, or merged
+    Pr,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -289,6 +291,12 @@ pub struct Session {
     /// A compaction since the last request, e.g. Claude Code's idle compaction.
     #[serde(default)]
     pub compacted: Option<crate::cache::Compacted>,
+    /// Pull requests the session opened (SPEC §3.16).
+    #[serde(default)]
+    pub prs: Vec<crate::prs::Pr>,
+    /// The whole transcript has been searched for PRs (later, only its new tail is).
+    #[serde(default)]
+    pub prs_scanned: bool,
     /// Old: starred sessions were kept. Read once to migrate to `removed`.
     #[serde(default, skip_serializing)]
     pub starred: bool,
@@ -355,6 +363,8 @@ impl Session {
             minimized: false,
             cache: None,
             compacted: None,
+            prs: Vec::new(),
+            prs_scanned: false,
             starred: false,
             tool_failures: HashMap::new(),
             permission_released_at: None,
@@ -374,7 +384,7 @@ impl Session {
         }
     }
 
-    fn alert(&mut self, kind: AlertKind, text: String, now: Ms) {
+    pub fn alert(&mut self, kind: AlertKind, text: String, now: Ms) {
         // One live alert per kind: refresh it rather than stacking duplicates.
         self.alerts.retain(|a| a.kind != kind);
         let id = self.next_alert_id;

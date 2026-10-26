@@ -283,6 +283,11 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] The ready pill follows the cache: green while warm, grey once expired or compacted; with a 5-minute cache or none, grey after an hour. No fade; presence tracking (`presence.rs`, GetLastInputInfo, `presence.json`) removed.
 - [ ] Unverified: whether the PreCompact hook fires for idle compaction (the code path suggests it does). Testing needs a 200k+ context left idle for 54 min.
 
+## M29: PRs on cards (2026-10-26)
+
+- [x] SPEC §3.16: PRs a session opened (GitHub and Azure DevOps), with state, checks and review on the card, and alerts for failing checks, changes requested and merges. Tested against live data: 30 PRs found in three sessions, all looked up; the open one shows on its card.
+- [x] Fixes from that test: Azure DevOps commands without `--org`, or after a heredoc with an apostrophe, lost the organisation; a PR found twice stayed unchecked; a PR first looked up after a failed attempt raised a false "merged" alert.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

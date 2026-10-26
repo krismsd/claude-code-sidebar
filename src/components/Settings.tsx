@@ -21,6 +21,7 @@ const SOUND_KINDS: [string, string][] = [
   ["finished", "✅ Background job finished"],
   ["slow", "🐌 Silent while working"],
   ["compact", "📦 Compacting context"],
+  ["pr", "🔀 PR checks failed, changes requested or merged"],
   ["permission", "New permission prompt"],
 ];
 

@@ -18,6 +18,7 @@ export const ALERT_EMOJI: Record<AlertKind, string> = {
   slow: "🐌",
   compact: "📦",
   finished: "✅",
+  pr: "🔀",
 };
 
 const CLOSED_REASON: Record<string, string> = {

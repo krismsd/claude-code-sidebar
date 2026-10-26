@@ -3,7 +3,14 @@ export type Status =
   "starting" | "working" | "needs_permission" | "needs_input" | "idle" | "error" | "closed";
 
 export type AlertKind =
-  "denied" | "stop_failure" | "repeated_failure" | "waiting" | "slow" | "compact" | "finished";
+  | "denied"
+  | "stop_failure"
+  | "repeated_failure"
+  | "waiting"
+  | "slow"
+  | "compact"
+  | "finished"
+  | "pr";
 
 export interface Alert {
   id: number;
@@ -78,6 +85,19 @@ export interface Session {
   cache: PromptCache | null;
   /** A compaction since the last request (e.g. Claude Code's idle compaction). */
   compacted: Compacted | null;
+  /** Pull requests the session opened. */
+  prs: PullRequest[];
+}
+
+export interface PullRequest {
+  host: "github" | "azure";
+  number: number;
+  url: string | null;
+  title: string | null;
+  /** null until first looked up. */
+  state: "open" | "draft" | "merged" | "closed" | null;
+  checks: "passing" | "failing" | "running" | null;
+  review: "approved" | "changes_requested" | "required" | null;
 }
 
 export interface PromptCache {

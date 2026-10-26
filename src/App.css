@@ -293,6 +293,52 @@ body,
   font-size: 12px;
 }
 
+/* PRs the session opened: one line each, the status on the right. */
+.card-prs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.card-pr {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.card-pr:hover .card-pr-name {
+  text-decoration: underline;
+}
+
+.card-pr-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-pr.full .card-pr-name {
+  white-space: normal;
+}
+
+.card-pr-status {
+  flex: none;
+  color: var(--muted);
+}
+
+.card-pr.bad .card-pr-status {
+  color: var(--red);
+}
+
+.card-pr.good .card-pr-status {
+  color: var(--green);
+}
+
 /* Prompt cache expired: what the next prompt costs. */
 .card-cache {
   margin-top: 3px;

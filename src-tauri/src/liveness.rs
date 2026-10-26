@@ -89,6 +89,11 @@ pub async fn tmux_sessions(distro: &str) -> Option<HashMap<String, bool>> {
 
 /// Run a small script in a distro, without a console window. None if it failed or hung.
 async fn wsl(distro: &str, script: &str) -> Option<String> {
+    wsl_for(distro, script, 10).await
+}
+
+/// `wsl` with a time limit in seconds.
+pub async fn wsl_for(distro: &str, script: &str, secs: u64) -> Option<String> {
     let mut cmd = tokio::process::Command::new("wsl.exe");
     cmd.args(["-d", distro, "-e", "sh", "-c", script]);
     #[cfg(windows)]
@@ -96,7 +101,7 @@ async fn wsl(distro: &str, script: &str) -> Option<String> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
-    let out = tokio::time::timeout(Duration::from_secs(10), cmd.output())
+    let out = tokio::time::timeout(Duration::from_secs(secs), cmd.output())
         .await
         .ok()?
         .ok()?;

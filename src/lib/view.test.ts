@@ -65,6 +65,7 @@ function session(over: Partial<Session> = {}): Session {
     minimized: false,
     cache: null,
     compacted: null,
+    prs: [],
     ...over,
   };
 }

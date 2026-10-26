@@ -176,7 +176,9 @@ pub async fn watch(ctx: Ctx) {
                     continue;
                 }
                 if let Some(text) = read(&path, len) {
-                    changed |= ctx2.store.lock().unwrap().set_cache(&id, scan(&text));
+                    let mut store = ctx2.store.lock().unwrap();
+                    changed |= store.set_cache(&id, scan(&text));
+                    changed |= store.add_prs(&id, crate::prs::find(&text), false);
                 }
             }
             if changed {

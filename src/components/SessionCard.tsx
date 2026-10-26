@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties } from "react";
-import type { Background, Session } from "../lib/types";
+import type { Background, PullRequest, Session } from "../lib/types";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { cacheState, dormant, readyStale, tokens } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
@@ -83,6 +84,8 @@ export function SessionCard({
       : s.status === "working" || s.status === "needs_input"
         ? (s.current_tool ?? (s.status === "working" ? "Thinking…" : null))
         : null;
+  // Open PRs (or not looked up yet); merged and closed ones are done with.
+  const prs = s.prs.filter((p) => p.state !== "merged" && p.state !== "closed");
   const cache = s.status === "closed" && !asleep ? null : cacheState(s, now);
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
     .filter(Boolean)
@@ -194,6 +197,13 @@ export function SessionCard({
               ))}
             </div>
           )}
+          {prs.length > 0 && (
+            <div className="card-prs">
+              {prs.map((p) => (
+                <PrLine key={`${p.host}${p.number}`} pr={p} expanded={expanded} />
+              ))}
+            </div>
+          )}
           {s.compacted && (
             <div className="card-cache" title={`Compacted at ${clock(s.compacted.at)}`}>
               📦 {s.compacted.idle ? "Compacted while idle" : "Compacted"} ·{" "}
@@ -255,6 +265,40 @@ export function SessionCard({
         </>
       )}
     </article>
+  );
+}
+
+const CHECKS = { passing: "checks ✓", failing: "checks ✗", running: "checks …" } as const;
+const REVIEW = {
+  approved: "approved",
+  changes_requested: "changes requested",
+  required: "review needed",
+} as const;
+
+/** An open PR the session opened: number, title, and how it stands. Click to open it. */
+function PrLine({ pr, expanded }: { pr: PullRequest; expanded: boolean }) {
+  const bits = [
+    pr.state === "draft" && "draft",
+    pr.checks && CHECKS[pr.checks],
+    pr.review && REVIEW[pr.review],
+  ].filter(Boolean);
+  const bad = pr.checks === "failing" || pr.review === "changes_requested";
+  const good = !bad && pr.review === "approved" && pr.checks !== "running";
+  return (
+    <div
+      className={`card-pr${expanded ? " full" : ""}${bad ? " bad" : good ? " good" : ""}`}
+      title={pr.url ?? undefined}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (pr.url) void openUrl(pr.url);
+      }}
+    >
+      <span className="card-pr-name">
+        🔀 #{pr.number}
+        {pr.title && ` ${pr.title}`}
+      </span>
+      {bits.length > 0 && <span className="card-pr-status">{bits.join(" · ")}</span>}
+    </div>
   );
 }
 

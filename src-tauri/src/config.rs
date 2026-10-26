@@ -71,6 +71,7 @@ fn default_sounds() -> BTreeMap<String, String> {
         ),
         ("slow", ""),
         ("compact", ""),
+        ("pr", r"C:\Windows\Media\Windows Notify Calendar.wav"),
         ("permission", ""),
     ]
     .into_iter()
@@ -135,6 +136,7 @@ waiting = 'C:\Windows\Media\Windows Notify System Generic.wav' # ⏳ waiting on 
 finished = 'C:\Windows\Media\Windows Notify System Generic.wav' # ✅ background job done, ready for you
 slow = ""                          # 🐌 silent while working
 compact = ""                       # 📦 compacting context
+pr = 'C:\Windows\Media\Windows Notify Calendar.wav' # 🔀 a session's PR: checks failed, changes requested, merged
 permission = ""                    # a new permission prompt
 
 # Extra environment for sessions the sidebar launches.

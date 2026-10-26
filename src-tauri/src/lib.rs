@@ -19,6 +19,7 @@ mod jobs;
 mod liveness;
 pub mod peek;
 pub mod project;
+mod prs;
 mod recap;
 mod server;
 pub mod session;
@@ -739,6 +740,7 @@ pub fn run() {
             tauri::async_runtime::spawn(liveness::watch_attached(ctx.clone()));
             tauri::async_runtime::spawn(jobs::watch(ctx.clone()));
             tauri::async_runtime::spawn(cache::watch(ctx.clone()));
+            tauri::async_runtime::spawn(prs::watch(ctx.clone()));
             tauri::async_runtime::spawn(liveness::run(ctx));
             Ok(())
         })

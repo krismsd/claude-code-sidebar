@@ -1429,3 +1429,112 @@ fn minimised_cards_persist() {
     st2.restore(serde_json::from_str(&json).unwrap(), 1);
     assert!(st2.get("a").unwrap().minimized);
 }
+
+#[test]
+fn pr_alerts_on_failing_checks_changes_requested_and_merge() {
+    use crate::prs::{Checks, Found, Host, Review, State, Status};
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "p"})),
+        0,
+    );
+    let found = Found {
+        host: Host::Github,
+        number: 7,
+        url: Some("https://github.com/o/r/pull/7".into()),
+        org: None,
+    };
+    assert!(st.add_prs("p", vec![found.clone()], true));
+    assert!(!st.add_prs("p", vec![found], false), "already known");
+    let due = st.prs_due(1_000);
+    assert_eq!(due.len(), 1);
+    let pr = due[0].3.clone();
+    let status = |checks, review, state| Status {
+        state: Some(state),
+        checks: Some(checks),
+        review: Some(review),
+        title: Some("Fix login".into()),
+        url: None,
+    };
+    // A failed lookup, then the first one that works: no alert, even if checks are already
+    // failing.
+    st.set_pr_status("p", &pr, None, 500);
+    st.set_pr_status(
+        "p",
+        &pr,
+        Some(status(Checks::Failing, Review::Required, State::Open)),
+        1_000,
+    );
+    assert!(st.get("p").unwrap().alerts.is_empty());
+    assert!(st.prs_due(2_000).is_empty(), "not due again yet");
+    let last = |st: &Store| st.get("p").unwrap().alerts.last().map(|a| a.text.clone());
+    let set = |st: &mut Store, c, r, s, at| st.set_pr_status("p", &pr, Some(status(c, r, s)), at);
+    set(
+        &mut st,
+        Checks::Passing,
+        Review::Required,
+        State::Open,
+        400_000,
+    );
+    assert_eq!(last(&st), None);
+    set(
+        &mut st,
+        Checks::Failing,
+        Review::Required,
+        State::Open,
+        800_000,
+    );
+    assert_eq!(last(&st).as_deref(), Some("PR checks failed: #7 Fix login"));
+    set(
+        &mut st,
+        Checks::Failing,
+        Review::ChangesRequested,
+        State::Open,
+        900_000,
+    );
+    assert_eq!(
+        last(&st).as_deref(),
+        Some("Changes requested: #7 Fix login")
+    );
+    set(
+        &mut st,
+        Checks::Passing,
+        Review::Approved,
+        State::Merged,
+        1_200_000,
+    );
+    assert_eq!(last(&st).as_deref(), Some("PR merged: #7 Fix login"));
+    // Merged: no more lookups.
+    assert!(st.prs_due(10_000_000).is_empty());
+}
+
+#[test]
+fn azure_prs_without_org_take_the_sessions_and_merge() {
+    use crate::prs::{Found, Host};
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "a"})),
+        0,
+    );
+    let az = |n, org: Option<&str>| Found {
+        host: Host::Azure,
+        number: n,
+        url: None,
+        org: org.map(str::to_string),
+    };
+    st.add_prs("a", vec![az(1, None)], true);
+    st.add_prs(
+        "a",
+        vec![
+            az(2, Some("https://dev.azure.com/acme")),
+            az(1, Some("https://dev.azure.com/acme")),
+        ],
+        false,
+    );
+    let prs = &st.get("a").unwrap().prs;
+    assert_eq!(prs.len(), 2);
+    assert!(
+        prs.iter()
+            .all(|p| p.org.as_deref() == Some("https://dev.azure.com/acme"))
+    );
+}

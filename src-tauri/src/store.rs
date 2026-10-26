@@ -2,7 +2,7 @@
 //! (SPEC §3.3, §3.9). Closed sessions stay until dismissed or pruned so they can be resumed.
 use crate::events::{Event, Hook};
 use crate::project::Project;
-use crate::session::{Ms, Session, Status, Thresholds};
+use crate::session::{AlertKind, Ms, Session, Status, Thresholds};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -401,6 +401,137 @@ impl Store {
     /// Load saved sessions (app start). Open sessions without a PID can't be checked, so they
     /// start closed and revive on their next event; the rest are confirmed by liveness.
     /// Output files of running background tasks in open sessions (see `jobs::watch`).
+    /// Sessions whose whole transcript hasn't been searched for PRs: (id, distro, transcript).
+    pub fn prs_unscanned(&self) -> Vec<(String, String, String)> {
+        self.sessions
+            .values()
+            .filter(|s| !s.is_removed() && !s.prs_scanned)
+            .filter_map(|s| {
+                Some((
+                    s.session_id.clone(),
+                    s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
+                    s.transcript_path.clone()?,
+                ))
+            })
+            .collect()
+    }
+
+    /// PRs found in a session's transcript (`full`: all of it). Returns whether any were new.
+    pub fn add_prs(&mut self, session_id: &str, found: Vec<crate::prs::Found>, full: bool) -> bool {
+        let Some(s) = self.sessions.get_mut(session_id) else {
+            return false;
+        };
+        if full {
+            s.prs_scanned = true;
+        }
+        let mut changed = false;
+        for f in found {
+            if !s.prs.iter().any(|p| p.same(&f)) {
+                s.prs.push(crate::prs::Pr::new(f));
+                changed = true;
+            }
+        }
+        // An Azure DevOps PR created without --org (az took it from the git remote): the
+        // session's other PRs are in the same organisation.
+        let known = s
+            .prs
+            .iter()
+            .filter(|p| p.host == crate::prs::Host::Azure)
+            .find_map(|p| p.org.clone());
+        for p in s.prs.iter_mut() {
+            if p.host == crate::prs::Host::Azure && p.org.is_none() && known.is_some() {
+                p.org = known.clone();
+                changed = true;
+            }
+        }
+        // Found once without its organisation and again with it: keep the first.
+        let mut kept: Vec<crate::prs::Pr> = Vec::new();
+        for p in std::mem::take(&mut s.prs) {
+            if kept.iter().any(|k| k.is(&p)) {
+                changed = true;
+            } else {
+                kept.push(p);
+            }
+        }
+        s.prs = kept;
+        changed
+    }
+
+    /// Open PRs to look up: never looked at, not for `prs::EVERY`, or their session has
+    /// finished a turn since. (session id, distro, session directory, PR).
+    pub fn prs_due(&self, now: Ms) -> Vec<(String, String, Option<String>, crate::prs::Pr)> {
+        let mut out = Vec::new();
+        for s in self.sessions.values().filter(|s| !s.is_removed()) {
+            for p in s.prs.iter().filter(|p| p.open()) {
+                let due = p.checked_at == 0
+                    || now.saturating_sub(p.checked_at) >= crate::prs::EVERY
+                    || s.last_stop_at.is_some_and(|t| t > p.checked_at);
+                if due {
+                    let distro = s.distro.clone().unwrap_or_else(|| "Ubuntu".into());
+                    out.push((s.session_id.clone(), distro, s.cwd.clone(), p.clone()));
+                }
+            }
+        }
+        out
+    }
+
+    /// A PR looked up (None: the lookup failed; try again later). Alerts when its checks
+    /// start failing, changes are requested, or it's merged (not on the first look).
+    pub fn set_pr_status(
+        &mut self,
+        session_id: &str,
+        pr: &crate::prs::Pr,
+        status: Option<crate::prs::Status>,
+        now: Ms,
+    ) {
+        use crate::prs::{Checks, Review, State};
+        let Some(s) = self.sessions.get_mut(session_id) else {
+            return;
+        };
+        let Some(i) = s.prs.iter().position(|p| p.is(pr)) else {
+            return;
+        };
+        let p = &mut s.prs[i];
+        // Not looked up successfully before (a failed lookup still sets `checked_at`).
+        let first = p.state.is_none();
+        p.checked_at = now;
+        let Some(st) = status else { return };
+        let name = format!(
+            "#{}{}",
+            p.number,
+            st.title
+                .as_deref()
+                .map(|t| format!(" {t}"))
+                .unwrap_or_default()
+        );
+        let mut news = Vec::new();
+        if !first {
+            if st.checks == Some(Checks::Failing) && p.checks != Some(Checks::Failing) {
+                news.push(format!("PR checks failed: {name}"));
+            }
+            if st.review == Some(Review::ChangesRequested)
+                && p.review != Some(Review::ChangesRequested)
+            {
+                news.push(format!("Changes requested: {name}"));
+            }
+            if st.state == Some(State::Merged) && p.state != Some(State::Merged) {
+                news.push(format!("PR merged: {name}"));
+            }
+        }
+        p.state = st.state;
+        p.checks = st.checks;
+        p.review = st.review;
+        if st.title.is_some() {
+            p.title = st.title;
+        }
+        if st.url.is_some() {
+            p.url = st.url;
+        }
+        for text in news {
+            s.alert(AlertKind::Pr, crate::events::truncate(&text, 100), now);
+        }
+    }
+
     /// Sessions not removed, with a transcript: (session id, distro, transcript path).
     pub fn transcripts(&self) -> Vec<(String, String, String)> {
         self.sessions

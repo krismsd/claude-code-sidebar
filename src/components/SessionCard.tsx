@@ -100,7 +100,7 @@ export function SessionCard({
       // rest of the body opens the hover copy, which would cover them; a minimised card, all
       // title bar, never does.
       onMouseOver={(e) => {
-        const body = !(e.target as Element).closest(".card-head, .card-footer");
+        const body = !folded && !(e.target as Element).closest(".card-head, .card-footer");
         if (body !== overBody.current) {
           overBody.current = body;
           onHover(s, body ? e.currentTarget : null);

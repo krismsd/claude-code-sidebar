@@ -2013,6 +2013,7 @@ button {
 
 .card.minimized .card-head {
   padding-bottom: 6px;
+  margin-bottom: 0;
 }
 
 /* Fold toggle: in the header's 10 px left padding, so the title never moves. */

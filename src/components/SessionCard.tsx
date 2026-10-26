@@ -1,5 +1,5 @@
-import { useRef, type CSSProperties } from "react";
-import type { Background, PullRequest, Session } from "../lib/types";
+import { useState, useRef, type CSSProperties } from "react";
+import type { Alert, Background, PullRequest, Session } from "../lib/types";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cacheState, dormant, readyStale, tokens } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
@@ -68,7 +68,8 @@ export function SessionCard({
   const services = s.background.filter((b) => !b.awaited && !b.agent);
   const agents = Math.max(0, s.subagents_running - jobs.filter((b) => b.agent).length);
   const jobName = (b: (typeof jobs)[number]) => b.description || (b.agent ? "Agent" : "Command");
-  const latest = [...shown].sort((a, b) => b.at - a.at)[0];
+  // Newest first: the alert band shows the first, "+N" for the rest.
+  const alerts = [...shown].sort((a, b) => b.at - a.at);
   // A dormant session (ended for sitting idle) looks and acts like a ready one.
   const asleep = dormant(s);
   const closed = s.status === "closed" && !asleep;
@@ -89,11 +90,7 @@ export function SessionCard({
   const cache = s.status === "closed" && !asleep ? null : cacheState(s, now);
   // The status band (last footer band): counts and markers that are only information.
   const statusBand =
-    services.length > 0 ||
-    agents > 0 ||
-    (cache !== null && !cache.warm) ||
-    s.compacted !== null ||
-    shown.length > 1;
+    services.length > 0 || agents > 0 || (cache !== null && !cache.warm) || s.compacted !== null;
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
     .filter(Boolean)
     .join(" · ");
@@ -164,20 +161,6 @@ export function SessionCard({
               </button>
             </div>
           )}
-          {latest && (
-            <div className={`card-alert alert-${latest.kind}`}>
-              <span className="card-alert-text">
-                {ALERT_EMOJI[latest.kind]} {latest.text}
-              </span>
-              <button
-                className="x"
-                title="Dismiss"
-                onClick={stop(() => onDismissAlert(s, latest.id))}
-              >
-                ✕
-              </button>
-            </div>
-          )}
           {/* Claude's last answer as written: the start on the card, all of it on hover. The
           question it ended on, if any, is pinned below so it's never clipped. */}
           {(s.last_answer ?? s.recap) && (
@@ -201,12 +184,6 @@ export function SessionCard({
               {services.map((b, i) => (
                 <JobLine key={b.id || `bg${i}`} job={b} name={`⧗ ${jobName(b)}`} expanded />
               ))}
-              {shown.length > 1 &&
-                shown.map((a) => (
-                  <div key={a.id}>
-                    {ALERT_EMOJI[a.kind]} {a.text}
-                  </div>
-                ))}
               {cache && <div className="muted small">{cacheDetail(cache)}</div>}
               <div className="muted small">
                 {[s.tag && `#${s.tag}`, s.model, s.permission_mode].filter(Boolean).join(" · ")}
@@ -218,7 +195,7 @@ export function SessionCard({
       )}
       {/* Footer bands, kept when the card is minimised: jobs Claude will act on when they
       finish (watchers, background agents), then PRs the session opened. */}
-      {jobs.length + prs.length + (statusBand ? 1 : 0) > 0 && (
+      {jobs.length + prs.length + alerts.length + (statusBand ? 1 : 0) > 0 && (
         <footer className="card-footer">
           {jobs.length > 0 && (
             <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
@@ -243,6 +220,14 @@ export function SessionCard({
                 />
               ))}
             </div>
+          )}
+          {alerts.length > 0 && (
+            <AlertBand
+              alerts={alerts}
+              all={expanded}
+              fresh={alerts.some((a) => isFresh(a.id))}
+              onDismiss={(id) => onDismissAlert(s, id)}
+            />
           )}
           {statusBand && (
             <div className="card-status">
@@ -269,18 +254,6 @@ export function SessionCard({
                   📦 {tokens(s.compacted.pre_tokens)}→{tokens(s.compacted.post_tokens)}
                 </span>
               )}
-              <span className="grow" />
-              {shown.length > 1 &&
-                shown.map((a) => (
-                  <button
-                    key={a.id}
-                    className={`badge badge-${a.kind}${isFresh(a.id) ? " fresh" : ""}`}
-                    title={`${a.text}\n(click to dismiss)`}
-                    onClick={stop(() => onDismissAlert(s, a.id))}
-                  >
-                    {ALERT_EMOJI[a.kind]}
-                  </button>
-                ))}
             </div>
           )}
         </footer>
@@ -359,6 +332,68 @@ function PrLine({
         {pr.title ?? <span className="muted">…</span>}
       </span>
       {status && <span className="card-pr-status">{status}</span>}
+    </div>
+  );
+}
+
+/** The alert band: the newest alert with ✕ (the next one moves up when it's dismissed) and
+ * "+N" for the others, which expands the band into a list, each with ✕, and "Dismiss all".
+ * The hover copy (`all`) always lists them. */
+function AlertBand({
+  alerts,
+  all,
+  fresh,
+  onDismiss,
+}: {
+  alerts: Alert[];
+  all: boolean;
+  fresh: boolean;
+  onDismiss: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const list = (all || open) && alerts.length > 1;
+  const rows = list ? alerts : alerts.slice(0, 1);
+  const more = alerts.length - 1;
+  return (
+    <div className={`alert-band alert-band-${alerts[0].kind}${fresh ? " fresh" : ""}`}>
+      {rows.map((a, i) => (
+        <div key={a.id} className={`alert-row alert-${a.kind}`}>
+          <span className="alert-text" title={a.text}>
+            {ALERT_EMOJI[a.kind]} {a.text}
+          </span>
+          {!list && i === 0 && more > 0 && (
+            <button
+              className="alert-more"
+              title={alerts
+                .slice(1)
+                .map((b) => `${ALERT_EMOJI[b.kind]} ${b.text}`)
+                .join("\n")}
+              onClick={stop(() => setOpen(true))}
+            >
+              +{more}
+            </button>
+          )}
+          <button className="x" title="Dismiss" onClick={stop(() => onDismiss(a.id))}>
+            ✕
+          </button>
+        </div>
+      ))}
+      {list && !all && (
+        <div className="alert-actions">
+          <button className="alert-more" onClick={stop(() => setOpen(false))}>
+            Fewer
+          </button>
+          <button
+            className="alert-more"
+            onClick={stop(() => {
+              alerts.forEach((a) => onDismiss(a.id));
+              setOpen(false);
+            })}
+          >
+            Dismiss all
+          </button>
+        </div>
+      )}
     </div>
   );
 }

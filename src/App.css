@@ -277,6 +277,76 @@ body,
   font-size: 13px;
 }
 
+/* Alert band, just above the status band: the newest alert in its colour, "+N" for the rest. */
+.alert-band {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px 3px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  background: color-mix(in srgb, var(--red) 13%, transparent);
+  font-size: 12px;
+}
+
+.alert-band-slow {
+  border-top-color: color-mix(in srgb, var(--amber) 40%, transparent);
+  background: color-mix(in srgb, var(--amber) 13%, transparent);
+}
+
+.alert-band-compact,
+.alert-band-pr {
+  border-top-color: color-mix(in srgb, var(--blue) 30%, transparent);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+}
+
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--red);
+}
+
+.alert-row.alert-slow {
+  color: var(--amber);
+}
+
+.alert-row.alert-compact {
+  color: var(--muted);
+}
+
+.alert-row.alert-pr {
+  color: var(--blue);
+}
+
+.alert-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alert-more {
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 11px;
+  padding: 0 4px;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.alert-more:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.alert-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--muted);
+}
+
 /* Jobs Claude will act on when they finish: blue, since they'll bring it back. */
 .card-jobs {
   display: flex;
@@ -438,15 +508,6 @@ body,
 }
 
 /* ---- alerts (M4) ---- */
-.card-alert {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 2px 0;
-  font-size: 12px;
-  color: var(--red);
-}
-
 .alert-waiting,
 .alert-slow {
   color: var(--amber);
@@ -454,13 +515,6 @@ body,
 
 .alert-compact {
   color: var(--muted);
-}
-
-.card-alert-text {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .x {

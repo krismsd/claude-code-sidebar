@@ -241,8 +241,8 @@ Claude Code caches the conversation so far; every request refreshes it for its l
 ### 3.17 Card layout (2026-10-26)
 
 - **Title bar:** title, branch, and the status as a square block flush with the right edge, the bar's full height ("ready · 12m"; colours as before).
-- **Body:** Claude's answer and the question it ended on, plus what needs acting on: the activity line (working, permission, question), Allow/Deny, the latest alert with ✕, the plain-`claude` warning.
-- **Footer bands**, kept when minimised: jobs Claude waits on (blue), PRs (§3.16), then a faint **status band** for information only: ⧗ services, 🤖 agents, ❄ expired cache size, 📦 compaction, and the alert badges on the right when there's more than one alert. Tooltips give the details. No band when there's nothing to show.
+- **Body:** Claude's answer and the question it ended on, plus what needs acting on: the activity line (working, permission, question), Allow/Deny, the plain-`claude` warning.
+- **Footer bands**, kept when minimised: jobs Claude waits on (blue), PRs (§3.16), then an **alert band** (the newest alert with ✕, tinted red, amber for 🐌, blue for 📦 and 🔀; "+N" for the others, which expands the band into a list with a ✕ each, "Fewer" and "Dismiss all"; ✕ on the newest moves the next one up; the hover copy lists them all), then a faint **status band** for information only: ⧗ services, 🤖 agents, ❄ expired cache size, 📦 compaction. Tooltips give the details. No band when there's nothing to show.
 
 ### 3.16 Pull requests the session opened (2026-10-26)
 

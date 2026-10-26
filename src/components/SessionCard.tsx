@@ -1,13 +1,11 @@
 import { useRef, type CSSProperties } from "react";
-import type { AwaySpell, Background, Session } from "../lib/types";
-import { cacheState, dormant, presentTime, tokens } from "../lib/view";
+import type { Background, Session } from "../lib/types";
+import { cacheState, dormant, readyStale, tokens } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
   session: Session;
   now: number;
-  /** Away spells: the ready pill's fade skips them. */
-  away: AwaySpell[];
   /** Alert/permission keys that just appeared (see App useFresh). */
   fresh: Set<string>;
   onActivate: (s: Session) => void;
@@ -30,20 +28,6 @@ const stop =
     f();
   };
 
-const HOUR = 3_600_000;
-
-/** A "ready" pill fades from green to grey between 1 and 2 hours: still ready, but old news. */
-function readyFade(s: Session, now: number, away: AwaySpell[]): CSSProperties | undefined {
-  if (s.status !== "idle" && !dormant(s)) return undefined;
-  // Time you were at the computer: a session left over lunch or a night stays green.
-  const left = presentTime(s.status_since, now, away);
-  const grey = Math.min(1, Math.max(0, (left - HOUR) / HOUR));
-  if (grey === 0) return undefined;
-  return {
-    background: `color-mix(in srgb, var(--grey) ${Math.round(grey * 100)}%, var(--green))`,
-  };
-}
-
 const clock = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
@@ -59,7 +43,6 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export function SessionCard({
   session: s,
   now,
-  away,
   fresh,
   onActivate,
   onDismissAlert,
@@ -144,7 +127,10 @@ export function SessionCard({
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
-        <span className={`chip chip-${status}`} style={readyFade(s, now, away)}>
+        <span
+          className={`chip chip-${status}${status === "idle" && readyStale(s, now) ? " stale" : ""}`}
+          title={cache ? cacheDetail(cache) : undefined}
+        >
           {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
         </span>
       </header>
@@ -214,14 +200,9 @@ export function SessionCard({
               {tokens(s.compacted.pre_tokens)} → {tokens(s.compacted.post_tokens)}
             </div>
           )}
-          {cache && (
-            <div
-              className={`card-cache${cache.warm && cache.left < 10 * 60_000 ? " soon" : ""}${cache.warm ? "" : " cold"}`}
-              title={cacheDetail(cache)}
-            >
-              {cache.warm
-                ? `◷ Cache warm · ${elapsed(0, cache.left)} left`
-                : `❄ Cache expired · next prompt re-sends ${tokens(cache.tokens)}`}
+          {cache && !cache.warm && (
+            <div className="card-cache cold" title={cacheDetail(cache)}>
+              ❄ Cache expired · next prompt re-sends {tokens(cache.tokens)}
             </div>
           )}
           {(shown.length > 1 || agents + services.length > 0) && (

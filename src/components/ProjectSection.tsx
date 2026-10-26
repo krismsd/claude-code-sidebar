@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { AwaySpell, Project, Session } from "../lib/types";
+import type { Project, Session } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
 import { arrange, projectStatus, reorder } from "../lib/view";
@@ -17,7 +17,6 @@ import {
 
 export interface CardHandlers {
   now: number;
-  away: AwaySpell[];
   fresh: Set<string>;
   onActivate: (s: Session) => void;
   onDismissAlert: (s: Session, alertId: number) => void;

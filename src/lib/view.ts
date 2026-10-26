@@ -1,5 +1,5 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
-import type { AwaySpell, Session, UiState } from "./types";
+import type { Session, UiState } from "./types";
 
 /** Removed by the user (or `/exit`): in its project's "closed" section. */
 export const removed = (s: Session) => s.removed === true;
@@ -99,16 +99,14 @@ export function reorder(
   return rest;
 }
 
-/** Time from `from` to `now` that the user was at the computer: the away spells (lunch, a
- * night, the computer off) don't count. */
-export function presentTime(from: number, now: number, away: AwaySpell[]): number {
-  let gone = 0;
-  for (const [start, end] of away) {
-    const a = Math.max(start, from);
-    const b = Math.min(end ?? now, now);
-    if (b > a) gone += b - a;
-  }
-  return Math.max(0, now - from - gone);
+const HOUR = 3_600_000;
+
+/** A ready pill goes grey once the prompt cache has expired (the next prompt re-sends
+ * everything), or was compacted away. With a 5-minute cache or none known: after an hour. */
+export function readyStale(s: Session, now: number): boolean {
+  if (s.compacted) return true;
+  const expires = s.cache && s.cache.ttl >= HOUR ? s.cache.at + s.cache.ttl : s.status_since + HOUR;
+  return now >= expires;
 }
 
 /** Caches smaller than this aren't worth a line on the card. */

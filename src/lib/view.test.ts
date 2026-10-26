@@ -6,7 +6,7 @@ import {
   dropIndex,
   freshKeys,
   groupSessions,
-  presentTime,
+  readyStale,
   projectStatus,
   reorder,
   tokens,
@@ -126,7 +126,6 @@ describe("groupSessions", () => {
       left_edge: false,
       monitor: 0,
       usage: null,
-      away: [],
     };
     const { byRoot, other } = groupSessions(state);
     expect(byRoot.get("/p/a")).toEqual([a]);
@@ -222,16 +221,22 @@ describe("dormant sessions", () => {
   });
 });
 
-describe("presentTime", () => {
+describe("readyStale", () => {
   const H = 3_600_000;
-  it("skips away spells, including one still going", () => {
-    expect(presentTime(0, 3 * H, [])).toBe(3 * H);
-    // Ready at 0, lunch from 1h to 2h: 2h at the computer by 3h.
-    expect(presentTime(0, 3 * H, [[H, 2 * H]])).toBe(2 * H);
-    // Away since before it became ready, still away.
-    expect(presentTime(H, 10 * H, [[0, null]])).toBe(0);
-    // Only the part after it became ready counts.
-    expect(presentTime(2 * H, 4 * H, [[H, 3 * H]])).toBe(H);
+  it("follows a 1-hour cache", () => {
+    const s = session({ status_since: 0, cache: { at: 30 * 60_000, ttl: H, tokens: 500_000 } });
+    expect(readyStale(s, 80 * 60_000)).toBe(false);
+    expect(readyStale(s, 90 * 60_000)).toBe(true);
+  });
+  it("with a 5-minute cache or none: an hour after it became ready", () => {
+    const five = session({ status_since: 0, cache: { at: 0, ttl: 300_000, tokens: 500_000 } });
+    expect(readyStale(five, 10 * 60_000)).toBe(false);
+    expect(readyStale(five, H)).toBe(true);
+    expect(readyStale(session({ status_since: 0 }), H - 1)).toBe(false);
+  });
+  it("compacted while idle: grey", () => {
+    const compacted = { at: 1, pre_tokens: 350_000, post_tokens: 21_000, idle: true };
+    expect(readyStale(session({ status_since: 0, compacted }), 1)).toBe(true);
   });
 });
 

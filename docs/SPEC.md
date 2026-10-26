@@ -154,7 +154,7 @@ These still appear (hooks are global after install) but have no tag, PID or chan
   - hover or expand for detail recap, last prompt and action buttons
 - Ordering: needs-attention first (permission or alerts), then working, then idle. Within each group, keep a stable order by start time. No jumping around while the mouse is over the sidebar.
 - Notification sound per alert type (`[sounds]` in config: system sound alias, .wav path or ""), Windows toast when the sidebar is hidden (`toasts = "when_hidden"`: a full-screen app covers it; or "always"/"never"), and a global hotkey (`jump_hotkey`, default Ctrl+Alt+J) to focus the session waiting on you longest. New alerts flash their card for 4 s.
-- A "ready" pill fades from green to grey between 1 and 2 hours of the user being **at the computer** since it became ready. Away spells (5 minutes with no keyboard or mouse input, a locked screen, sleep, the computer off) don't count, so a session finished just before lunch or the end of the day is still green on return. The timer on the pill shows real time.
+- A "ready" pill is green while the prompt cache is warm and turns grey (no fade) once it has expired or been compacted away (§3.15): from then on the next prompt re-sends the whole context. With a 5-minute cache, or none known, it turns grey an hour after the session became ready. Its tooltip gives the cache details. The timer on the pill shows real time. (Replaces the 2026-10-21 fade over time at the computer; presence tracking is gone.)
 - Theme follows Windows light/dark.
 
 ### 3.10 Config
@@ -235,7 +235,7 @@ In the sidebar's window: Ctrl+C copies a selection, Ctrl+V pastes (an image past
 Claude Code caches the conversation so far; every request refreshes it for its lifetime, 1 hour or 5 minutes (each assistant record's `usage.cache_creation` says which; a request that only reads keeps the last lifetime). Once it lapses, the next prompt sends the whole context again at full price. Since 2.1.310 Claude Code also **compacts while idle**: at 90% of a 1-hour lifetime (54 min idle), for contexts over 200k tokens (`idleCompaction` setting), logging "Compacted while idle, before the prompt cache expired". It runs through the normal compaction path (PreCompact hook, trigger `auto`), but while the user is away, so the 📦 line only lasts the minute it takes.
 
 - Every 30 s the app reads the tail of each kept session's transcript (only when it has grown): the last main-chain request's time, lifetime and size (`Session.cache`), and any compaction since (`Session.compacted`, `idle` when Claude Code says it was idle compaction). Subagents' requests are another cache and are skipped.
-- Cards not working, with over 100k tokens: "◷ Cache warm · 42m left" (amber in the last 10 min), then "❄ Cache expired · next prompt re-sends 908k". After a compaction: "📦 Compacted while idle · 350k → 21k" instead, until the next request. The hover copy adds "Prompt cache: 908k tokens, 1 h lifetime, expires 2:38 pm".
+- The ready pill shows warm (green) or not (grey), see §3.9. Cards not working, with over 100k tokens, add "❄ Cache expired · next prompt re-sends 908k" once it has expired. After a compaction: "📦 Compacted while idle · 350k → 21k" instead, until the next request. The hover copy adds "Prompt cache: 908k tokens, 1 h lifetime, expires 2:38 pm".
 - No keep-warm: it would need sending a prompt (deferred, S5).
 
 ## 4. Testing denials

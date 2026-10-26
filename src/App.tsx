@@ -186,7 +186,6 @@ function App() {
   const cards: CardHandlers = {
     onMinimize: (s, minimized) => minimize([s.session_id], minimized),
     now,
-    away: state?.away ?? [],
     fresh,
     onHover,
     onMenu: (s, x, y) => {

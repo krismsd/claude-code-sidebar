@@ -186,6 +186,11 @@ body,
   background: var(--green);
 }
 
+/* Ready, but the prompt cache has gone: the next prompt re-sends everything. */
+.chip-idle.stale {
+  background: var(--grey);
+}
+
 .chip-error {
   background: var(--red);
 }
@@ -288,15 +293,11 @@ body,
   font-size: 12px;
 }
 
-/* Prompt cache: quiet while warm, amber near expiry, blue-grey once cold. */
+/* Prompt cache expired: what the next prompt costs. */
 .card-cache {
   margin-top: 3px;
   font-size: 11px;
   color: var(--muted);
-}
-
-.card-cache.soon {
-  color: var(--amber);
 }
 
 .card-cache.cold {

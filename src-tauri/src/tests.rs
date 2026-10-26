@@ -1541,3 +1541,30 @@ fn azure_prs_without_org_take_the_sessions_and_merge() {
             .all(|p| p.org.as_deref() == Some("https://dev.azure.com/acme"))
     );
 }
+
+#[test]
+fn ready_timer_survives_a_closed_tab() {
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "t"})),
+        0,
+    );
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "t"})),
+        1_000,
+    );
+    st.apply(
+        &fx_with("Stop", serde_json::json!({"session_id": "t"})),
+        2_000,
+    );
+    st.apply(
+        &fx_with(
+            "SessionEnd",
+            serde_json::json!({"session_id": "t", "reason": "other"}),
+        ),
+        60_000,
+    );
+    let s = st.get("t").unwrap();
+    assert_eq!(s.status, Status::Closed);
+    assert_eq!(s.status_since, 2_000);
+}

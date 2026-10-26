@@ -292,7 +292,8 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 ## M30: Card structure (2026-10-26)
 
-- [x] Alerts moved from the body to an alert band above the status band (option 1 of three mock-ups), "+N" expands to a list with ✕ each and Dismiss all; kept on minimised cards. Single alert seen on screen; the multi-alert list not yet seen live.
+- [x] Alerts moved from the body to an alert band above the status band (option 1 of three mock-ups), "+N" expands to a list with ✕ each and Dismiss all; kept on minimised cards. Tested on screen with a sandbox card given two alerts by posted hook events: "+1", the expanded list, ✕ on one alert, back to a single line.
+- [x] Fix: a session that ended while ready (its tab closed) reset its ready timer; only the sidebar's idle end kept it. Now any end while ready keeps it.
 - [x] SPEC §3.17: status as a flush block in the title bar; counts, cache, compaction and alert badges in a status band at the bottom (concept B of two rendered mock-ups). Seen on screen.
 
 ## Housekeeping (2026-10-17, v0.2.0)

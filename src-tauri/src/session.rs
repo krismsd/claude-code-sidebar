@@ -609,15 +609,16 @@ impl Session {
                 } else {
                     reason.clone().unwrap_or_else(|| "other".into())
                 });
-                let ready_since = self.status_since;
+                let ready_since = (self.status == Status::Idle).then_some(self.status_since);
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.subagents_running = 0;
                 self.set_background(&[]);
                 self.set_status(Status::Closed, now);
-                // Ended for sitting idle: still the same ready conversation, same timer.
-                if idle_end {
-                    self.status_since = ready_since;
+                // Ended while ready (for sitting idle, or its tab closed): still the same ready
+                // conversation, same timer.
+                if let Some(t) = ready_since {
+                    self.status_since = t;
                 }
             }
             Event::UserPromptSubmit { prompt } => {

@@ -34,6 +34,8 @@ export interface Project {
   label: string | null;
   worktree: string | null;
   branch: string | null;
+  /** Git repos in the project: remote repo name → folder under the root ("" = the root). */
+  repos: Record<string, string>;
 }
 
 export interface Session {
@@ -93,6 +95,8 @@ export interface PullRequest {
   host: "github" | "azure";
   number: number;
   url: string | null;
+  /** Repository name (labelled with the project folder that holds it). */
+  repo: string | null;
   title: string | null;
   /** null until first looked up. */
   state: "open" | "draft" | "merged" | "closed" | null;

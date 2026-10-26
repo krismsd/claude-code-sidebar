@@ -55,6 +55,8 @@ pub struct Found {
     pub url: Option<String>,
     /// Azure DevOps organisation URL (None: the az CLI's default).
     pub org: Option<String>,
+    /// Repository name (GitHub: from the URL; Azure DevOps: the command's `--repository`).
+    pub repo: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -72,6 +74,9 @@ pub struct Pr {
     pub number: u64,
     pub url: Option<String>,
     pub org: Option<String>,
+    /// Repository name, to label it with the project folder that holds it.
+    #[serde(default)]
+    pub repo: Option<String>,
     pub title: Option<String>,
     /// None until first looked up.
     pub state: Option<State>,
@@ -88,6 +93,7 @@ impl Pr {
             number: f.number,
             url: f.url,
             org: f.org,
+            repo: f.repo,
             title: None,
             state: None,
             checks: None,
@@ -148,6 +154,7 @@ pub fn find(text: &str) -> Vec<Found> {
                         number: n,
                         url: Some(url.to_string()),
                         org: None,
+                        repo: repo_from_url(url),
                     });
                 }
             }
@@ -179,22 +186,22 @@ pub fn find(text: &str) -> Vec<Found> {
                                 add(Found {
                                     host: Host::Github,
                                     number,
+                                    repo: repo_from_url(&url),
                                     url: Some(url),
                                     org: None,
                                 });
                             }
                         }
                     } else if let Some(number) = azure_id(&stdout) {
+                        // Only this command's options (a heredoc before it may hold
+                        // anything, apostrophes included).
+                        let own = &cmd[cmd.find("az repos pr create").unwrap_or(0)..];
                         add(Found {
                             host: Host::Azure,
                             number,
                             url: None,
-                            // Only this command's options (a heredoc before it may hold
-                            // anything, apostrophes included).
-                            org: flag(
-                                &cmd[cmd.find("az repos pr create").unwrap_or(0)..],
-                                &["--org", "--organization"],
-                            ),
+                            org: flag(own, &["--org", "--organization"]),
+                            repo: flag(own, &["--repository", "-r"]),
                         });
                     }
                 }
@@ -215,6 +222,16 @@ fn result_text(content: &Value) -> String {
             .join("\n"),
         _ => String::new(),
     }
+}
+
+/// The repository in a PR's URL: GitHub `…/<owner>/<repo>/pull/<n>`, Azure DevOps
+/// `…/_git/<repo>/pullrequest/<n>`.
+pub fn repo_from_url(url: &str) -> Option<String> {
+    if let Some((_, rest)) = url.split_once("/_git/") {
+        return rest.split('/').next().map(|r| r.replace("%20", " "));
+    }
+    let parts: Vec<&str> = url.split('/').collect();
+    (parts.len() >= 7 && parts[5] == "pull").then(|| parts[4].to_string())
 }
 
 /// `https://github.com/<owner>/<repo>/pull/<n>` links in some text.
@@ -524,12 +541,14 @@ mod tests {
             number: n,
             url: Some(format!("https://github.com/o/app/pull/{n}")),
             org: None,
+            repo: Some("app".into()),
         };
         let az = |n: u64| Found {
             host: Host::Azure,
             number: n,
             url: None,
             org: Some("https://dev.azure.com/acme".into()),
+            repo: Some("r".into()),
         };
         assert_eq!(got, vec![gh(12), gh(13), az(4209), az(4207), az(4210)]);
     }
@@ -582,6 +601,19 @@ mod tests {
         );
         let done = out.replace("active", "completed");
         assert_eq!(azure_status(&done, 1).unwrap().state, Some(State::Merged));
+    }
+
+    #[test]
+    fn repo_from_urls() {
+        assert_eq!(
+            repo_from_url("https://github.com/o/app/pull/3").as_deref(),
+            Some("app")
+        );
+        assert_eq!(
+            repo_from_url("https://x.visualstudio.com/P/_git/my%20repo/pullrequest/4").as_deref(),
+            Some("my repo")
+        );
+        assert_eq!(repo_from_url("https://example.com/x"), None);
     }
 
     #[test]

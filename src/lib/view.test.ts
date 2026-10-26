@@ -32,6 +32,7 @@ function session(over: Partial<Session> = {}): Session {
       label: null,
       worktree: null,
       branch: "main",
+      repos: {},
     },
     transcript_path: null,
     permission_mode: null,

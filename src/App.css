@@ -293,13 +293,25 @@ body,
   font-size: 12px;
 }
 
-/* PRs the session opened: one line each, the status on the right. */
+/* PRs the session opened: a footer band like the title bar, one line each, the status on the
+   right. */
 .card-prs {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  margin-top: 4px;
+  gap: 2px;
+  margin: 6px -10px -8px;
+  padding: 4px 10px 5px;
+  border-top: 1px solid color-mix(in srgb, var(--project) 30%, transparent);
+  background: color-mix(in srgb, var(--project) 10%, transparent);
   font-size: 11px;
+}
+
+.card.minimized .card-prs {
+  margin: 0 -10px;
+}
+
+.card-pr-repo {
+  font-weight: 600;
 }
 
 .card-pr {

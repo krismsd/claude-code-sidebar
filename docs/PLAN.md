@@ -286,6 +286,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 ## M29: PRs on cards (2026-10-26)
 
 - [x] SPEC §3.16: PRs a session opened (GitHub and Azure DevOps), with state, checks and review on the card, and alerts for failing checks, changes requested and merges. Tested against live data: 30 PRs found in three sessions, all looked up; the open one shows on its card.
+- [x] PRs moved to a footer band, one line each, kept on minimised cards, labelled with the project folder holding the repo (from `.git/config` remotes). Seen on screen.
 - [x] Fixes from that test: Azure DevOps commands without `--org`, or after a heredoc with an apostrophe, lost the organisation; a PR found twice stayed unchecked; a PR first looked up after a failed attempt raised a false "merged" alert.
 
 ## Housekeeping (2026-10-17, v0.2.0)

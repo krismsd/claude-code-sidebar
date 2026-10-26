@@ -23,6 +23,10 @@ pub struct Project {
     /// Worktree name when the cwd is inside a linked worktree.
     pub worktree: Option<String>,
     pub branch: Option<String>,
+    /// Git repos in the project by remote repo name → folder under the root ("" for the root
+    /// itself), to label a session's PRs with the folder the user knows (SPEC §3.16).
+    #[serde(default)]
+    pub repos: std::collections::BTreeMap<String, String>,
 }
 
 /// One `[[project]]` entry in `%APPDATA%\cc-sidebar\projects.toml`.
@@ -217,10 +221,77 @@ pub fn resolve(cwd: &str, to_fs: impl Fn(&str) -> PathBuf, overrides: &Overrides
             .unwrap_or_else(|| color_for(&root)),
         emoji: o.and_then(|o| o.emoji.clone()),
         label: o.and_then(|o| o.label.clone()),
+        repos: repo_folders(&root, &to_fs),
         root,
         worktree,
         branch,
     }
+}
+
+/// The repo name in a git remote URL: its last path segment without ".git"
+/// (`git@github.com:o/app.git` → "app", `https://x@dev.azure.com/o/P/_git/my%20repo` → "my repo").
+pub fn repo_name(url: &str) -> Option<String> {
+    let last = url
+        .trim()
+        .trim_end_matches('/')
+        .rsplit(['/', ':'])
+        .next()?
+        .trim_end_matches(".git");
+    (!last.is_empty()).then(|| last.replace("%20", " "))
+}
+
+/// The `origin` remote's repo name from a `.git/config`.
+fn origin_repo(config: &str) -> Option<String> {
+    let mut in_origin = false;
+    for line in config.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_origin = line == r#"[remote "origin"]"#;
+        } else if in_origin && let Some(url) = line.strip_prefix("url") {
+            return repo_name(url.trim_start().strip_prefix('=')?);
+        }
+    }
+    None
+}
+
+/// Repos in a project: the root if it is one; otherwise its subfolders, two levels deep.
+fn repo_folders(
+    root: &str,
+    to_fs: &impl Fn(&str) -> PathBuf,
+) -> std::collections::BTreeMap<String, String> {
+    let mut out = std::collections::BTreeMap::new();
+    let repo_at = |linux: &str| {
+        std::fs::read_to_string(to_fs(&format!("{linux}/.git/config")))
+            .ok()
+            .and_then(|c| origin_repo(&c))
+    };
+    if let Some(name) = repo_at(root) {
+        out.insert(name, String::new());
+        return out;
+    }
+    let subdirs = |linux: &str| -> Vec<String> {
+        std::fs::read_dir(to_fs(linux))
+            .map(|rd| {
+                rd.flatten()
+                    .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+                    .filter_map(|e| e.file_name().into_string().ok())
+                    .filter(|n| !n.starts_with('.') && n != "node_modules")
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for a in subdirs(root) {
+        let dir = format!("{root}/{a}");
+        if let Some(name) = repo_at(&dir) {
+            out.entry(name).or_insert(a);
+            continue;
+        }
+        for b in subdirs(&dir) {
+            if let Some(name) = repo_at(&format!("{dir}/{b}")) {
+                out.entry(name).or_insert(format!("{a}/{b}"));
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -381,5 +452,45 @@ mod tests {
             .map(|i| color_for(&format!("/home/u/dev/project-{i}")))
             .collect();
         assert!(distinct.len() >= 8, "only {} colours used", distinct.len());
+    }
+
+    #[test]
+    fn repo_names_from_remotes() {
+        assert_eq!(
+            repo_name("git@github.com:o/app.git").as_deref(),
+            Some("app")
+        );
+        assert_eq!(
+            repo_name("https://x@dev.azure.com/o/P/_git/my%20repo").as_deref(),
+            Some("my repo")
+        );
+        assert_eq!(
+            repo_name("git@ssh.dev.azure.com:v3/o/P/api").as_deref(),
+            Some("api")
+        );
+        let config = "[core]\n\tbare = false\n[remote \"origin\"]\n\turl = https://dev.azure.com/o/P/_git/acme-api\n";
+        assert_eq!(origin_repo(config).as_deref(), Some("acme-api"));
+    }
+
+    #[test]
+    fn repo_folders_in_a_multi_repo_project() {
+        let t = Tree::new("repos");
+        let remote = |name: &str| format!("[remote \"origin\"]\n\turl = git@host:o/{name}.git\n");
+        t.mkdir("/p/api/.git");
+        t.write("/p/api/.git/config", &remote("acme-api"));
+        t.mkdir("/p/group/tools/.git");
+        t.write("/p/group/tools/.git/config", &remote("org_tools"));
+        t.mkdir("/p/notes");
+        let got = repo_folders("/p", &|l: &str| t.fs(l));
+        assert_eq!(
+            got.into_iter().collect::<Vec<_>>(),
+            [
+                ("acme-api".to_string(), "api".to_string()),
+                ("org_tools".to_string(), "group/tools".to_string())
+            ]
+        );
+        // A project that is a repo: just itself.
+        let got = repo_folders("/p/api", &|l: &str| t.fs(l));
+        assert_eq!(got.get("acme-api").map(String::as_str), Some(""));
     }
 }

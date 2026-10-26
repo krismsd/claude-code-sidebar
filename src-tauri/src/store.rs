@@ -527,6 +527,9 @@ impl Store {
         if st.url.is_some() {
             p.url = st.url;
         }
+        if p.repo.is_none() {
+            p.repo = p.url.as_deref().and_then(crate::prs::repo_from_url);
+        }
         for text in news {
             s.alert(AlertKind::Pr, crate::events::truncate(&text, 100), now);
         }

@@ -658,6 +658,7 @@ fn with_project(st: &mut Store, id: &str, root: &str, now: u64) {
             label: None,
             worktree: None,
             branch: Some("main".into()),
+            repos: Default::default(),
         },
     );
 }
@@ -1443,6 +1444,7 @@ fn pr_alerts_on_failing_checks_changes_requested_and_merge() {
         number: 7,
         url: Some("https://github.com/o/r/pull/7".into()),
         org: None,
+        repo: Some("r".into()),
     };
     assert!(st.add_prs("p", vec![found.clone()], true));
     assert!(!st.add_prs("p", vec![found], false), "already known");
@@ -1521,6 +1523,7 @@ fn azure_prs_without_org_take_the_sessions_and_merge() {
         number: n,
         url: None,
         org: org.map(str::to_string),
+        repo: None,
     };
     st.add_prs("a", vec![az(1, None)], true);
     st.add_prs(

@@ -198,13 +198,6 @@ export function SessionCard({
               ))}
             </div>
           )}
-          {prs.length > 0 && (
-            <div className="card-prs">
-              {prs.map((p) => (
-                <PrLine key={`${p.host}${p.number}`} pr={p} expanded={expanded} />
-              ))}
-            </div>
-          )}
           {s.compacted && (
             <div className="card-cache" title={`Compacted at ${clock(s.compacted.at)}`}>
               📦 {s.compacted.idle ? "Compacted while idle" : "Compacted"} ·{" "}
@@ -265,40 +258,93 @@ export function SessionCard({
           )}
         </>
       )}
+      {/* PRs the session opened: a footer of their own, kept when the card is minimised. */}
+      {prs.length > 0 && (
+        <footer className="card-prs">
+          {prs.map((p) => (
+            <PrLine
+              key={`${p.host}${p.number}`}
+              pr={p}
+              repo={repoLabel(p, s.project?.repos)}
+              expanded={expanded}
+            />
+          ))}
+        </footer>
+      )}
     </article>
   );
 }
 
-const CHECKS = { passing: "checks ✓", failing: "checks ✗", running: "checks …" } as const;
-const REVIEW = {
+const CHECKS = { passing: "✓", failing: "✗", running: "⋯" } as const;
+const CHECKS_WORDS = {
+  passing: "checks passing",
+  failing: "checks failing",
+  running: "checks running",
+} as const;
+const REVIEW = { approved: "approved", changes_requested: "changes", required: "review" } as const;
+const REVIEW_WORDS = {
   approved: "approved",
   changes_requested: "changes requested",
   required: "review needed",
 } as const;
 
-/** An open PR the session opened: number, title, and how it stands. Click to open it. */
-function PrLine({ pr, expanded }: { pr: PullRequest; expanded: boolean }) {
-  const bits = [
+/** The folder in the project that holds a PR's repo, so the user sees the name they know.
+ * None when the repo is the project itself; the repo name when it isn't cloned there. */
+function repoLabel(pr: PullRequest, repos: Record<string, string> | undefined): string | null {
+  if (!pr.repo) return null;
+  const folder = repos?.[pr.repo];
+  if (folder === "") return null;
+  return folder ?? pr.repo;
+}
+
+/** An open PR the session opened: repo folder, number, title, and how it stands (checks and
+ * review, right-aligned). Click to open it. */
+function PrLine({
+  pr,
+  repo,
+  expanded,
+}: {
+  pr: PullRequest;
+  repo: string | null;
+  expanded: boolean;
+}) {
+  const status = [
     pr.state === "draft" && "draft",
     pr.checks && CHECKS[pr.checks],
     pr.review && REVIEW[pr.review],
-  ].filter(Boolean);
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const words = [
+    pr.state === "draft" && "draft",
+    pr.checks && CHECKS_WORDS[pr.checks],
+    pr.review && REVIEW_WORDS[pr.review],
+  ]
+    .filter(Boolean)
+    .join(", ");
   const bad = pr.checks === "failing" || pr.review === "changes_requested";
   const good = !bad && pr.review === "approved" && pr.checks !== "running";
+  const tip = [
+    `${pr.repo ?? ""} #${pr.number}${pr.title ? ` ${pr.title}` : ""}`.trim(),
+    words,
+    pr.url,
+  ]
+    .filter(Boolean)
+    .join("\n");
   return (
     <div
       className={`card-pr${expanded ? " full" : ""}${bad ? " bad" : good ? " good" : ""}`}
-      title={pr.url ?? undefined}
+      title={tip}
       onClick={(e) => {
         e.stopPropagation();
         if (pr.url) void openUrl(pr.url);
       }}
     >
       <span className="card-pr-name">
-        🔀 #{pr.number}
-        {pr.title && ` ${pr.title}`}
+        🔀 {repo && <span className="card-pr-repo">{repo}</span>} #{pr.number}{" "}
+        {pr.title ?? <span className="muted">…</span>}
       </span>
-      {bits.length > 0 && <span className="card-pr-status">{bits.join(" · ")}</span>}
+      {status && <span className="card-pr-status">{status}</span>}
     </div>
   );
 }

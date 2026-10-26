@@ -100,7 +100,7 @@ export function SessionCard({
       // rest of the body opens the hover copy, which would cover them; a minimised card, all
       // title bar, never does.
       onMouseOver={(e) => {
-        const body = !(e.target as Element).closest(".card-head, .card-prs");
+        const body = !(e.target as Element).closest(".card-head, .card-footer");
         if (body !== overBody.current) {
           overBody.current = body;
           onHover(s, body ? e.currentTarget : null);
@@ -183,21 +183,6 @@ export function SessionCard({
             </div>
           )}
           {s.question && !expanded && <div className="card-question">{s.question}</div>}
-          {jobs.length > 0 && (
-            <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
-              <span className="card-jobs-label">
-                {jobs.length > 1 ? `Waiting on ${jobs.length} jobs` : "Waiting on"}
-              </span>
-              {jobs.map((b, i) => (
-                <JobLine
-                  key={b.id || i}
-                  job={b}
-                  name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
-                  expanded={expanded}
-                />
-              ))}
-            </div>
-          )}
           {s.compacted && (
             <div className="card-cache" title={`Compacted at ${clock(s.compacted.at)}`}>
               📦 {s.compacted.idle ? "Compacted while idle" : "Compacted"} ·{" "}
@@ -258,17 +243,34 @@ export function SessionCard({
           )}
         </>
       )}
-      {/* PRs the session opened: a footer of their own, kept when the card is minimised. */}
-      {prs.length > 0 && (
-        <footer className="card-prs">
-          {prs.map((p) => (
-            <PrLine
-              key={`${p.host}${p.number}`}
-              pr={p}
-              repo={repoLabel(p, s.project?.repos)}
-              expanded={expanded}
-            />
-          ))}
+      {/* Footer bands, kept when the card is minimised: jobs Claude will act on when they
+      finish (watchers, background agents), then PRs the session opened. */}
+      {jobs.length + prs.length > 0 && (
+        <footer className="card-footer">
+          {jobs.length > 0 && (
+            <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
+              {jobs.map((b, i) => (
+                <JobLine
+                  key={b.id || i}
+                  job={folded ? { ...b, last_line: null } : b}
+                  name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
+                  expanded={expanded}
+                />
+              ))}
+            </div>
+          )}
+          {prs.length > 0 && (
+            <div className="card-prs">
+              {prs.map((p) => (
+                <PrLine
+                  key={`${p.host}${p.number}`}
+                  pr={p}
+                  repo={repoLabel(p, s.project?.repos)}
+                  expanded={expanded}
+                />
+              ))}
+            </div>
+          )}
         </footer>
       )}
     </article>

@@ -231,23 +231,24 @@ body,
 }
 
 /* Jobs Claude waits on: highlighted, their own block. */
+/* Footer bands at the bottom of the card, full width like the title bar: jobs, then PRs. */
+.card-footer {
+  margin: 6px -10px -8px;
+}
+
+.card.minimized .card-footer {
+  margin: 0 -10px;
+}
+
+/* Jobs Claude will act on when they finish: blue, since they'll bring it back. */
 .card-jobs {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin: 4px 0 2px;
-  padding: 3px 7px;
-  border-left: 3px solid var(--blue);
-  border-radius: 4px;
+  padding: 4px 10px 5px;
+  border-top: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
   background: color-mix(in srgb, var(--blue) 14%, transparent);
   font-size: 12px;
-}
-
-.card-jobs-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--blue);
 }
 
 .card-job {
@@ -299,15 +300,10 @@ body,
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 6px -10px -8px;
   padding: 4px 10px 5px;
   border-top: 1px solid color-mix(in srgb, var(--project) 30%, transparent);
   background: color-mix(in srgb, var(--project) 10%, transparent);
   font-size: 11px;
-}
-
-.card.minimized .card-prs {
-  margin: 0 -10px;
 }
 
 .card-pr-repo {

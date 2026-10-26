@@ -1672,3 +1672,23 @@ fn a_turn_keeps_its_trail_and_task_list() {
     );
     assert_eq!(s.last_prompt.as_deref(), Some("fix it"));
 }
+
+#[test]
+fn artifact_live_updates_are_a_background_task_not_a_job() {
+    const D: &str =
+        "live updates for artifact https://claude.ai/artifact/X (re-armed on session resume)";
+    let mut s = Session::new(SID, 0);
+    // Even when Haiku calls it a job.
+    s.job_labels.insert(D.into(), true);
+    s.apply(
+        &fx_with(
+            "Stop",
+            serde_json::json!({"session_id": SID, "background_tasks": [{
+                "id": "sal065lsw", "type": "shell", "status": "running", "command": "", "description": D}]}),
+        ),
+        1,
+        &th(),
+    );
+    assert_eq!(s.background.len(), 1);
+    assert!(!s.background[0].awaited);
+}

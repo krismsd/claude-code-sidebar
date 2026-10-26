@@ -215,6 +215,15 @@ pub fn injected(prompt: &str) -> bool {
 /// Is a background task a job Claude waits on? Agents always are. Otherwise Haiku's label for
 /// this task decides; without one, services (by their wording) aren't, and for the rest
 /// Haiku's verdict on the session, else the guess from the wording, decides.
+/// A background item Claude Code keeps itself rather than a command: no command, and its
+/// description says what it listens for ("live updates for artifact …", "(re-armed on
+/// session resume)").
+fn subscription(description: &str, command: &str) -> bool {
+    let d = description.to_lowercase();
+    command.trim().is_empty()
+        && (d.starts_with("live updates for") || d.contains("re-armed on session resume"))
+}
+
 fn awaited(
     agent: bool,
     description: &str,
@@ -224,6 +233,11 @@ fn awaited(
 ) -> bool {
     if agent {
         return true;
+    }
+    // A standing subscription Claude Code keeps itself (live updates for a published artifact):
+    // it never finishes, so nothing waits on it.
+    if subscription(description, command) {
+        return false;
     }
     // Haiku read the conversation about this very task: its label wins.
     if let Some(label) = label {

@@ -103,7 +103,8 @@ pub fn ui_state(ctx: &Ctx) -> UiState {
         projects,
         sessions: store.snapshot(),
         task_projects,
-        collapsed: ctx.prefs.lock().unwrap().collapsed,
+        // A floating window is a normal window: it doesn't collapse to the strip.
+        collapsed: ctx.prefs.lock().unwrap().collapsed && !cfg.floating(),
         floating: cfg.floating(),
         left_edge: cfg.edge.eq_ignore_ascii_case("left"),
         monitor: cfg.monitor,
@@ -537,10 +538,16 @@ pub async fn ticker(ctx: Ctx) {
         #[cfg(windows)]
         if let Some(rect) = crate::appbar::take_moved() {
             let mut prefs = ctx.prefs.lock().unwrap();
-            if !prefs.collapsed {
+            if !prefs.collapsed || ctx.config.read().unwrap().floating() {
                 prefs.float_rect = Some(rect);
                 prefs.save();
             }
+        }
+        #[cfg(windows)]
+        if let Some(max) = crate::appbar::take_maximized() {
+            let mut prefs = ctx.prefs.lock().unwrap();
+            prefs.float_maximized = max;
+            prefs.save();
         }
         if json != last || projects != last_projects {
             publish(&ctx);
@@ -630,9 +637,16 @@ pub fn apply_config(ctx: &Ctx) {
             windows::Win32::Foundation::HWND(ctx.hwnd as *mut _),
             placement(&cfg, &ctx.prefs.lock().unwrap()),
         );
-        // Floating windows can be resized (the frameless window gets resize borders).
+        // Floating: a normal window (title bar, taskbar button, minimise/maximise, not on top,
+        // resizable). Docked: the frameless AppBar.
         if let Some(w) = tauri::Manager::get_webview_window(&ctx.app, "main") {
-            let _ = w.set_resizable(cfg.floating() && !ctx.prefs.lock().unwrap().collapsed);
+            let floating = cfg.floating();
+            let _ = w.set_decorations(floating);
+            let _ = w.set_skip_taskbar(!floating);
+            let _ = w.set_always_on_top(!floating);
+            let _ = w.set_resizable(floating);
+            let _ = w.set_maximizable(floating);
+            let _ = w.set_minimizable(floating);
         }
     }
     publish(ctx);
@@ -645,20 +659,25 @@ pub const STRIP_WIDTH: i32 = 30;
 pub fn placement(cfg: &Config, prefs: &crate::ui::UiPrefs) -> crate::appbar::Placement {
     crate::appbar::Placement {
         left_edge: cfg.edge.eq_ignore_ascii_case("left"),
-        width: if prefs.collapsed {
+        width: if prefs.collapsed && !cfg.floating() {
             STRIP_WIDTH
         } else {
             cfg.width.clamp(200, 1200)
         },
         monitor: cfg.monitor,
         floating: cfg.floating(),
-        collapsed: prefs.collapsed,
+        collapsed: prefs.collapsed && !cfg.floating(),
         float_rect: prefs.float_rect,
+        float_maximized: prefs.float_maximized,
     }
 }
 
 /// Collapse to the status strip or expand back.
 pub fn set_collapsed(ctx: &Ctx, collapsed: bool) {
+    // A floating window is a normal window: minimise it instead.
+    if ctx.config.read().unwrap().floating() {
+        return;
+    }
     {
         let mut prefs = ctx.prefs.lock().unwrap();
         prefs.collapsed = collapsed;

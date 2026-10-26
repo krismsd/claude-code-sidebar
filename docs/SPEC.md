@@ -143,7 +143,7 @@ These still appear (hooks are global after install) but have no tag, PID or chan
 
 ### 3.9 Sidebar UI
 
-- Window modes (M9): `mode = "docked"` (AppBar, below) or `"floating"` (a normal frameless, movable, resizable window that reserves no space; position saved in `ui.json`). `monitor = 0` = primary, n = nth from the left. Collapse (» / tray) shrinks either mode to a 30 DIP status strip with one dot per project.
+- Window modes (M9): `mode = "docked"` (AppBar, below) or `"floating"` (a normal window that reserves no space: title bar, taskbar button, minimise/maximise/close, not always on top, resizable; position and maximised state saved in `ui.json`, e.g. maximised on its own monitor). `monitor = 0` = primary, n = nth from the left. Collapse (» / tray) shrinks the docked sidebar to a 30 DIP status strip with one dot per project and the expand button at the bottom (where the collapse button is when expanded); a floating window doesn't collapse (minimise it). The usage bars keep a 360 px maximum width on the left in a wide window.
 - AppBar via `SHAppBarMessage` (ABM_NEW / ABM_QUERYPOS / ABM_SETPOS). Handle `ABN_POSCHANGED`, DPI changes and monitor changes. Borderless, no taskbar button, and a tray icon for settings and quit.
 - Card (around 110 px collapsed):
   - colour band

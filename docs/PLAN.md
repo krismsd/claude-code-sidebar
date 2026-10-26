@@ -297,6 +297,11 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Turn view while working (concept 2 of 3): prompt, task-list progress, recent steps, current action; no old answer or question. Seen on screen with the dev session's own card. No session used a task-list tool in the last 10 days, so the progress bar is untested live.
 - [x] SPEC §3.17: status as a flush block in the title bar; counts, cache, compaction and alert badges in a status band at the bottom (concept B of two rendered mock-ups). Seen on screen.
 
+## M31: Floating as a normal window (2026-10-26)
+
+- [x] Floating mode is a normal window: title bar, taskbar button, minimise/maximise, not on top; maximised state remembered. No collapse while floating. The strip's expand button moved to the bottom. Usage bars capped at 360 px. Maximise and restore tested on screen.
+- [ ] Wide layout for a maximised window (cards side by side): concepts next.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

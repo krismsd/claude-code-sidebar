@@ -65,9 +65,6 @@ export function Strip(props: Props) {
 
   return (
     <main className="strip" {...drag}>
-      <button className="strip-expand" title="Expand the sidebar" onClick={onExpand}>
-        {leftEdge ? "»" : "«"}
-      </button>
       {shown.map((s) => {
         const state = needsYou(s)
           ? "attention"
@@ -106,6 +103,10 @@ export function Strip(props: Props) {
           ))}
         </div>
       )}
+      {/* At the bottom, where the collapse button is in the expanded sidebar. */}
+      <button className="strip-expand" title="Expand the sidebar" onClick={onExpand}>
+        {leftEdge ? "»" : "«"}
+      </button>
     </main>
   );
 }

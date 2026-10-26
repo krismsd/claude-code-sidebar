@@ -9,6 +9,9 @@ pub struct UiPrefs {
     /// Floating window x, y, width, height in physical pixels.
     #[serde(default)]
     pub float_rect: Option<(i32, i32, i32, i32)>,
+    /// The floating window was left maximised.
+    #[serde(default)]
+    pub float_maximized: bool,
 }
 
 fn path() -> Option<std::path::PathBuf> {

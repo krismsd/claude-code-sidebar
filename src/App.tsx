@@ -367,13 +367,16 @@ function App() {
         >
           ⚙
         </button>
-        <button
-          className="plus"
-          title="Collapse to a status strip"
-          onClick={() => setCollapsed(true)}
-        >
-          {state.left_edge ? "«" : "»"}
-        </button>
+        {/* Floating, it's a normal window: minimise it instead. */}
+        {!state.floating && (
+          <button
+            className="plus"
+            title="Collapse to a status strip"
+            onClick={() => setCollapsed(true)}
+          >
+            {state.left_edge ? "«" : "»"}
+          </button>
+        )}
       </UsageFooter>
       {toast && <div className="toast">{toast}</div>}
     </main>

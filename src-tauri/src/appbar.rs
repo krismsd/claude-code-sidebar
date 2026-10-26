@@ -15,9 +15,10 @@ use windows::Win32::UI::Shell::{
     SHAppBarMessage, SetWindowSubclass,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowRect, HWND_NOTOPMOST, HWND_TOPMOST, MONITORINFOF_PRIMARY, PostMessageW,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos, WM_ACTIVATE, WM_APP, WM_DESTROY,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_EXITSIZEMOVE, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED,
+    GetWindowRect, HWND_NOTOPMOST, HWND_TOPMOST, IsZoomed, MONITORINFOF_PRIMARY, PostMessageW,
+    SW_MAXIMIZE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos, ShowWindow, WM_ACTIVATE,
+    WM_APP, WM_DESTROY, WM_DISPLAYCHANGE, WM_DPICHANGED, WM_EXITSIZEMOVE, WM_SETTINGCHANGE,
+    WM_SIZE, WM_WINDOWPOSCHANGED,
 };
 use windows::core::BOOL;
 
@@ -37,6 +38,8 @@ pub struct Placement {
     pub collapsed: bool,
     /// Floating: last position and size (physical pixels), if known.
     pub float_rect: Option<(i32, i32, i32, i32)>,
+    /// Floating: left maximised (on the monitor of `float_rect`).
+    pub float_maximized: bool,
 }
 
 static PLACEMENT: Mutex<Option<Placement>> = Mutex::new(None);
@@ -56,6 +59,14 @@ pub fn take_moved() -> Option<(i32, i32, i32, i32)> {
     MOVED_TO.lock().unwrap().take()
 }
 
+/// Floating window maximised or restored by the user, to save (taken once).
+static MAXIMIZED: Mutex<Option<bool>> = Mutex::new(None);
+static ZOOMED: AtomicBool = AtomicBool::new(false);
+
+pub fn take_maximized() -> Option<bool> {
+    MAXIMIZED.lock().unwrap().take()
+}
+
 fn placement() -> Placement {
     PLACEMENT.lock().unwrap().clone().unwrap_or(Placement {
         left_edge: false,
@@ -64,6 +75,7 @@ fn placement() -> Placement {
         floating: false,
         collapsed: false,
         float_rect: None,
+        float_maximized: false,
     })
 }
 
@@ -234,9 +246,24 @@ fn apply(hwnd: HWND) {
                     (b - t) * 3 / 4,
                 ),
             };
-            // Collapsed: the strip width; otherwise whatever width the user last resized it to.
-            let w = if p.collapsed { width } else { w };
-            let _ = SetWindowPos(hwnd, Some(HWND_TOPMOST), x, y, w, h, SWP_NOACTIVATE);
+            // A normal window: not on top. Left maximised, it stays so (moving it would
+            // restore it); otherwise back where the user left it, maximised again if it was.
+            if IsZoomed(hwnd).as_bool() {
+                let _ = SetWindowPos(
+                    hwnd,
+                    Some(HWND_NOTOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+            } else {
+                let _ = SetWindowPos(hwnd, Some(HWND_NOTOPMOST), x, y, w, h, SWP_NOACTIVATE);
+                if p.float_maximized {
+                    let _ = ShowWindow(hwnd, SW_MAXIMIZE);
+                }
+            }
         } else {
             if !REGISTERED.swap(true, Ordering::Relaxed) {
                 let mut abd = data(hwnd);
@@ -325,8 +352,15 @@ unsafe extern "system" fn subclass_proc(
                 let _ = PostMessageW(Some(hwnd), REDOCK_MSG, WPARAM(0), LPARAM(0));
             }
             REDOCK_MSG => apply(hwnd),
+            // Floating: remember whether it's maximised.
+            WM_SIZE if !docked => {
+                let zoomed = IsZoomed(hwnd).as_bool();
+                if ZOOMED.swap(zoomed, Ordering::Relaxed) != zoomed {
+                    *MAXIMIZED.lock().unwrap() = Some(zoomed);
+                }
+            }
             // Floating: remember where the user put it.
-            WM_EXITSIZEMOVE if !docked => {
+            WM_EXITSIZEMOVE if !docked && !IsZoomed(hwnd).as_bool() => {
                 let mut r = RECT::default();
                 if GetWindowRect(hwnd, &mut r).is_ok() {
                     *MOVED_TO.lock().unwrap() =

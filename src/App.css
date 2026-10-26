@@ -1208,6 +1208,7 @@ button {
 }
 
 .strip-expand {
+  margin-top: auto;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--fg);
@@ -1400,9 +1401,12 @@ button {
   font-size: 11px;
 }
 
+/* Usage bars keep a sensible width in a wide (floating) window, on the left; the controls
+   stay at the right edge. */
 .usage-rows {
   flex: 1;
   min-width: 0;
+  max-width: 360px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -1410,6 +1414,7 @@ button {
 
 .sidebar-controls {
   flex: none;
+  margin-left: auto;
   display: flex;
   gap: 4px;
 }
@@ -1472,6 +1477,10 @@ button {
   display: flex;
   gap: 3px;
   height: 40px;
+}
+
+.strip-usage ~ .strip-expand {
+  margin-top: 0;
 }
 
 .strip-usage-bar {

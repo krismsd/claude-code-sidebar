@@ -143,7 +143,7 @@ These still appear (hooks are global after install) but have no tag, PID or chan
 
 ### 3.9 Sidebar UI
 
-- Window modes (M9): `mode = "docked"` (AppBar, below) or `"floating"` (a normal window that reserves no space: title bar, taskbar button, minimise/maximise/close, not always on top, resizable; position and maximised state saved in `ui.json`, e.g. maximised on its own monitor). `monitor = 0` = primary, n = nth from the left. Collapse (» / tray) shrinks the docked sidebar to a 30 DIP status strip with one dot per project and the expand button at the bottom (where the collapse button is when expanded); a floating window doesn't collapse (minimise it). The usage bars keep a 360 px maximum width on the left in a wide window.
+- Window modes (M9): `mode = "docked"` (AppBar, below) or `"floating"` (a normal window that reserves no space: title bar, taskbar button, minimise/maximise/close, not always on top, resizable; position and maximised state saved in `ui.json`, e.g. maximised on its own monitor). `monitor = 0` = primary, n = nth from the left. Collapse (» / tray) shrinks the docked sidebar to a 30 DIP status strip with one dot per project and the expand button at the bottom (where the collapse button is when expanded); a floating window doesn't collapse (minimise it). The usage bars keep a 360 px maximum width on the left in a wide window. A window 760 px or wider (floating, e.g. maximised on its own monitor) lays projects out in as many 360 px columns as fit (masonry: down each column, then across; one column in a narrow sidebar) and puts the drawer in a column of tiles at the side.
 - AppBar via `SHAppBarMessage` (ABM_NEW / ABM_QUERYPOS / ABM_SETPOS). Handle `ABN_POSCHANGED`, DPI changes and monitor changes. Borderless, no taskbar button, and a tray icon for settings and quit.
 - Card (around 110 px collapsed):
   - colour band
@@ -239,6 +239,8 @@ Claude Code caches the conversation so far; every request refreshes it for its l
 - No keep-warm: it would need sending a prompt (deferred, S5).
 
 ### 3.17 Card layout (2026-10-26)
+
+- **Keyboard:** arrow keys select a card (by position, across columns; outlined in blue), Enter opens its session, A/D allow or deny its permission prompt, Esc clears the selection. Ignored while typing in a field.
 
 - **Title bar:** title, branch, and the status as a square block flush with the right edge, the bar's full height ("ready · 12m"; colours as before).
 - **Body, between turns:** Claude's answer and the question it ended on.

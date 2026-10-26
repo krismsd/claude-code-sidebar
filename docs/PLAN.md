@@ -300,7 +300,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 ## M31: Floating as a normal window (2026-10-26)
 
 - [x] Floating mode is a normal window: title bar, taskbar button, minimise/maximise, not on top; maximised state remembered. No collapse while floating. The strip's expand button moved to the bottom. Usage bars capped at 360 px. Maximise and restore tested on screen.
-- [ ] Wide layout for a maximised window (cards side by side): concepts next.
+- [x] Wide layout (concept 2 of 3 mock-ups): projects in masonry columns from 760 px, drawer as a side column. Keyboard navigation (arrows, Enter, A/D, Esc). Seen on screen in the user's floating window: two columns, side drawer; arrows moved down a column and across. Rejected for now: a "needs you" lane, bigger cards in wide mode, a docked terminal.
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

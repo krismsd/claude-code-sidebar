@@ -19,6 +19,8 @@ interface Props {
   onUnshelve: (root: string) => void;
   /** A project dropped just before or after a tile: put it away there. */
   onDropAt: (dragged: string, onto: string, place: "before" | "after") => void;
+  /** A column at the side (a wide window) rather than a row at the bottom. */
+  vertical?: boolean;
 }
 
 /** "MyApp" → "MA", "cc-sidebar" → "CS", "api" → "AP". */
@@ -41,6 +43,7 @@ export function Drawer({
   onShelve,
   onUnshelve,
   onDropAt,
+  vertical = false,
 }: Props) {
   const [dropAt, setDropAt] = useState<{ root: string; place: "before" | "after" } | null>(null);
   if (shelved.length === 0 && !dragging) return null;
@@ -48,7 +51,7 @@ export function Drawer({
     <div
       // The drop-zone look is only for an empty drawer: restyling it mid-drag would move the
       // tile being dragged out from under the cursor.
-      className={`drawer${dragging && shelved.length === 0 ? " dragging" : ""}`}
+      className={`drawer${vertical ? " vertical" : ""}${dragging && shelved.length === 0 ? " dragging" : ""}`}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
         e.preventDefault();
@@ -83,7 +86,9 @@ export function Drawer({
               e.preventDefault();
               e.dataTransfer.dropEffect = "move";
               const dragged = draggedProject();
-              setDropAt(dragged === p.root ? null : { root: p.root, place: dropPlace(e, true) });
+              setDropAt(
+                dragged === p.root ? null : { root: p.root, place: dropPlace(e, !vertical) },
+              );
             }}
             onDragLeave={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropAt(null);

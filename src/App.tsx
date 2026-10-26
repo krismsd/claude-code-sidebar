@@ -53,7 +53,7 @@ function HoverCard({ anchor, children }: { anchor: HTMLElement; children: ReactN
     place();
     // Layout can also shift without a re-render of ours (fonts, a section's own state).
     const ro = new ResizeObserver(place);
-    const list = anchor.closest(".cards");
+    const list = anchor.closest(".masonry");
     if (list) [...list.children].forEach((c) => ro.observe(c));
     return () => ro.disconnect();
   });
@@ -71,6 +71,53 @@ function useNow(intervalMs = 1000): number {
     return () => clearInterval(t);
   }, [intervalMs]);
   return now;
+}
+
+/** A wide window (e.g. floating, maximised): room for two 360 px columns of projects. */
+const WIDE = 760;
+
+function useWide(): boolean {
+  const [wide, setWide] = useState(() => window.innerWidth >= WIDE);
+  useEffect(() => {
+    const on = () => setWide(window.innerWidth >= WIDE);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return wide;
+}
+
+/** The card next to `from` in a direction, by position on screen (the list may be in several
+ * columns): up/down within its column, else the previous/next card in order; left/right the
+ * nearest card in the neighbouring column. */
+function neighbour(cards: HTMLElement[], from: HTMLElement, key: string): HTMLElement | null {
+  const r = from.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const sameCol = (c: DOMRect) => Math.abs(c.left + c.width / 2 - cx) < r.width / 2;
+  const rects = cards.map((el) => ({ el, c: el.getBoundingClientRect() }));
+  if (key === "ArrowUp" || key === "ArrowDown") {
+    const down = key === "ArrowDown";
+    const inCol = rects
+      .filter(({ el, c }) => el !== from && sameCol(c) && (down ? c.top > r.top : c.top < r.top))
+      .sort((a, b) => (down ? a.c.top - b.c.top : b.c.top - a.c.top));
+    if (inCol[0]) return inCol[0].el;
+    const i = cards.indexOf(from);
+    return cards[down ? i + 1 : i - 1] ?? null;
+  }
+  const right = key === "ArrowRight";
+  const side = rects
+    .filter(({ c }) => !sameCol(c) && (right ? c.left > r.left : c.left < r.left))
+    .sort(
+      (a, b) =>
+        Math.abs(a.c.left - r.left) - Math.abs(b.c.left - r.left) ||
+        Math.abs(a.c.top - r.top) - Math.abs(b.c.top - r.top),
+    );
+  if (!side[0]) return null;
+  const col = side[0].c.left;
+  return (
+    side
+      .filter(({ c }) => c.left === col)
+      .sort((a, b) => Math.abs(a.c.top - r.top) - Math.abs(b.c.top - r.top))[0]?.el ?? null
+  );
 }
 
 /** Alert/permission keys that appeared in the last few seconds (they flash). Whatever exists
@@ -117,6 +164,9 @@ function App() {
   const dragging = useRef(false);
   const now = useNow();
   const fresh = useFresh(state?.sessions ?? null);
+  const wide = useWide();
+  /** The card selected with the keyboard. */
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<UiState>("get_state").then(setState);
@@ -205,7 +255,42 @@ function App() {
       invoke("dismiss_alert", { sessionId: s.session_id, alertId }).catch(report),
     onAnswer: (s, allow) =>
       invoke("answer_permission", { sessionId: s.session_id, allow }).catch(report),
+    focusedId: focusId,
   };
+
+  // Keyboard: arrows move between cards (by position, across columns), Enter opens the
+  // session, A/D allow or deny its permission prompt, Esc clears the selection.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if ((e.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
+      const list = [...document.querySelectorAll<HTMLElement>(".cards .card[data-session]")];
+      const current = list.find((el) => el.dataset.session === focusId) ?? null;
+      const s = state?.sessions.find((x) => x.session_id === focusId);
+      if (e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        const next = current ? neighbour(list, current, e.key) : (list[0] ?? null);
+        if (next) {
+          setHover(null);
+          setFocusId(next.dataset.session ?? null);
+          next.scrollIntoView({ block: "nearest" });
+        }
+      } else if (e.key === "Enter" && s) {
+        e.preventDefault();
+        cards.onActivate(s);
+      } else if (
+        (e.key === "a" || e.key === "d") &&
+        s?.status === "needs_permission" &&
+        s.pending_permission?.answerable
+      ) {
+        cards.onAnswer(s, e.key === "a");
+      } else if (e.key === "Escape") {
+        setFocusId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   if (!state) return <main className="sidebar" />;
 
@@ -278,32 +363,47 @@ function App() {
   };
 
   return (
-    <main className="sidebar">
-      <div className="cards" onScroll={() => setHover(null)}>
-        {state.projects.length === 0 && other.length === 0 && (
-          <p className="empty">No projects yet. Start a session, or use + above.</p>
-        )}
-        {state.projects
-          .filter((t) => !t.shelved)
-          .map((t) => (
-            <ProjectSection
-              key={t.project.root}
-              project={t.project}
-              sessions={byRoot.get(t.project.root) ?? []}
-              hasTasks={state.task_projects.includes(t.project.root)}
-              sessionOrder={t.session_order}
-              {...sectionProps}
-            />
-          ))}
-        {other.length > 0 && (
-          <ProjectSection
-            project={null}
-            sessions={other}
-            hasTasks={false}
-            sessionOrder={[]}
-            {...sectionProps}
-          />
-        )}
+    <main className={`sidebar${wide ? " wide" : ""}`}>
+      <div className="sidebar-body">
+        <div className="cards" onScroll={() => setHover(null)}>
+          {/* Projects flow into as many columns as fit (one in a narrow sidebar). */}
+          <div className="masonry">
+            {state.projects.length === 0 && other.length === 0 && (
+              <p className="empty">No projects yet. Start a session, or use + above.</p>
+            )}
+            {state.projects
+              .filter((t) => !t.shelved)
+              .map((t) => (
+                <ProjectSection
+                  key={t.project.root}
+                  project={t.project}
+                  sessions={byRoot.get(t.project.root) ?? []}
+                  hasTasks={state.task_projects.includes(t.project.root)}
+                  sessionOrder={t.session_order}
+                  {...sectionProps}
+                />
+              ))}
+            {other.length > 0 && (
+              <ProjectSection
+                project={null}
+                sessions={other}
+                hasTasks={false}
+                sessionOrder={[]}
+                {...sectionProps}
+              />
+            )}
+          </div>
+        </div>
+        <Drawer
+          shelved={state.projects.filter((t) => t.shelved)}
+          byRoot={byRoot}
+          fresh={fresh}
+          dragging={draggingProject}
+          vertical={wide}
+          onShelve={(root) => shelve(root, true)}
+          onUnshelve={(root) => shelve(root, false)}
+          onDropAt={(dragged, onto, place) => placeProject(dragged, onto, place, true)}
+        />
       </div>
       {hover && hovered && !menu && hover.el.isConnected && (
         <HoverCard anchor={hover.el}>
@@ -331,15 +431,6 @@ function App() {
           }
         />
       )}
-      <Drawer
-        shelved={state.projects.filter((t) => t.shelved)}
-        byRoot={byRoot}
-        fresh={fresh}
-        dragging={draggingProject}
-        onShelve={(root) => shelve(root, true)}
-        onUnshelve={(root) => shelve(root, false)}
-        onDropAt={(dragged, onto, place) => placeProject(dragged, onto, place, true)}
-      />
       {windowMenu && (
         <WindowMenu
           floating={state.floating}

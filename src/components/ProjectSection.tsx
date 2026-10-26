@@ -24,6 +24,8 @@ export interface CardHandlers {
   onHover: (s: Session, el: HTMLElement | null) => void;
   onMenu: (s: Session, x: number, y: number) => void;
   onMinimize: (s: Session, minimized: boolean) => void;
+  /** The card selected with the keyboard. */
+  focusedId: string | null;
 }
 
 interface Props {
@@ -101,6 +103,7 @@ export function ProjectSection({
     };
   }, [menu]);
   const { visible, closed } = arrange(sessions, sessionOrder);
+  const { focusedId, ...handlers } = cards;
   /** Open a header menu, upwards when there's no room under the header (the last project). */
   const openMenu = (e: React.MouseEvent, which: "actions" | "closed", height: number) => {
     const list = e.currentTarget.closest(".cards")?.getBoundingClientRect();
@@ -284,7 +287,7 @@ export function ProjectSection({
               onReorderSessions(root, reorder(ids, d.id, s.session_id, place));
             }}
           >
-            <SessionCard session={s} {...cards} />
+            <SessionCard session={s} {...handlers} focused={focusedId === s.session_id} />
           </div>
         ))}
         {visible.length === 0 && (

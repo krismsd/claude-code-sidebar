@@ -60,13 +60,42 @@ body,
   border-bottom: 1px solid var(--border);
 }
 
-.cards {
+/* The list and the drawer: stacked in a narrow sidebar, side by side in a wide window. */
+.sidebar-body {
   flex: 1;
-  overflow-y: auto;
-  padding: 8px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+
+.sidebar.wide .sidebar-body {
+  flex-direction: row;
+}
+
+.cards {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* Projects flow into as many 360 px columns as fit, top to bottom then across (one column in
+   a narrow sidebar). The scrolling box is .cards, so the columns balance rather than filling
+   its height and overflowing sideways. */
+.masonry {
+  column-width: 360px;
+  column-gap: 12px;
+}
+
+.masonry > * {
+  break-inside: avoid;
+  margin-bottom: 8px;
+}
+
+/* Selected with the keyboard. */
+.card.kb-focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
 }
 
 .empty,
@@ -1936,6 +1965,34 @@ button {
   gap: 6px;
   padding: 8px 10px;
   border-top: 1px solid var(--border);
+}
+
+/* A wide window: the drawer is a column of tiles at the side. */
+.drawer.vertical {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-y: auto;
+  border-top: none;
+  border-left: 1px solid var(--border);
+}
+
+.drawer.vertical .drawer-tile.drop-before::before,
+.drawer.vertical .drawer-tile.drop-after::after {
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 3px;
+  top: auto;
+  bottom: auto;
+}
+
+.drawer.vertical .drawer-tile.drop-before::before {
+  top: -5px;
+}
+
+.drawer.vertical .drawer-tile.drop-after::after {
+  bottom: -5px;
 }
 
 .drawer.dragging {

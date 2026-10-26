@@ -20,6 +20,8 @@ interface Props {
   onMinimize: (s: Session, minimized: boolean) => void;
   /** The hover copy: full recap and details below the usual content. */
   expanded?: boolean;
+  /** Selected with the keyboard (arrow keys). */
+  focused?: boolean;
 }
 
 const stop =
@@ -64,6 +66,7 @@ export function SessionCard({
   onMenu,
   onMinimize,
   expanded = false,
+  focused = false,
 }: Props) {
   const isFresh = (alertId: number) => fresh.has(`${s.session_id}:${alertId}`);
   const flashing =
@@ -111,7 +114,8 @@ export function SessionCard({
 
   return (
     <article
-      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}`}
+      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}${focused ? " kb-focus" : ""}`}
+      data-session={expanded ? undefined : s.session_id}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
       // The title bar and PR links are controls (the fold toggle, opening a PR), so only the

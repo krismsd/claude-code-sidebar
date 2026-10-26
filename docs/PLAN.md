@@ -290,6 +290,10 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] The "Waiting on" box became a blue footer band above the PRs (name + output; name only when minimised); the background-task count stays in the body. Seen on screen.
 - [x] Fixes from that test: Azure DevOps commands without `--org`, or after a heredoc with an apostrophe, lost the organisation; a PR found twice stayed unchecked; a PR first looked up after a failed attempt raised a false "merged" alert.
 
+## M30: Card structure (2026-10-26)
+
+- [x] SPEC §3.17: status as a flush block in the title bar; counts, cache, compaction and alert badges in a status band at the bottom (concept B of two rendered mock-ups). Seen on screen.
+
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).
 - [x] Saved projects re-read `projects.toml` at startup (a project renamed in projects.toml kept showing its folder name).

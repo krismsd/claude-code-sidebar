@@ -168,6 +168,24 @@ body,
   background: var(--grey);
 }
 
+/* The card's status: a square block flush with the title bar's right edge, its full height. */
+.card-head {
+  align-items: stretch;
+}
+
+.card-head .card-title {
+  align-self: center;
+}
+
+.card-status-block {
+  display: flex;
+  align-items: center;
+  margin: -6px -10px -6px 0;
+  padding: 0 10px;
+  border-radius: 0;
+  font-size: 11.5px;
+}
+
 .chip-working {
   background: var(--blue);
   animation: breathe 1.6s ease-in-out infinite;
@@ -223,13 +241,6 @@ body,
 }
 
 /* ---- badges ---- */
-.card-badges {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-}
-
 /* Jobs Claude waits on: highlighted, their own block. */
 /* Footer bands at the bottom of the card, full width like the title bar: jobs, then PRs. */
 .card-footer {
@@ -238,6 +249,32 @@ body,
 
 .card.minimized .card-footer {
   margin: 0 -10px;
+}
+
+/* Status band, the last footer band: counts and markers that are only information (services,
+   agents, an expired cache, a compaction), alert badges on the right. */
+.card-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 10px 3px;
+  border-top: 1px solid color-mix(in srgb, var(--project) 25%, transparent);
+  background: color-mix(in srgb, var(--project) 6%, transparent);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.card-status .cold {
+  color: var(--blue);
+}
+
+.card-status .grow {
+  flex: 1;
+}
+
+.card-status .badge {
+  font-size: 13px;
 }
 
 /* Jobs Claude will act on when they finish: blue, since they'll bring it back. */
@@ -345,17 +382,6 @@ body,
 
 .card-pr.good .card-pr-status {
   color: var(--green);
-}
-
-/* Prompt cache expired: what the next prompt costs. */
-.card-cache {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.card-cache.cold {
-  color: var(--blue);
 }
 
 .running {

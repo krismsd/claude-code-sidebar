@@ -87,6 +87,13 @@ export function SessionCard({
   // Open PRs (or not looked up yet); merged and closed ones are done with.
   const prs = s.prs.filter((p) => p.state !== "merged" && p.state !== "closed");
   const cache = s.status === "closed" && !asleep ? null : cacheState(s, now);
+  // The status band (last footer band): counts and markers that are only information.
+  const statusBand =
+    services.length > 0 ||
+    agents > 0 ||
+    (cache !== null && !cache.warm) ||
+    s.compacted !== null ||
+    shown.length > 1;
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
     .filter(Boolean)
     .join(" · ");
@@ -132,7 +139,7 @@ export function SessionCard({
           {label && <span className="card-branch"> · {label}</span>}
         </span>
         <span
-          className={`chip chip-${status}${status === "idle" && readyStale(s, now) ? " stale" : ""}`}
+          className={`chip card-status-block chip-${status}${status === "idle" && readyStale(s, now) ? " stale" : ""}`}
           title={cache ? cacheDetail(cache) : undefined}
         >
           {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
@@ -183,40 +190,6 @@ export function SessionCard({
             </div>
           )}
           {s.question && !expanded && <div className="card-question">{s.question}</div>}
-          {s.compacted && (
-            <div className="card-cache" title={`Compacted at ${clock(s.compacted.at)}`}>
-              📦 {s.compacted.idle ? "Compacted while idle" : "Compacted"} ·{" "}
-              {tokens(s.compacted.pre_tokens)} → {tokens(s.compacted.post_tokens)}
-            </div>
-          )}
-          {cache && !cache.warm && (
-            <div className="card-cache cold" title={cacheDetail(cache)}>
-              ❄ Cache expired · next prompt re-sends {tokens(cache.tokens)}
-            </div>
-          )}
-          {(shown.length > 1 || agents + services.length > 0) && (
-            <div className="card-badges">
-              {shown.length > 1 &&
-                shown.map((a) => (
-                  <button
-                    key={a.id}
-                    className={`badge badge-${a.kind}${isFresh(a.id) ? " fresh" : ""}`}
-                    title={`${a.text}\n(click to dismiss)`}
-                    onClick={stop(() => onDismissAlert(s, a.id))}
-                  >
-                    {ALERT_EMOJI[a.kind]}
-                  </button>
-                ))}
-              {agents > 0 && (
-                <span className="running running-agents">🤖 {plural(agents, "agent")} running</span>
-              )}
-              {services.length > 0 && (
-                <span className="running" title={services.map(jobName).join("\n")}>
-                  ⧗ {plural(services.length, "background task")}
-                </span>
-              )}
-            </div>
-          )}
           {expanded && (
             <div className="card-more">
               {s.last_prompt && (
@@ -245,7 +218,7 @@ export function SessionCard({
       )}
       {/* Footer bands, kept when the card is minimised: jobs Claude will act on when they
       finish (watchers, background agents), then PRs the session opened. */}
-      {jobs.length + prs.length > 0 && (
+      {jobs.length + prs.length + (statusBand ? 1 : 0) > 0 && (
         <footer className="card-footer">
           {jobs.length > 0 && (
             <div className="card-jobs" title={jobs.map(jobName).join("\n")}>
@@ -269,6 +242,45 @@ export function SessionCard({
                   expanded={expanded}
                 />
               ))}
+            </div>
+          )}
+          {statusBand && (
+            <div className="card-status">
+              {services.length > 0 && (
+                <span
+                  title={`${plural(services.length, "background task")}:\n${services.map(jobName).join("\n")}`}
+                >
+                  ⧗ {services.length}
+                </span>
+              )}
+              {agents > 0 && <span title={`${plural(agents, "agent")} running`}>🤖 {agents}</span>}
+              {cache && !cache.warm && (
+                <span
+                  className="cold"
+                  title={`Next prompt re-sends ${tokens(cache.tokens)}\n${cacheDetail(cache)}`}
+                >
+                  ❄ {tokens(cache.tokens)}
+                </span>
+              )}
+              {s.compacted && (
+                <span
+                  title={`${s.compacted.idle ? "Compacted while idle" : "Compacted"} at ${clock(s.compacted.at)}`}
+                >
+                  📦 {tokens(s.compacted.pre_tokens)}→{tokens(s.compacted.post_tokens)}
+                </span>
+              )}
+              <span className="grow" />
+              {shown.length > 1 &&
+                shown.map((a) => (
+                  <button
+                    key={a.id}
+                    className={`badge badge-${a.kind}${isFresh(a.id) ? " fresh" : ""}`}
+                    title={`${a.text}\n(click to dismiss)`}
+                    onClick={stop(() => onDismissAlert(s, a.id))}
+                  >
+                    {ALERT_EMOJI[a.kind]}
+                  </button>
+                ))}
             </div>
           )}
         </footer>

@@ -235,8 +235,14 @@ In the sidebar's window: Ctrl+C copies a selection, Ctrl+V pastes (an image past
 Claude Code caches the conversation so far; every request refreshes it for its lifetime, 1 hour or 5 minutes (each assistant record's `usage.cache_creation` says which; a request that only reads keeps the last lifetime). Once it lapses, the next prompt sends the whole context again at full price. Since 2.1.310 Claude Code also **compacts while idle**: at 90% of a 1-hour lifetime (54 min idle), for contexts over 200k tokens (`idleCompaction` setting), logging "Compacted while idle, before the prompt cache expired". It runs through the normal compaction path (PreCompact hook, trigger `auto`), but while the user is away, so the 📦 line only lasts the minute it takes.
 
 - Every 30 s the app reads the tail of each kept session's transcript (only when it has grown): the last main-chain request's time, lifetime and size (`Session.cache`), and any compaction since (`Session.compacted`, `idle` when Claude Code says it was idle compaction). Subagents' requests are another cache and are skipped.
-- The ready pill shows warm (green) or not (grey), see §3.9. Cards not working, with over 100k tokens, add "❄ Cache expired · next prompt re-sends 908k" once it has expired. After a compaction: "📦 Compacted while idle · 350k → 21k" instead, until the next request. The hover copy adds "Prompt cache: 908k tokens, 1 h lifetime, expires 2:38 pm".
+- The ready status shows warm (green) or not (grey), see §3.9. Cards not working, with over 100k tokens, show "❄ 908k" in the status band once it has expired (tooltip: the next prompt re-sends that much). After a compaction: "📦 350k→21k" instead, until the next request. The hover copy adds "Prompt cache: 908k tokens, 1 h lifetime, expires 2:38 pm".
 - No keep-warm: it would need sending a prompt (deferred, S5).
+
+### 3.17 Card layout (2026-10-26)
+
+- **Title bar:** title, branch, and the status as a square block flush with the right edge, the bar's full height ("ready · 12m"; colours as before).
+- **Body:** Claude's answer and the question it ended on, plus what needs acting on: the activity line (working, permission, question), Allow/Deny, the latest alert with ✕, the plain-`claude` warning.
+- **Footer bands**, kept when minimised: jobs Claude waits on (blue), PRs (§3.16), then a faint **status band** for information only: ⧗ services, 🤖 agents, ❄ expired cache size, 📦 compaction, and the alert badges on the right when there's more than one alert. Tooltips give the details. No band when there's nothing to show.
 
 ### 3.16 Pull requests the session opened (2026-10-26)
 

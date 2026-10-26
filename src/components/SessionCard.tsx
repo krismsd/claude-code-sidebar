@@ -96,10 +96,11 @@ export function SessionCard({
       className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}`}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
-      // The title bar is for controls (the fold toggle), so only the body opens the hover
-      // copy; a minimised card, all title bar, never does.
+      // The title bar and PR links are controls (the fold toggle, opening a PR), so only the
+      // rest of the body opens the hover copy, which would cover them; a minimised card, all
+      // title bar, never does.
       onMouseOver={(e) => {
-        const body = !(e.target as Element).closest(".card-head");
+        const body = !(e.target as Element).closest(".card-head, .card-prs");
         if (body !== overBody.current) {
           overBody.current = body;
           onHover(s, body ? e.currentTarget : null);

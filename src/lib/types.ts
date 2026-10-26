@@ -60,6 +60,12 @@ export interface Session {
   last_event_at: number;
   current_tool: string | null;
   last_prompt: string | null;
+  /** This turn wasn't started by the user: what started it (a job reporting back). */
+  turn_note: string | null;
+  /** This turn's steps so far, oldest first. */
+  trail: { label: string; count: number }[];
+  /** Claude's task list, if it keeps one. */
+  todos: { done: number; total: number; current: string | null } | null;
   first_prompt: string | null;
   title: string | null;
   user_title: string | null;

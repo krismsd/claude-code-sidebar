@@ -1568,3 +1568,107 @@ fn ready_timer_survives_a_closed_tab() {
     assert_eq!(s.status, Status::Closed);
     assert_eq!(s.status_since, 2_000);
 }
+
+#[test]
+fn a_turn_keeps_its_trail_and_task_list() {
+    let mut s = Session::new(SID, 0);
+    let pre = |tool: &str, input: serde_json::Value| {
+        fx_with(
+            "PreToolUse",
+            serde_json::json!({"session_id": SID, "tool_name": tool, "tool_input": input}),
+        )
+    };
+    s.apply(
+        &fx_with(
+            "UserPromptSubmit",
+            serde_json::json!({"session_id": SID, "prompt": "fix it"}),
+        ),
+        1,
+        &th(),
+    );
+    s.apply(
+        &pre("Read", serde_json::json!({"file_path": "/a/src/auth.ts"})),
+        2,
+        &th(),
+    );
+    s.apply(
+        &pre("Edit", serde_json::json!({"file_path": "/a/src/auth.ts"})),
+        3,
+        &th(),
+    );
+    s.apply(
+        &pre("Edit", serde_json::json!({"file_path": "/a/src/auth.ts"})),
+        4,
+        &th(),
+    );
+    s.apply(
+        &pre(
+            "Bash",
+            serde_json::json!({"command": "cd /a && CI=1 npm run test -- --watch"}),
+        ),
+        5,
+        &th(),
+    );
+    s.apply(
+        &pre("ToolSearch", serde_json::json!({"query": "x"})),
+        6,
+        &th(),
+    );
+    s.apply(
+        &pre(
+            "Bash",
+            serde_json::json!({"command": "bash /tmp/x/shot.sh name"}),
+        ),
+        6,
+        &th(),
+    );
+    let trail: Vec<_> = s
+        .trail
+        .iter()
+        .map(|t| (t.label.as_str(), t.count))
+        .collect();
+    assert_eq!(
+        trail,
+        [
+            ("📄 auth.ts", 1),
+            ("✎ auth.ts", 2),
+            ("▶ npm run", 1),
+            ("▶ bash shot.sh", 1)
+        ]
+    );
+    s.apply(
+        &pre(
+            "TodoWrite",
+            serde_json::json!({"todos": [
+                {"content": "Read", "status": "completed", "activeForm": "Reading"},
+                {"content": "Fix", "status": "in_progress", "activeForm": "Fixing the bug"},
+                {"content": "Test", "status": "pending", "activeForm": "Testing"}]}),
+        ),
+        7,
+        &th(),
+    );
+    assert_eq!(
+        s.todos,
+        Some(crate::session::Todos {
+            done: 1,
+            total: 3,
+            current: Some("Fixing the bug".into())
+        })
+    );
+    // A background task reporting back starts a new turn that wasn't the user's.
+    s.apply(
+        &fx_with(
+            "UserPromptSubmit",
+            serde_json::json!({"session_id": SID, "prompt":
+                "<task-notification>\n<task-id>b1</task-id>\n<summary>Background command \"Run tests\" completed (exit code 0)</summary>\n</task-notification>"}),
+        ),
+        8,
+        &th(),
+    );
+    assert!(s.trail.is_empty());
+    assert_eq!(
+        s.turn_note.as_deref(),
+        Some("Background command \"Run tests\" completed (exit code 0)")
+    );
+    assert_eq!(s.last_prompt.as_deref(), Some("fix it"));
+}

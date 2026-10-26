@@ -72,6 +72,64 @@ pub enum AlertKind {
     Pr,
 }
 
+/// Steps kept in a turn's trail (the card shows the last few that fit).
+const TRAIL_KEEP: usize = 8;
+
+/// One step of a turn: a short label and how many times in a row it ran.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TrailItem {
+    pub label: String,
+    pub count: u32,
+}
+
+/// Claude's task list: how far along it is, and the item in progress.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Todos {
+    pub done: u32,
+    pub total: u32,
+    pub current: Option<String>,
+}
+
+impl Todos {
+    /// TodoWrite's input: `todos: [{content, status, activeForm}]`.
+    fn from_input(input: &serde_json::Value) -> Option<Todos> {
+        let items = input.get("todos")?.as_array()?;
+        let status = |t: &serde_json::Value| t["status"].as_str().unwrap_or("").to_string();
+        let done = items.iter().filter(|t| status(t) == "completed").count() as u32;
+        let total = items.len() as u32;
+        if total == 0 || done == total {
+            return None;
+        }
+        let current = items
+            .iter()
+            .find(|t| status(t) == "in_progress")
+            .and_then(|t| {
+                t["activeForm"]
+                    .as_str()
+                    .or_else(|| t["content"].as_str())
+                    .map(|s| truncate(s, 80))
+            });
+        Some(Todos {
+            done,
+            total,
+            current,
+        })
+    }
+}
+
+/// What an injected prompt is about: a background task's `<summary>`, else a generic note.
+fn injected_note(prompt: &str) -> String {
+    let summary = prompt
+        .split_once("<summary>")
+        .and_then(|(_, rest)| rest.split_once("</summary>"))
+        .map(|(s, _)| s.trim());
+    match summary {
+        Some(s) if !s.is_empty() => truncate(s, 120),
+        _ if prompt.contains("<task-notification>") => "A background task reported back".into(),
+        _ => "Claude Code continued on its own".into(),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Alert {
     pub id: u64,
@@ -214,6 +272,16 @@ pub struct Session {
     /// What it's doing right now, e.g. "Editing auth.ts".
     pub current_tool: Option<String>,
     pub last_prompt: Option<String>,
+    /// This turn wasn't started by the user: what started it (a job reporting back).
+    #[serde(default)]
+    pub turn_note: Option<String>,
+    /// This turn's steps so far, oldest first ("✎ auth.ts", "▶ cargo test"), with repeats of
+    /// the same step counted.
+    #[serde(default)]
+    pub trail: Vec<TrailItem>,
+    /// Claude's task list (TodoWrite), if it keeps one.
+    #[serde(default)]
+    pub todos: Option<Todos>,
     /// The first real prompt (truncated): the session's name until a title exists.
     #[serde(default)]
     pub first_prompt: Option<String>,
@@ -336,6 +404,9 @@ impl Session {
             last_event_at: now,
             current_tool: None,
             last_prompt: None,
+            turn_note: None,
+            trail: Vec::new(),
+            todos: None,
             first_prompt: None,
             title: None,
             user_title: None,
@@ -622,6 +693,9 @@ impl Session {
                 }
             }
             Event::UserPromptSubmit { prompt } => {
+                // A new turn.
+                self.trail.clear();
+                self.turn_note = injected(prompt).then(|| injected_note(prompt));
                 // Prompts Claude Code injects (an agent handing back, a background task
                 // reporting it finished) start with a tag; they aren't the user's.
                 if !injected(prompt) {
@@ -649,6 +723,17 @@ impl Session {
                 };
                 self.current_tool = Some(doing);
                 self.set_status(status, now);
+                if tool_name == "TodoWrite" {
+                    self.todos = Todos::from_input(tool_input);
+                }
+                if let Some(label) = crate::events::trail_item(tool_name, tool_input) {
+                    match self.trail.last_mut() {
+                        Some(last) if last.label == label => last.count += 1,
+                        _ => self.trail.push(TrailItem { label, count: 1 }),
+                    }
+                    let extra = self.trail.len().saturating_sub(TRAIL_KEEP);
+                    self.trail.drain(..extra);
+                }
             }
             Event::PostToolUse { tool_name } => {
                 self.tool_failures.remove(tool_name);

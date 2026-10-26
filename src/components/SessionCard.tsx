@@ -37,6 +37,18 @@ function cacheDetail(c: NonNullable<ReturnType<typeof cacheState>>): string {
   return `Prompt cache: ${tokens(c.tokens)} tokens, ${life} lifetime, ${c.warm ? "expires" : "expired"} ${clock(c.expires)}`;
 }
 
+/** The newest steps that fit on one card line (about 40 characters), oldest first. */
+function recentSteps(trail: { label: string; count: number }[]) {
+  const out: typeof trail = [];
+  let width = 0;
+  for (const t of [...trail].reverse()) {
+    width += [...t.label].length + (t.count > 1 ? 3 : 0) + 3;
+    if (out.length > 0 && width > 40) break;
+    out.unshift(t);
+  }
+  return out;
+}
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Session card. Compact in the list (its height never changes); the hover overlay draws the
@@ -91,6 +103,8 @@ export function SessionCard({
   // The status band (last footer band): counts and markers that are only information.
   const statusBand =
     services.length > 0 || agents > 0 || (cache !== null && !cache.warm) || s.compacted !== null;
+  // A turn in progress: the body shows the turn (prompt, progress, steps), not the last answer.
+  const turn = ["working", "needs_permission", "needs_input"].includes(s.status);
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
     .filter(Boolean)
     .join(" · ");
@@ -150,6 +164,36 @@ export function SessionCard({
               <code>claudes --continue</code>
             </div>
           )}
+          {/* A turn in progress: what you asked, how far along it is, and its recent steps.
+          The last answer is old news by now (it's on hover). */}
+          {turn && (
+            <div className="card-turn-prompt" title={s.turn_note ?? s.last_prompt ?? undefined}>
+              ▸ {s.turn_note ?? (s.last_prompt ? `You: ${s.last_prompt}` : "Working")}
+            </div>
+          )}
+          {turn && s.todos && (
+            <div className="card-todos" title={`${s.todos.done} of ${s.todos.total} tasks done`}>
+              <span className="todo-bar">
+                {Array.from({ length: s.todos.total }, (_, i) => (
+                  <i key={i} className={i < s.todos!.done ? "done" : ""} />
+                ))}
+              </span>
+              <span className="todo-text">
+                {s.todos.done}/{s.todos.total}
+                {s.todos.current && ` · ${s.todos.current}`}
+              </span>
+            </div>
+          )}
+          {turn && s.trail.length > 0 && (
+            <div className={`card-trail${expanded ? " full" : ""}`}>
+              {(expanded ? s.trail : recentSteps(s.trail)).map((t, i) => (
+                <span key={i}>
+                  {t.label}
+                  {t.count > 1 && <span className="muted"> ×{t.count}</span>}
+                </span>
+              ))}
+            </div>
+          )}
           {activity && <div className="card-activity">{activity}</div>}
           {s.status === "needs_permission" && s.pending_permission?.answerable && (
             <div className="answer">
@@ -163,8 +207,9 @@ export function SessionCard({
           )}
           {/* Claude's last answer as written: the start on the card, all of it on hover. The
           question it ended on, if any, is pinned below so it's never clipped. */}
-          {(s.last_answer ?? s.recap) && (
-            <div className={`card-recap${expanded ? " full" : ""}`}>
+          {(s.last_answer ?? s.recap) && (!turn || expanded) && (
+            <div className={`card-recap${expanded ? " full" : ""}${turn ? " previous" : ""}`}>
+              {turn && <div className="muted small">Last answer</div>}
               {/* No blank lines: they only take room (saved answers may still have them). */}
               {(s.last_answer ?? s.recap ?? "")
                 .split("\n")
@@ -172,10 +217,10 @@ export function SessionCard({
                 .join("\n")}
             </div>
           )}
-          {s.question && !expanded && <div className="card-question">{s.question}</div>}
+          {s.question && !expanded && !turn && <div className="card-question">{s.question}</div>}
           {expanded && (
             <div className="card-more">
-              {s.last_prompt && (
+              {s.last_prompt && !turn && (
                 <div>
                   <span className="muted">You: </span>
                   {s.last_prompt}

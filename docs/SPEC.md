@@ -241,7 +241,9 @@ Claude Code caches the conversation so far; every request refreshes it for its l
 ### 3.17 Card layout (2026-10-26)
 
 - **Title bar:** title, branch, and the status as a square block flush with the right edge, the bar's full height ("ready · 12m"; colours as before).
-- **Body:** Claude's answer and the question it ended on, plus what needs acting on: the activity line (working, permission, question), Allow/Deny, the plain-`claude` warning.
+- **Body, between turns:** Claude's answer and the question it ended on.
+- **Body, during a turn** (working, permission, question): the turn instead of the old answer (that's on hover, as "Last answer"). "▸ You: <prompt>" (or what started it: "▸ Background command … completed"), Claude's task-list progress when it keeps one (TodoWrite: ▰▰▱ 2/3 · current item), the recent steps that fit on one line ("📄 auth.ts ✎ auth.ts ×2 ▶ npm run", newest last, all of them on hover), then the current action. The pinned question is hidden: it's been answered.
+- **Body, either way:** what needs acting on: Allow/Deny, the plain-`claude` warning.
 - **Footer bands**, kept when minimised: jobs Claude waits on (blue), PRs (§3.16), then an **alert band** (the newest alert with ✕, tinted red, amber for 🐌, blue for 📦 and 🔀; "+N" for the others, which expands the band into a list with a ✕ each, "Fewer" and "Dismiss all"; ✕ on the newest moves the next one up; the hover copy lists them all), then a faint **status band** for information only: ⧗ services, 🤖 agents, ❄ expired cache size, 📦 compaction. Tooltips give the details. No band when there's nothing to show.
 
 ### 3.16 Pull requests the session opened (2026-10-26)

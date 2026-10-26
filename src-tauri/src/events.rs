@@ -179,6 +179,55 @@ impl Hook {
 }
 
 /// Short human description of a tool call, e.g. "Editing auth.ts" or "Running: npm test".
+/// A tool call as a short trail item ("✎ auth.ts", "▶ cargo test"), or None for tools that
+/// aren't steps of the work (questions, plans, task lists, tool search).
+pub fn trail_item(tool: &str, input: &Value) -> Option<String> {
+    let s = |k: &str| input.get(k).and_then(Value::as_str).unwrap_or("");
+    let file = |k: &str| s(k).rsplit(['/', '\\']).next().unwrap_or("").to_string();
+    let short = |t: &str, n: usize| truncate(t, n);
+    let item = match tool {
+        "Edit" | "MultiEdit" | "Write" | "NotebookEdit" => format!("✎ {}", file("file_path")),
+        "Read" => format!("📄 {}", file("file_path")),
+        "Bash" => format!("▶ {}", command_words(s("command"))),
+        "Grep" | "Glob" => format!("🔍 {}", short(s("pattern"), 20)),
+        "WebFetch" => {
+            let url = s("url");
+            let host = url
+                .split("://")
+                .nth(1)
+                .unwrap_or(url)
+                .split('/')
+                .next()
+                .unwrap_or("");
+            format!("🌐 {host}")
+        }
+        "WebSearch" => format!("🌐 {}", short(s("query"), 20)),
+        "Agent" | "Task" => format!("🤖 {}", short(s("description"), 24)),
+        "AskUserQuestion" | "ExitPlanMode" | "TodoWrite" | "ToolSearch" | "TaskCreate"
+        | "TaskUpdate" | "TaskList" | "TaskStop" => return None,
+        other => format!("⚙ {}", other.rsplit("__").next().unwrap_or(other)),
+    };
+    Some(item)
+}
+
+/// The gist of a shell command: its first two words, after any `cd … &&` and env settings
+/// ("cd app && npm run test -- --watch" → "npm run").
+fn command_words(cmd: &str) -> String {
+    let last = cmd
+        .split("&&")
+        .map(str::trim)
+        .find(|p| !p.starts_with("cd ") && !p.is_empty())
+        .unwrap_or(cmd);
+    let words: Vec<&str> = last
+        .split_whitespace()
+        .skip_while(|w| w.contains('=') && !w.starts_with('-'))
+        .take(2)
+        // A path: just its file name ("bash /tmp/x/shot.sh" → "bash shot.sh").
+        .map(|w| w.rsplit('/').find(|p| !p.is_empty()).unwrap_or(w))
+        .collect();
+    truncate(&words.join(" "), 24)
+}
+
 pub fn describe_tool(tool: &str, input: &Value) -> String {
     let s = |k: &str| input.get(k).and_then(Value::as_str).unwrap_or("");
     let file = |k: &str| s(k).rsplit(['/', '\\']).next().unwrap_or("").to_string();

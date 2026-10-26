@@ -294,6 +294,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 - [x] Alerts moved from the body to an alert band above the status band (option 1 of three mock-ups), "+N" expands to a list with ✕ each and Dismiss all; kept on minimised cards. Tested on screen with a sandbox card given two alerts by posted hook events: "+1", the expanded list, ✕ on one alert, back to a single line.
 - [x] Fix: a session that ended while ready (its tab closed) reset its ready timer; only the sidebar's idle end kept it. Now any end while ready keeps it.
+- [x] Turn view while working (concept 2 of 3): prompt, task-list progress, recent steps, current action; no old answer or question. Seen on screen with the dev session's own card. No session used a task-list tool in the last 10 days, so the progress bar is untested live.
 - [x] SPEC §3.17: status as a flush block in the title bar; counts, cache, compaction and alert badges in a status band at the bottom (concept B of two rendered mock-ups). Seen on screen.
 
 ## Housekeeping (2026-10-17, v0.2.0)

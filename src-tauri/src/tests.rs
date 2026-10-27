@@ -234,9 +234,23 @@ fn background_agents_work_while_ready() {
     assert_eq!(s.subagents_running, 0);
     assert!(s.background.is_empty());
 
+    // Left "working" by an agent's tool call before they were told apart: ready again.
+    s.status = Status::Working;
+    s.current_tool = Some("Reading".into());
+    s.background = vec![];
+    s.apply(&ours("Stop.background-tasks"), 7, &th());
+    s.status = Status::Working;
+    s.apply(&agent("PreToolUse"), 8, &th());
+    assert_eq!((s.status, s.status_since), (Status::Idle, 7));
+    assert_eq!(s.current_tool, None);
+
     // A foreground agent's tool calls are part of the turn as before.
-    s.apply(&ours("UserPromptSubmit"), 8, &th());
-    s.apply(&agent("PreToolUse"), 9, &th());
+    s.apply(&ours("UserPromptSubmit"), 9, &th());
+    let foreground = fx_with(
+        "PreToolUse",
+        serde_json::json!({ "session_id": SID, "agent_id": "a0000000000000001" }),
+    );
+    s.apply(&foreground, 10, &th());
     assert_eq!(s.status, Status::Working);
     assert!(s.current_tool.is_some());
 }

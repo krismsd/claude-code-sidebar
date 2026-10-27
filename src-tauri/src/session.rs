@@ -348,6 +348,9 @@ pub struct Session {
     /// The current turn was started by the user's own prompt.
     #[serde(default)]
     pub user_turn: bool,
+    /// A turn is running: from UserPromptSubmit to Stop.
+    #[serde(default)]
+    pub in_turn: bool,
     /// When the last turn ended: "ready" counts from here, through closing and resuming.
     #[serde(default)]
     pub last_stop_at: Option<Ms>,
@@ -443,6 +446,7 @@ impl Session {
             jobs_awaited: None,
             pending_jobs: Vec::new(),
             user_turn: false,
+            in_turn: false,
             last_stop_at: None,
             tasks_dir: None,
             job_labels: Default::default(),
@@ -679,6 +683,7 @@ impl Session {
             Event::SessionStart { source } => {
                 if source.as_deref() != Some("compact") {
                     self.start_source = source.clone();
+                    self.in_turn = false;
                 }
                 match source.as_deref() {
                     // Compaction is done; the session carries on with whatever it was doing.
@@ -717,6 +722,7 @@ impl Session {
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.subagents_running = 0;
+                self.in_turn = false;
                 self.set_background(&[]);
                 self.set_status(Status::Closed, now);
                 // Ended while ready (for sitting idle, or its tab closed): still the same ready
@@ -739,6 +745,7 @@ impl Session {
                 }
                 self.pending_permission = None;
                 self.current_tool = None;
+                self.in_turn = true;
                 self.set_status(Status::Working, now);
             }
             Event::PreToolUse {
@@ -874,6 +881,7 @@ impl Session {
                 self.subagents_running = self.background.iter().filter(|b| b.agent).count() as u32;
                 self.current_tool = None;
                 self.pending_permission = None;
+                self.in_turn = false;
                 self.set_status(Status::Idle, now);
                 // A job Claude was waiting on is gone, and the turn wasn't the user's: it
                 // reported back, and Claude has dealt with it. Ready for you right away.
@@ -906,6 +914,7 @@ impl Session {
                     (None, None) => "Stopped with an API error".into(),
                 };
                 self.alert(AlertKind::StopFailure, text, now);
+                self.in_turn = false;
                 self.current_tool = None;
                 self.set_status(Status::Error, now);
             }
@@ -945,6 +954,13 @@ impl Session {
     }
 
     fn background_agent_event(&mut self, event: &Event, now: Ms) {
+        // "Working" with no turn running was set by this agent before its events were told
+        // apart (an older build): it's ready, since the turn ended.
+        if self.status == Status::Working && !self.in_turn {
+            self.current_tool = None;
+            self.status = Status::Idle;
+            self.status_since = self.last_stop_at.unwrap_or(now);
+        }
         match event {
             Event::PermissionRequest {
                 tool_name,

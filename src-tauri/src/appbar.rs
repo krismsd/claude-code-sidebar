@@ -269,6 +269,8 @@ fn apply(hwnd: HWND) {
             // stayed full-screen and black). Its saved state is kept for floating again.
             if IsZoomed(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);
+                // Its WM_SIZE (handled before ShowWindow returns) isn't the user un-maximising.
+                *MAXIMIZED.lock().unwrap() = None;
             }
             if !REGISTERED.swap(true, Ordering::Relaxed) {
                 let mut abd = data(hwnd);

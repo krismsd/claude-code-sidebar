@@ -1359,6 +1359,54 @@ fn ready_timer_survives_idle_end_and_resume() {
 }
 
 #[test]
+fn timers_survive_a_restart() {
+    // Ready when the machine went down; found gone at the next start: same timer.
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "a"})),
+        0,
+    );
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "a"})),
+        1_000,
+    );
+    st.apply(
+        &fx_with("Stop", serde_json::json!({"session_id": "a"})),
+        2_000,
+    );
+    st.apply(
+        &fx_with(
+            "Notification",
+            serde_json::json!({"session_id": "a", "notification_type": "idle_prompt"}),
+        ),
+        62_000,
+    );
+    // Working when it went: counts from its last sign of life.
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "b"})),
+        0,
+    );
+    st.apply(
+        &fx_with("UserPromptSubmit", serde_json::json!({"session_id": "b"})),
+        5_000,
+    );
+    st.apply(
+        &fx_with("PostToolUse", serde_json::json!({"session_id": "b"})),
+        7_000,
+    );
+    let pids: Vec<u32> = st.pids().into_iter().map(|(_, p)| p).collect();
+    st.pids_dead(&pids, 9_000_000);
+    let a = st.get("a").unwrap();
+    assert_eq!((a.status, a.status_since), (Status::Closed, 2_000));
+    assert_eq!(st.get("b").unwrap().status_since, 7_000);
+
+    // Saved by a build that timed it from the restart: repaired on load.
+    let mut old = st.get("b").unwrap().clone();
+    old.status_since = 9_000_000;
+    assert_eq!(old.restored().status_since, 7_000);
+}
+
+#[test]
 fn opening_a_session_clears_job_finished() {
     let mut st = Store::default();
     st.apply(&ours("Stop.background-tasks"), 1);

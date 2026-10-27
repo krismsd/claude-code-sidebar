@@ -16,9 +16,9 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowRect, HWND_NOTOPMOST, HWND_TOPMOST, IsZoomed, MONITORINFOF_PRIMARY, PostMessageW,
-    SW_MAXIMIZE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos, ShowWindow, WM_ACTIVATE,
-    WM_APP, WM_DESTROY, WM_DISPLAYCHANGE, WM_DPICHANGED, WM_EXITSIZEMOVE, WM_SETTINGCHANGE,
-    WM_SIZE, WM_WINDOWPOSCHANGED,
+    SW_MAXIMIZE, SW_RESTORE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos, ShowWindow,
+    WM_ACTIVATE, WM_APP, WM_DESTROY, WM_DISPLAYCHANGE, WM_DPICHANGED, WM_EXITSIZEMOVE,
+    WM_SETTINGCHANGE, WM_SIZE, WM_WINDOWPOSCHANGED,
 };
 use windows::core::BOOL;
 
@@ -265,6 +265,11 @@ fn apply(hwnd: HWND) {
                 }
             }
         } else {
+            // Docked from a maximised floating window: a maximised window can't be placed (it
+            // stayed full-screen and black). Its saved state is kept for floating again.
+            if IsZoomed(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_RESTORE);
+            }
             if !REGISTERED.swap(true, Ordering::Relaxed) {
                 let mut abd = data(hwnd);
                 SHAppBarMessage(ABM_NEW, &mut abd);

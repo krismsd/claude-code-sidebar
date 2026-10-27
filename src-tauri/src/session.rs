@@ -500,6 +500,11 @@ impl Session {
                 .retain(|a| !matches!(a.kind, AlertKind::Waiting | AlertKind::Slow));
         }
         self.next_alert_id = self.alerts.iter().map(|a| a.id).max().unwrap_or(0) + 1;
+        // Saved by a build that timed a session found gone from when it was found (after a
+        // restart, the boot): it ended no later than its last event.
+        if self.status == Status::Closed && self.closed_reason.as_deref() == Some(LOST) {
+            self.status_since = self.status_since.min(self.last_event_at);
+        }
         // Saved before `removed`: closed sessions that weren't starred were in the closed
         // section; keep them there.
         if self.removed.is_none() {
@@ -1118,7 +1123,14 @@ impl Session {
         self.subagents_running = 0;
         self.set_background(&[]);
         self.closed_reason = Some(LOST.into());
+        // Found gone later (the app wasn't running, the machine restarted): it ended no later
+        // than its last event. Ready, it's the same ready conversation, same timer.
+        let since = match self.status {
+            Status::Idle => self.status_since,
+            _ => self.last_event_at,
+        };
         self.set_status(Status::Closed, now);
+        self.status_since = since.min(now);
     }
 
     /// Sort bucket: 0 needs attention, 1 working, 2 idle, 3 closed.

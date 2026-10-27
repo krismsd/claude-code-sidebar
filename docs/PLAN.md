@@ -305,6 +305,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 ## Fixes (2026-10-27)
 
 - [x] An artifact's "live updates" subscription showed as a job (Haiku's label). Commandless subscriptions ("live updates for …", "re-armed on session resume") are always background tasks.
+- [x] A session waiting on background agents showed "working" with the prompt free: each agent's tool call fired PreToolUse/PostToolUse for the session. Hooks carry `agent_id` inside a subagent; a background agent's tool calls no longer move the status (its permission requests still do).
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

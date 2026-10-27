@@ -85,7 +85,7 @@ Status state machine:
 
 Decision (2026-10-17): sessions stay visible after Claude Code exits, so they can be resumed. Closed sessions are saved to `%APPDATA%\cc-sidebar\sessions.json` so they survive app restarts. If a closed session is resumed with the same `session_id`, its card comes back to life.
 
-Event quirks (S1): ignore `SubagentStart`/`SubagentStop` with empty `agent_type` (Claude Code's internal helper agents). `Stop` with non-empty `background_tasks` means idle with a subagent still running, so show that rather than "ready". `idle_prompt` was not observed in testing at first; since 2026-10 Claude Code sends it a minute after every finished turn, so it's ignored (a finished turn stays ready).
+Event quirks (S1): ignore `SubagentStart`/`SubagentStop` with empty `agent_type` (Claude Code's internal helper agents). `Stop` with non-empty `background_tasks` means the turn is over with a subagent still running: the session is "ready" and the agent is a job in the blue band. Hooks fired inside a subagent carry `agent_id` (the same id as its `background_tasks` entry). A background agent's tool calls (its id is in the background list, or the turn is over) don't change the status, activity line or trail: only its `PermissionRequest` does (needs permission, then back to what it interrupted once the agent carries on), and its denials still alert. `idle_prompt` was not observed in testing at first; since 2026-10 Claude Code sends it a minute after every finished turn, so it's ignored (a finished turn stays ready).
 
 Alerts are separate from status, sticky until clicked or dismissed, and shown as an emoji badge with a flash animation:
 

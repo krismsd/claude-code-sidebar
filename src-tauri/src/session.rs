@@ -389,6 +389,10 @@ pub struct Session {
     /// Set when a held PermissionRequest was released by the terminal (hook killed).
     #[serde(skip)]
     permission_released_at: Option<Ms>,
+    /// What a background agent's permission request interrupted (status, since), restored once
+    /// the agent carries on.
+    #[serde(skip)]
+    before_agent_permission: Option<(Status, Ms)>,
     #[serde(skip)]
     next_alert_id: u64,
 }
@@ -453,6 +457,7 @@ impl Session {
             starred: false,
             tool_failures: HashMap::new(),
             permission_released_at: None,
+            before_agent_permission: None,
             next_alert_id: 1,
         }
     }
@@ -654,6 +659,20 @@ impl Session {
 
         if matches!(&hook.event, Event::UserPromptSubmit { prompt } if !injected(prompt)) {
             self.user_turn = true;
+        }
+
+        // A background agent works on after the turn: its tool calls aren't the session's turn,
+        // so they leave the status (and the turn view) alone. Only its permission requests
+        // need the user.
+        let background_agent = !matches!(
+            hook.event,
+            Event::SubagentStart { .. } | Event::SubagentStop { .. }
+        ) && c.agent_id.as_deref().is_some_and(|id| {
+            self.status == Status::Idle || self.background.iter().any(|b| b.agent && b.id == id)
+        });
+        if background_agent {
+            self.background_agent_event(&hook.event, now);
+            return;
         }
 
         match &hook.event {
@@ -922,6 +941,50 @@ impl Session {
         // still ready for the user, so the alert stays.
         if self.status != Status::Idle && self.closed_reason.as_deref() != Some("idle") {
             self.alerts.retain(|a| a.kind != AlertKind::Finished);
+        }
+    }
+
+    fn background_agent_event(&mut self, event: &Event, now: Ms) {
+        match event {
+            Event::PermissionRequest {
+                tool_name,
+                tool_input,
+            } => {
+                if self.before_agent_permission.is_none() {
+                    self.before_agent_permission = Some((self.status, self.status_since));
+                }
+                self.pending_permission = Some(PendingPermission {
+                    tool: tool_name.clone(),
+                    summary: describe_tool(tool_name, tool_input),
+                    since: now,
+                    answerable: false,
+                });
+                self.set_status(Status::NeedsPermission, now);
+            }
+            Event::PermissionDenied {
+                tool_name,
+                tool_input,
+                reason,
+            } => {
+                let what = describe_tool(tool_name, tool_input);
+                let text = match reason {
+                    Some(r) => format!("Blocked: {what} ({})", r.trim()),
+                    None => format!("Blocked: {what}"),
+                };
+                self.alert(AlertKind::Denied, text, now);
+            }
+            // The agent carries on: back to what its request interrupted.
+            Event::PreToolUse { .. }
+            | Event::PostToolUse { .. }
+            | Event::PostToolUseFailure { .. } => {
+                if let Some((status, since)) = self.before_agent_permission.take() {
+                    self.pending_permission = None;
+                    self.permission_released_at = None;
+                    self.status = status;
+                    self.status_since = since;
+                }
+            }
+            _ => {}
         }
     }
 

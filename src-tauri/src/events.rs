@@ -51,6 +51,10 @@ pub struct Common {
     /// next to it, in `tasks/<id>.output`.
     #[serde(default)]
     pub scratchpad_dir: Option<String>,
+    /// Set when the hook fires inside a subagent (its tool calls, permission requests): the
+    /// same id as the agent's entry in `background_tasks`.
+    #[serde(default)]
+    pub agent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

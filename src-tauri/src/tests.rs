@@ -194,6 +194,54 @@ fn stop_with_background_tasks() {
 }
 
 #[test]
+fn background_agents_work_while_ready() {
+    // The turn ends with an agent still running in the background.
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("UserPromptSubmit"), 1, &th());
+    s.apply(&ours("Stop.background-tasks"), 2, &th());
+    assert_eq!(s.status, Status::Idle);
+    let agent = |name: &str| {
+        fx_with(
+            name,
+            serde_json::json!({ "session_id": SID, "agent_id": "a8c13db353cf1070d" }),
+        )
+    };
+    // Its tool calls aren't a turn: still ready, same timer, no activity line.
+    s.apply(&agent("PreToolUse"), 3, &th());
+    s.apply(&agent("PostToolUse"), 4, &th());
+    assert_eq!((s.status, s.status_since), (Status::Idle, 2));
+    assert_eq!(s.current_tool, None);
+    assert!(s.trail.is_empty());
+
+    // Its permission request needs the user; once it carries on, back to ready.
+    s.apply(&agent("PermissionRequest"), 5, &th());
+    assert_eq!(s.status, Status::NeedsPermission);
+    assert!(s.pending_permission.is_some());
+    s.apply(&agent("PostToolUse"), 6, &th());
+    assert_eq!((s.status, s.status_since), (Status::Idle, 2));
+    assert!(s.pending_permission.is_none());
+
+    // It finishing still counts down and updates the list.
+    s.apply(
+        &fx_with(
+            "SubagentStop",
+            serde_json::json!({ "session_id": SID, "agent_id": "a8c13db353cf1070d",
+                "agent_type": "general-purpose", "background_tasks": [] }),
+        ),
+        7,
+        &th(),
+    );
+    assert_eq!(s.subagents_running, 0);
+    assert!(s.background.is_empty());
+
+    // A foreground agent's tool calls are part of the turn as before.
+    s.apply(&ours("UserPromptSubmit"), 8, &th());
+    s.apply(&agent("PreToolUse"), 9, &th());
+    assert_eq!(s.status, Status::Working);
+    assert!(s.current_tool.is_some());
+}
+
+#[test]
 fn auto_mode_denial_raises_alert() {
     let mut s = Session::new(SID, 0);
     s.apply(&ours("PermissionDenied.auto-classifier"), 1, &th());

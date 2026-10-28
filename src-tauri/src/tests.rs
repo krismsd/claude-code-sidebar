@@ -381,6 +381,31 @@ fn compaction_keeps_status_and_flags() {
 }
 
 #[test]
+fn idle_compaction_isnt_a_full_context() {
+    let auto = || {
+        fx_with(
+            "PreCompact",
+            serde_json::json!({"session_id": SID, "trigger": "auto"}),
+        )
+    };
+    let text = |s: &Session| {
+        s.alerts
+            .iter()
+            .find(|a| a.kind == AlertKind::Compact)
+            .unwrap()
+            .text
+            .clone()
+    };
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("UserPromptSubmit"), 1, &th());
+    s.apply(&auto(), 2, &th());
+    assert_eq!(text(&s), "Context full: compacting");
+    s.apply(&ours("Stop"), 3, &th());
+    s.apply(&auto(), 4, &th());
+    assert_eq!(text(&s), "Compacting while idle, before the cache expires");
+}
+
+#[test]
 fn cwd_changes() {
     let mut s = Session::new(SID, 0);
     s.apply(&ours("CwdChanged"), 1, &th());

@@ -311,6 +311,7 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 
 - [x] After a machine restart, sessions found gone timed from the boot. A session found gone keeps its ready timer, or else counts from its last event; saved ones are repaired on load.
 - [x] Switching a maximised floating window to docked left it full-screen and black. It is restored before docking (floating keeps its maximised state).
+- [x] Claude Code's idle compaction (shortly before a large context's cache expires) read "Context full: compacting". An automatic compaction while the session is ready now reads "Compacting while idle, before the cache expires".
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

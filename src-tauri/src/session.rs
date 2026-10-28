@@ -924,10 +924,14 @@ impl Session {
                 self.set_status(Status::Error, now);
             }
             Event::PreCompact { trigger } => {
-                let text = if trigger.as_deref() == Some("auto") {
-                    "Context full: compacting"
-                } else {
-                    "Compacting context"
+                // Claude Code also compacts on its own while the session sits ready, shortly
+                // before a large context's cache expires (also "auto"): the context isn't full.
+                let text = match trigger.as_deref() {
+                    Some("auto") if self.status == Status::Idle => {
+                        "Compacting while idle, before the cache expires"
+                    }
+                    Some("auto") => "Context full: compacting",
+                    _ => "Compacting context",
                 };
                 self.alert(AlertKind::Compact, text.into(), now);
             }

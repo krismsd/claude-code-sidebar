@@ -2129,8 +2129,9 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Equal widths, as in Windows Terminal: all tabs shrink together, whatever their titles. */
+  flex: 0 1 220px;
   min-width: 0;
-  max-width: 260px;
   height: 32px;
   padding: 0 4px 0 12px;
   border-radius: 8px 8px 0 0;
@@ -2152,12 +2153,15 @@ button {
 }
 
 .term-tab-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .term-tab button {
+  flex: none;
   display: grid;
   place-items: center;
   width: 24px;
@@ -2177,6 +2181,7 @@ button {
 }
 
 .term-tab .chip {
+  flex: none;
   font-size: 10px;
   padding: 0 6px;
 }

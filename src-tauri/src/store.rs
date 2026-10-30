@@ -426,9 +426,17 @@ impl Store {
         }
         let mut changed = false;
         for f in found {
-            if !s.prs.iter().any(|p| p.same(&f)) {
-                s.prs.push(crate::prs::Pr::new(f));
-                changed = true;
+            match s.prs.iter_mut().find(|p| p.same(&f)) {
+                // Saved before the folder was recorded.
+                Some(p) if p.dir.is_none() && f.dir.is_some() => {
+                    p.dir = f.dir;
+                    changed = true;
+                }
+                Some(_) => {}
+                None => {
+                    s.prs.push(crate::prs::Pr::new(f));
+                    changed = true;
+                }
             }
         }
         // An Azure DevOps PR created without --org (az took it from the git remote): the

@@ -1580,6 +1580,7 @@ fn pr_alerts_on_failing_checks_changes_requested_and_merge() {
         url: Some("https://github.com/o/r/pull/7".into()),
         org: None,
         repo: Some("r".into()),
+        dir: None,
     };
     assert!(st.add_prs("p", vec![found.clone()], true));
     assert!(!st.add_prs("p", vec![found], false), "already known");
@@ -1659,6 +1660,7 @@ fn azure_prs_without_org_take_the_sessions_and_merge() {
         url: None,
         org: org.map(str::to_string),
         repo: None,
+        dir: None,
     };
     st.add_prs("a", vec![az(1, None)], true);
     st.add_prs(
@@ -1963,4 +1965,30 @@ fn headless_sessions_find_their_output_folder_in_the_transcript() {
     );
     assert!(st.jobs_without_ids().is_empty());
     assert_eq!(st.job_files().len(), 1);
+}
+
+#[test]
+fn azure_pr_saved_without_a_folder_gets_one_on_rescan() {
+    use crate::prs::{Found, Host};
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "a"})),
+        0,
+    );
+    let az = |dir: Option<&str>| Found {
+        host: Host::Azure,
+        number: 4101,
+        url: None,
+        org: None,
+        repo: None,
+        dir: dir.map(str::to_string),
+    };
+    st.add_prs("a", vec![az(None)], true);
+    // Saved like that by an older build: loading asks for the transcript to be read again.
+    let s = st.get("a").unwrap().clone().restored();
+    assert!(!s.prs_scanned);
+    assert!(st.add_prs("a", vec![az(Some("/p/api"))], true));
+    let prs = &st.get("a").unwrap().prs;
+    assert_eq!(prs.len(), 1);
+    assert_eq!(prs[0].dir.as_deref(), Some("/p/api"));
 }

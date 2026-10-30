@@ -574,6 +574,15 @@ impl Session {
         }
         self.pending_jobs = self.awaited_jobs();
         self.clear_unblocked();
+        // An Azure DevOps PR saved with no organisation and no folder can't be looked up from a
+        // folder that isn't its repo: read the transcript again for the folder it came from.
+        if self
+            .prs
+            .iter()
+            .any(|p| p.host == crate::prs::Host::Azure && p.org.is_none() && p.dir.is_none())
+        {
+            self.prs_scanned = false;
+        }
         self
     }
 

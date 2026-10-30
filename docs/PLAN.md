@@ -317,6 +317,10 @@ Generic progress for background jobs (SPEC §3.18): the job reports it, the side
 - [x] Fix from that test: the 🚦 alert stayed after the deploy finished. Only blocked raises it now, and it goes once nothing running is blocked (also on load). Failed only turns the line red.
 - [x] Fix: headless sessions (`claude -p`) send no `scratchpad_dir`, so their jobs' output was never read. The output folder now comes from the transcript when missing.
 
+## Fixes (2026-10-30)
+
+- [x] An Azure DevOps PR created from a repo subfolder without `--org` (the shell had `cd api` earlier) was never looked up: the lookup ran in the session's folder, which has no Azure DevOps remote ("--organization must be specified"). PRs now remember the folder they were created from (transcript `cwd` plus any `cd` in the command, heredocs skipped), and the lookup runs there. PRs saved without one get it from a transcript re-read on load. Verified live: after the release, the PR got its repo subfolder and its lookup succeeded (open, checks passing, review required).
+
 ## Fixes (2026-10-27)
 
 - [x] An artifact's "live updates" subscription showed as a job (Haiku's label). Commandless subscriptions ("live updates for …", "re-armed on session resume") are always background tasks.

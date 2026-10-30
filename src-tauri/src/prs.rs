@@ -57,6 +57,9 @@ pub struct Found {
     pub org: Option<String>,
     /// Repository name (GitHub: from the URL; Azure DevOps: the command's `--repository`).
     pub repo: Option<String>,
+    /// Azure DevOps: the folder the command ran in. Without `--org`, az took the organisation
+    /// from that repo's git remote, so the lookup runs there too.
+    pub dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -77,6 +80,9 @@ pub struct Pr {
     /// Repository name, to label it with the project folder that holds it.
     #[serde(default)]
     pub repo: Option<String>,
+    /// Azure DevOps: the folder it was created from (see `Found::dir`).
+    #[serde(default)]
+    pub dir: Option<String>,
     pub title: Option<String>,
     /// None until first looked up.
     pub state: Option<State>,
@@ -94,6 +100,7 @@ impl Pr {
             url: f.url,
             org: f.org,
             repo: f.repo,
+            dir: f.dir,
             title: None,
             state: None,
             checks: None,
@@ -134,8 +141,8 @@ pub fn find(text: &str) -> Vec<Found> {
             out.push(f);
         }
     };
-    // Tool calls that create PRs, by id: their command.
-    let mut pending: HashMap<String, String> = HashMap::new();
+    // Tool calls that create PRs, by id: their command, and the shell's folder then.
+    let mut pending: HashMap<String, (String, Option<String>)> = HashMap::new();
     for line in text.lines() {
         let quick = line.contains("pr-link")
             || line.contains("pr create")
@@ -155,6 +162,7 @@ pub fn find(text: &str) -> Vec<Found> {
                         url: Some(url.to_string()),
                         org: None,
                         repo: repo_from_url(url),
+                        dir: None,
                     });
                 }
             }
@@ -165,13 +173,15 @@ pub fn find(text: &str) -> Vec<Found> {
                         && (cmd.contains("gh pr create") || cmd.contains("az repos pr create"))
                         && let Some(id) = c["id"].as_str()
                     {
-                        pending.insert(id.to_string(), cmd.to_string());
+                        let cwd = v["cwd"].as_str().map(String::from);
+                        pending.insert(id.to_string(), (cmd.to_string(), cwd));
                     }
                 }
             }
             Some("user") => {
                 for c in v["message"]["content"].as_array().into_iter().flatten() {
-                    let Some(cmd) = c["tool_use_id"].as_str().and_then(|id| pending.remove(id))
+                    let Some((cmd, cwd)) =
+                        c["tool_use_id"].as_str().and_then(|id| pending.remove(id))
                     else {
                         continue;
                     };
@@ -189,19 +199,22 @@ pub fn find(text: &str) -> Vec<Found> {
                                     repo: repo_from_url(&url),
                                     url: Some(url),
                                     org: None,
+                                    dir: None,
                                 });
                             }
                         }
                     } else if let Some(number) = azure_id(&stdout) {
                         // Only this command's options (a heredoc before it may hold
                         // anything, apostrophes included).
-                        let own = &cmd[cmd.find("az repos pr create").unwrap_or(0)..];
+                        let at = cmd.find("az repos pr create").unwrap_or(0);
+                        let own = &cmd[at..];
                         add(Found {
                             host: Host::Azure,
                             number,
                             url: None,
                             org: flag(own, &["--org", "--organization"]),
                             repo: flag(own, &["--repository", "-r"]),
+                            dir: ran_in(cwd, &cmd[..at]),
                         });
                     }
                 }
@@ -210,6 +223,49 @@ pub fn find(text: &str) -> Vec<Found> {
         }
     }
     out
+}
+
+/// The folder a command ran in: the shell's directory when it started (the transcript's
+/// `cwd`), then any `cd` it does before the part that matters (`before`). Heredoc bodies (a PR
+/// description) are text, not commands.
+fn ran_in(start: Option<String>, before: &str) -> Option<String> {
+    let mut dir = start;
+    let mut heredoc: Option<String> = None;
+    let mut lines = Vec::new();
+    for line in before.lines() {
+        if let Some(end) = &heredoc {
+            if line.trim() == end {
+                heredoc = None;
+            }
+            continue;
+        }
+        if let Some((_, rest)) = line.split_once("<<") {
+            let word = rest.trim_start_matches('-').trim_start();
+            let end: String = word
+                .trim_start_matches(['\'', '"'])
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if !end.is_empty() {
+                heredoc = Some(end);
+            }
+        }
+        lines.push(line);
+    }
+    for part in lines.join("\n").split(['\n', ';', '&', '|']) {
+        let Some(target) = part.trim().strip_prefix("cd ") else {
+            continue;
+        };
+        let Some(target) = shell_words(target).into_iter().next() else {
+            continue;
+        };
+        dir = if target.starts_with('/') {
+            Some(target)
+        } else {
+            dir.map(|d| format!("{}/{target}", d.trim_end_matches('/')))
+        };
+    }
+    dir
 }
 
 fn result_text(content: &Value) -> String {
@@ -323,10 +379,13 @@ fn quote(s: &str) -> String {
 }
 
 /// The shell script that looks a PR up (prints JSON; Azure: two documents split by "@@").
-/// Run in the session's directory, so an Azure DevOps PR without a known organisation is
-/// found from the repository's git remote, as `az` does when run there.
+/// Run in the folder it was created from (else the session's), so an Azure DevOps PR without
+/// a known organisation is found from the repository's git remote, as `az` does when run there.
 pub fn script(pr: &Pr, cwd: Option<&str>) -> Option<String> {
-    let cd = cwd
+    let cd = pr
+        .dir
+        .as_deref()
+        .or(cwd)
         .map(|d| format!("cd {} 2>/dev/null; ", quote(d)))
         .unwrap_or_default();
     Some(format!("{cd}{}", lookup(pr)?))
@@ -542,6 +601,7 @@ mod tests {
             url: Some(format!("https://github.com/o/app/pull/{n}")),
             org: None,
             repo: Some("app".into()),
+            dir: None,
         };
         let az = |n: u64| Found {
             host: Host::Azure,
@@ -549,8 +609,56 @@ mod tests {
             url: None,
             org: Some("https://dev.azure.com/acme".into()),
             repo: Some("r".into()),
+            dir: None,
         };
         assert_eq!(got, vec![gh(12), gh(13), az(4209), az(4207), az(4210)]);
+    }
+
+    #[test]
+    fn azure_prs_remember_the_folder_they_were_created_from() {
+        // The shell was already in the repo (an earlier `cd`); no --org, so az used its remote.
+        let in_dir = |id: &str, cwd: &str, cmd: &str| {
+            serde_json::json!({"type": "assistant", "cwd": cwd, "message": {"content": [
+                {"type": "tool_use", "id": id, "name": "Bash", "input": {"command": cmd}}]}})
+            .to_string()
+        };
+        let t = [
+            in_dir(
+                "a",
+                "/p/api",
+                "cat > /tmp/d.md <<'EOF'\ncd into it\nEOF\naz repos pr create --source-branch x",
+            ),
+            tool_result("a", "{\"id\": 4101}"),
+            in_dir(
+                "b",
+                "/p",
+                "cd apps && git push && az repos pr create --source-branch y",
+            ),
+            tool_result("b", "4102"),
+            in_dir(
+                "c",
+                "/p",
+                "cd '/q/my repo'; az repos pr create --source-branch z",
+            ),
+            tool_result("c", "4103"),
+        ]
+        .join("\n");
+        let dirs: Vec<_> = find(&t).into_iter().map(|f| (f.number, f.dir)).collect();
+        assert_eq!(
+            dirs,
+            vec![
+                (4101, Some("/p/api".into())),
+                (4102, Some("/p/apps".into())),
+                (4103, Some("/q/my repo".into())),
+            ]
+        );
+        // The lookup runs there, not in the session's folder.
+        let pr = Pr::new(find(&t).remove(0));
+        assert!(
+            script(&pr, Some("/p"))
+                .unwrap()
+                .starts_with("cd '/p/api' 2>/dev/null; az repos pr show --id 4101 ")
+        );
     }
 
     #[test]

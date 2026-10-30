@@ -316,6 +316,7 @@ Generic progress for background jobs (SPEC §3.18): the job reports it, the side
 - [x] Seen on screen (installed app, sandbox `claude -p` session given the context by the app itself): the job line read `Build ✓ ─ Dev ✓ ─ TST ⏸ · awaiting approval ↗` in amber with the timer and output line, and the 🚦 alert raised.
 - [x] Fix from that test: the 🚦 alert stayed after the deploy finished. Only blocked raises it now, and it goes once nothing running is blocked (also on load). Failed only turns the line red.
 - [x] Fix: headless sessions (`claude -p`) send no `scratchpad_dir`, so their jobs' output was never read. The output folder now comes from the transcript when missing.
+- [x] Fix from live use (a GitHub Actions watcher): its count covered only the jobs GitHub had listed so far (2/3, 3/4, 5/7), so it looked nearly done all along. The SessionStart text now says to take the stages or total from the run's definition. And in Claude Code's Bash sandbox `/run` is read-only, so `cc-progress` printed an error into the output (which became the card's line) and never skipped repeats. It now keeps its state in the first writable of `$TMPDIR`, `$XDG_RUNTIME_DIR` and `/tmp`, keyed by the calling script's command line too (the sandbox restarts PIDs), and keeps its own errors quiet.
 
 ## Fixes (2026-10-30)
 

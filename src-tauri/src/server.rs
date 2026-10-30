@@ -73,8 +73,10 @@ pipeline run, an ML or data job, a migration, a batch), have the script report i
 with `cc-progress` on every poll: `cc-progress --steps Build,Dev,TST --at Dev --state running \
 --detail 'short phrase' --url URL`, or `--done N --total M` for a count. Every flag is optional; \
 --state is running, waiting, blocked (needs a person, e.g. an approval), failed or done; add \
---item NAME only when one job tracks several things. It prints one line into the output, skips \
-repeats and never fails. Not for servers or one-off commands.";
+--item NAME only when one job tracks several things. Cover the whole run from the start: take \
+the stages or total from its definition (the workflow file, the plan), since pipelines often list \
+later jobs only once they start, and a count of those looks nearly done at every stage. It prints \
+one line into the output, skips repeats and never fails. Not for servers or one-off commands.";
 
 pub fn now_ms() -> Ms {
     SystemTime::now()

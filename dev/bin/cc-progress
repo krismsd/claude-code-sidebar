@@ -37,8 +37,15 @@ done
 [ ${#fields[@]} -gt 0 ] || exit 0
 
 line="##cc-progress {$(IFS=,; echo "${fields[*]}")}"
-last="${XDG_RUNTIME_DIR:-/tmp}/cc-progress-$(id -u)-$PPID-$(printf '%s' "$item" | cksum | cut -d' ' -f1)"
+# The last line per calling script and item, in the first writable folder: Claude Code's Bash
+# sandbox has its own TMPDIR and a read-only /run, and restarts PIDs, so the script's command
+# line is part of the key.
+for dir in "${TMPDIR-}" "${XDG_RUNTIME_DIR-}" /tmp; do
+  [ -n "$dir" ] && [ -d "$dir" ] && [ -w "$dir" ] && break
+done
+key=$({ tr '\0' ' ' </proc/$PPID/cmdline; printf '%s' "$item"; } 2>/dev/null | cksum | cut -d' ' -f1)
+last="$dir/cc-progress-$(id -u)-$PPID-$key"
 [ "$(cat "$last" 2>/dev/null)" = "$line" ] && exit 0
-printf '%s\n' "$line" >"$last" 2>/dev/null
+{ printf '%s\n' "$line" >"$last"; } 2>/dev/null
 printf '%s\n' "$line"
 exit 0

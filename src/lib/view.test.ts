@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { Session, UiState } from "./types";
+import type { Background, Progress, Session, UiState } from "./types";
 import {
   arrange,
   cacheState,
   dropIndex,
   freshKeys,
   groupSessions,
+  jobTiming,
+  progressLine,
   readyStale,
   projectStatus,
   reorder,
@@ -263,5 +265,45 @@ describe("cacheState", () => {
   });
   it("formats token counts", () => {
     expect([950, 21_000, 908_123, 1_250_000].map(tokens)).toEqual(["950", "21k", "908k", "1.3M"]);
+  });
+});
+
+describe("job progress", () => {
+  const p = (over: Partial<Progress>): Progress => ({
+    item: null,
+    steps: [],
+    at: null,
+    done: null,
+    total: null,
+    state: null,
+    detail: null,
+    url: null,
+    ...over,
+  });
+
+  it("shows stages, with the current one marked by its state", () => {
+    const steps = ["Build", "Dev", "TST"];
+    expect(progressLine(p({ steps, at: "Dev", state: "running" }))).toBe("Build ✓ ─ Dev ● ─ TST ○");
+    expect(progressLine(p({ steps, at: "TST", state: "blocked", detail: "needs approval" }))).toBe(
+      "Build ✓ ─ Dev ✓ ─ TST ⏸ · needs approval",
+    );
+    expect(progressLine(p({ steps, at: "Dev", state: "done" }))).toBe("Build ✓ ─ Dev ✓ ─ TST ✓");
+    expect(progressLine(p({ steps }))).toBe("Build ○ ─ Dev ○ ─ TST ○");
+  });
+
+  it("shows a count as a bar, else the state", () => {
+    expect(progressLine(p({ done: 14, total: 40, detail: "ingesting" }))).toBe(
+      "▰▰▰▱▱▱▱▱ 14/40 · ingesting",
+    );
+    expect(progressLine(p({ done: 50, total: 40 }))).toBe("▰▰▰▰▰▰▰▰ 40/40");
+    expect(progressLine(p({ state: "waiting", detail: "queued" }))).toBe("waiting · queued");
+  });
+
+  it("times a job and says when its output went quiet", () => {
+    const b = { seen_at: 0, output_at: 0 } as Background;
+    expect(jobTiming(b, 30_000)).toBe("30s");
+    expect(jobTiming(b, 12 * 60_000)).toBe("12m · quiet 12m");
+    expect(jobTiming({ ...b, output_at: 11.5 * 60_000 }, 12 * 60_000)).toBe("12m");
+    expect(jobTiming({ ...b, seen_at: null }, 1)).toBeNull();
   });
 });

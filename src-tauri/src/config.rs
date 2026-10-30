@@ -69,6 +69,7 @@ fn default_sounds() -> BTreeMap<String, String> {
             "finished",
             r"C:\Windows\Media\Windows Notify System Generic.wav",
         ),
+        ("job", r"C:\Windows\Media\Windows Notify System Generic.wav"),
         ("slow", ""),
         ("compact", ""),
         ("pr", r"C:\Windows\Media\Windows Notify Calendar.wav"),
@@ -134,6 +135,7 @@ stop_failure = 'C:\Windows\Media\Windows Critical Stop.wav' # ⚠️ API error
 repeated_failure = 'C:\Windows\Media\Windows Error.wav'  # 🔁 same tool failing
 waiting = 'C:\Windows\Media\Windows Notify System Generic.wav' # ⏳ waiting on you
 finished = 'C:\Windows\Media\Windows Notify System Generic.wav' # ✅ background job done, ready for you
+job = 'C:\Windows\Media\Windows Notify System Generic.wav' # 🚦 a job reported itself blocked (needs you)
 slow = ""                          # 🐌 silent while working
 compact = ""                       # 📦 compacting context
 pr = 'C:\Windows\Media\Windows Notify Calendar.wav' # 🔀 a session's PR: checks failed, changes requested, merged

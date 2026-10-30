@@ -583,12 +583,17 @@ impl Store {
         out
     }
 
-    /// Open sessions with background items lacking a task id: (session id, distro,
-    /// transcript path).
+    /// Open sessions with background items lacking a task id, or an output folder (headless
+    /// `claude -p` sessions report no scratchpad): (session id, distro, transcript path).
     pub fn jobs_without_ids(&self) -> Vec<(String, String, String)> {
         self.sessions
             .values()
-            .filter(|s| s.status != Status::Closed && s.background.iter().any(|b| b.id.is_empty()))
+            .filter(|s| {
+                s.status != Status::Closed
+                    && s.background
+                        .iter()
+                        .any(|b| b.id.is_empty() || (!b.agent && s.tasks_dir.is_none()))
+            })
             .filter_map(|s| {
                 Some((
                     s.session_id.clone(),
@@ -606,12 +611,20 @@ impl Store {
             return false;
         };
         let mut changed = false;
-        for b in s.background.iter_mut().filter(|b| b.id.is_empty()) {
-            if let Some(f) = found.iter().rev().find(|f| f.description == b.description) {
+        for b in s.background.iter_mut() {
+            let Some(f) = found
+                .iter()
+                .rev()
+                .find(|f| f.id == b.id || (b.id.is_empty() && f.description == b.description))
+            else {
+                continue;
+            };
+            if b.id.is_empty() {
                 b.id = f.id.clone();
-                if s.tasks_dir.is_none() {
-                    s.tasks_dir = f.output.rsplit_once('/').map(|(d, _)| d.to_string());
-                }
+                changed = true;
+            }
+            if s.tasks_dir.is_none() {
+                s.tasks_dir = f.output.rsplit_once('/').map(|(d, _)| d.to_string());
                 changed = true;
             }
         }
@@ -619,19 +632,18 @@ impl Store {
     }
 
     /// What `jobs::watch` read from a task's output. Returns whether the card changed.
-    pub fn set_job_output(&mut self, session_id: &str, id: &str, line: Option<String>) -> bool {
-        let Some(b) = self
-            .sessions
+    pub fn set_job_output(
+        &mut self,
+        session_id: &str,
+        id: &str,
+        line: Option<String>,
+        progress: Vec<crate::session::Progress>,
+        output_at: Option<Ms>,
+        now: Ms,
+    ) -> bool {
+        self.sessions
             .get_mut(session_id)
-            .and_then(|s| s.background.iter_mut().find(|b| b.id == id))
-        else {
-            return false;
-        };
-        if b.last_line == line {
-            return false;
-        }
-        b.last_line = line;
-        true
+            .is_some_and(|s| s.job_output(id, line, progress, output_at, now))
     }
 
     /// Distros with open sessions hosted in tmux (to ask which have a terminal attached).

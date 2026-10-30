@@ -1,7 +1,7 @@
 import { useState, useRef, type CSSProperties } from "react";
 import type { Alert, Background, PullRequest, Session } from "../lib/types";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { cacheState, dormant, readyStale, tokens } from "../lib/view";
+import { cacheState, dormant, jobTiming, progressLine, readyStale, tokens } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
@@ -231,7 +231,13 @@ export function SessionCard({
                 </div>
               )}
               {services.map((b, i) => (
-                <JobLine key={b.id || `bg${i}`} job={b} name={`⧗ ${jobName(b)}`} expanded />
+                <JobLine
+                  key={b.id || `bg${i}`}
+                  job={b}
+                  name={`⧗ ${jobName(b)}`}
+                  now={now}
+                  expanded
+                />
               ))}
               {cache && <div className="muted small">{cacheDetail(cache)}</div>}
               <div className="muted small">
@@ -251,9 +257,11 @@ export function SessionCard({
               {jobs.map((b, i) => (
                 <JobLine
                   key={b.id || i}
-                  job={folded ? { ...b, last_line: null } : b}
+                  job={b}
                   name={`${b.agent ? "🤖" : "⏱"} ${jobName(b)}`}
+                  now={now}
                   expanded={expanded}
+                  brief={folded}
                 />
               ))}
             </div>
@@ -447,12 +455,51 @@ function AlertBand({
   );
 }
 
-/** A background task on a card: its name, and the latest line of its output. */
-function JobLine({ job, name, expanded }: { job: Background; name: string; expanded: boolean }) {
+/** Progress items shown on a job line before "+N". */
+const PROGRESS_SHOWN = 3;
+
+/** A background task on a card: its name and how long it has run, the progress it reports
+ * (SPEC §3.18), and the latest line of its output. Minimised (`brief`): the name only. */
+function JobLine({
+  job,
+  name,
+  now,
+  expanded,
+  brief = false,
+}: {
+  job: Background;
+  name: string;
+  now: number;
+  expanded: boolean;
+  brief?: boolean;
+}) {
+  const timing = brief ? null : jobTiming(job, now);
+  const shown = expanded ? job.progress : job.progress.slice(0, PROGRESS_SHOWN);
+  const more = job.progress.length - shown.length;
   return (
     <div className={`card-job${expanded ? " full" : ""}`}>
-      <span className="card-job-name">{name}</span>
-      {job.last_line && <span className="card-job-output">{job.last_line}</span>}
+      <span className="card-job-head">
+        <span className="card-job-name">{name}</span>
+        {timing && <span className="card-job-time">{timing}</span>}
+      </span>
+      {!brief &&
+        shown.map((p, i) => (
+          <span key={p.item ?? i} className={`card-job-progress state-${p.state ?? "running"}`}>
+            {p.item && <span className="card-job-item">{p.item}</span>}
+            <span className="card-job-steps">{progressLine(p)}</span>
+            {p.url && (
+              <button
+                className="card-job-link"
+                title={p.url}
+                onClick={stop(() => void openUrl(p.url!))}
+              >
+                ↗
+              </button>
+            )}
+          </span>
+        ))}
+      {!brief && more > 0 && <span className="card-job-progress muted">+{more} more</span>}
+      {!brief && job.last_line && <span className="card-job-output">{job.last_line}</span>}
     </div>
   );
 }

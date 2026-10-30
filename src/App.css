@@ -481,6 +481,62 @@ body,
   white-space: normal;
 }
 
+.card-job-head {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.card-job-head .card-job-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-job-time {
+  flex: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reported progress (cc-progress): one line per item, coloured by state. */
+.card-job-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding-left: 1.4em;
+  font-size: 11px;
+}
+
+.card-job-item {
+  flex: none;
+  font-weight: 600;
+}
+
+.card-job-steps {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-job.full .card-job-steps {
+  white-space: normal;
+}
+
+.card-job-progress.state-blocked .card-job-steps {
+  color: var(--amber);
+}
+
+.card-job-progress.state-failed .card-job-steps {
+  color: var(--red);
+}
+
+.card-job-progress.state-done .card-job-steps {
+  color: var(--green);
+}
+
 /* Latest output line: terminal text, quiet. */
 .card-job-output {
   font-family: "Cascadia Mono", Consolas, monospace;

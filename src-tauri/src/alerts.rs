@@ -26,6 +26,7 @@ fn kind_key(k: AlertKind) -> &'static str {
         AlertKind::StopFailure => "stop_failure",
         AlertKind::RepeatedFailure => "repeated_failure",
         AlertKind::Waiting => "waiting",
+        AlertKind::Job => "job",
         AlertKind::Slow => "slow",
         AlertKind::Compact => "compact",
         AlertKind::Finished => "finished",

@@ -1827,3 +1827,140 @@ fn artifact_live_updates_are_a_background_task_not_a_job() {
     assert_eq!(s.background.len(), 1);
     assert!(!s.background[0].awaited);
 }
+
+#[test]
+fn job_progress_makes_a_job_and_alerts_when_blocked() {
+    use crate::session::Progress;
+    let mut s = Session::new(SID, 0);
+    // "sleep 90" reads as neither: not awaited until it reports progress.
+    s.apply(&ours("Stop.background-shell"), 5, &th());
+    assert!(!s.background[0].awaited);
+    assert_eq!(s.background[0].seen_at, Some(5));
+    let step = |at: &str, state: &str| Progress {
+        item: Some("website".into()),
+        steps: vec!["Build".into(), "Dev".into()],
+        at: Some(at.into()),
+        state: Some(state.into()),
+        detail: Some("Dev needs approval".into()),
+        ..Default::default()
+    };
+    assert!(s.job_output(
+        "bxyho0k31",
+        Some("polling".into()),
+        vec![step("Build", "running")],
+        Some(6),
+        7
+    ));
+    assert!(s.background[0].awaited);
+    assert_eq!(s.pending_jobs, vec!["sleep 90".to_string()]);
+    assert!(s.alerts.is_empty());
+
+    // Blocked: one alert, not repeated while it stays blocked.
+    s.job_output("bxyho0k31", None, vec![step("Dev", "blocked")], Some(8), 9);
+    assert_eq!(s.alerts.len(), 1);
+    assert_eq!(s.alerts[0].kind, AlertKind::Job);
+    assert_eq!(s.alerts[0].text, "sleep 90: website: Dev needs approval");
+    let id = s.alerts[0].id;
+    assert!(!s.job_output("bxyho0k31", None, vec![step("Dev", "blocked")], Some(8), 10));
+    assert_eq!(s.alerts[0].id, id);
+
+    // An item missing from a later tail keeps its state; another item is added.
+    let other = Progress {
+        item: Some("importer".into()),
+        done: Some(1),
+        total: Some(3),
+        ..Default::default()
+    };
+    s.job_output("bxyho0k31", None, vec![other], Some(11), 12);
+    assert_eq!(s.background[0].progress.len(), 2);
+    assert_eq!(
+        s.background[0].progress[0].state.as_deref(),
+        Some("blocked")
+    );
+
+    // A later Stop keeps what was read, and when it was first seen.
+    s.apply(&ours("Stop.background-shell"), 20, &th());
+    assert_eq!(s.background[0].progress.len(), 2);
+    assert_eq!(
+        (s.background[0].seen_at, s.background[0].output_at),
+        (Some(5), Some(11))
+    );
+    assert!(s.background[0].awaited);
+    assert_eq!(s.alerts.len(), 1);
+
+    // Approved and moving on: the alert goes. Failing doesn't raise one (Claude reports it).
+    s.job_output(
+        "bxyho0k31",
+        None,
+        vec![step("Dev", "running")],
+        Some(21),
+        22,
+    );
+    assert!(s.alerts.is_empty());
+    s.job_output("bxyho0k31", None, vec![step("Dev", "failed")], Some(23), 24);
+    assert!(s.alerts.is_empty());
+
+    // Blocked when the job ends (its last line never read): the alert goes with it.
+    s.job_output(
+        "bxyho0k31",
+        None,
+        vec![step("Dev", "blocked")],
+        Some(25),
+        26,
+    );
+    assert_eq!(s.alerts.len(), 1);
+    s.apply(&ours("Stop"), 30, &th());
+    assert!(s.background.is_empty());
+    assert!(s.alerts.iter().all(|a| a.kind != AlertKind::Job));
+}
+
+#[test]
+fn background_agent_task_list_is_its_progress() {
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("UserPromptSubmit"), 1, &th());
+    s.apply(&ours("Stop.background-tasks"), 2, &th());
+    let todo = fx_with(
+        "PreToolUse",
+        serde_json::json!({ "session_id": SID, "agent_id": "a8c13db353cf1070d",
+            "tool_name": "TodoWrite", "tool_input": { "todos": [
+                { "content": "Read", "status": "completed", "activeForm": "Reading" },
+                { "content": "Fix", "status": "in_progress", "activeForm": "Fixing the parser" },
+                { "content": "Test", "status": "pending", "activeForm": "Testing" }]}}),
+    );
+    s.apply(&todo, 3, &th());
+    let b = s.background.iter().find(|b| b.agent).unwrap();
+    assert_eq!(b.progress.len(), 1);
+    assert_eq!(
+        (b.progress[0].done, b.progress[0].total),
+        (Some(1), Some(3))
+    );
+    assert_eq!(b.progress[0].detail.as_deref(), Some("Fixing the parser"));
+    // The session's own task list is untouched.
+    assert!(s.todos.is_none());
+}
+
+#[test]
+fn headless_sessions_find_their_output_folder_in_the_transcript() {
+    // `claude -p` sends no scratchpad_dir: the job has an id but no folder to read.
+    let mut st = Store::default();
+    st.apply(
+        &fx_with(
+            "Stop.background-shell",
+            serde_json::json!({"session_id": SID, "transcript_path": "/t.jsonl"}),
+        ),
+        0,
+    );
+    assert_eq!(st.jobs_without_ids().len(), 1);
+    let found = [crate::jobs::Started {
+        description: "sleep 90".into(),
+        id: "bxyho0k31".into(),
+        output: "/tmp/claude-1000/-p/s1/tasks/bxyho0k31.output".into(),
+    }];
+    assert!(st.set_job_ids(SID, &found));
+    assert_eq!(
+        st.get(SID).unwrap().tasks_dir.as_deref(),
+        Some("/tmp/claude-1000/-p/s1/tasks")
+    );
+    assert!(st.jobs_without_ids().is_empty());
+    assert_eq!(st.job_files().len(), 1);
+}

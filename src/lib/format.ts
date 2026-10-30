@@ -15,6 +15,7 @@ export const ALERT_EMOJI: Record<AlertKind, string> = {
   stop_failure: "⚠️",
   repeated_failure: "🔁",
   waiting: "⏳",
+  job: "🚦",
   slow: "🐌",
   compact: "📦",
   finished: "✅",

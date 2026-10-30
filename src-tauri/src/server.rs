@@ -66,6 +66,16 @@ fn decision(allow: bool) -> String {
         .to_string()
 }
 
+/// SessionStart context: how to report job progress to the sidebar with `cc-progress`.
+const PROGRESS_CONTEXT: &str = "cc-sidebar shows this session's background jobs on a card. \
+When a background command you start tracks something with stages or a count (a deploy or \
+pipeline run, an ML or data job, a migration, a batch), have the script report its progress \
+with `cc-progress` on every poll: `cc-progress --steps Build,Dev,TST --at Dev --state running \
+--detail 'short phrase' --url URL`, or `--done N --total M` for a count. Every flag is optional; \
+--state is running, waiting, blocked (needs a person, e.g. an approval), failed or done; add \
+--item NAME only when one job tracks several things. It prints one line into the output, skips \
+repeats and never fails. Not for servers or one-off commands.";
+
 pub fn now_ms() -> Ms {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -225,6 +235,13 @@ async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String
     }
     if matches!(hook.event, Event::SessionStart { .. }) {
         backfill_names(&ctx);
+        // Tell Claude how to report a background job's progress (SPEC §3.18). Sent on every
+        // start, compaction included, so it survives compaction.
+        return serde_json::json!({ "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": PROGRESS_CONTEXT,
+        } })
+        .to_string();
     }
     if matches!(hook.event, Event::SessionEnd { .. }) {
         sync_titles(&ctx, Duration::from_secs(4));

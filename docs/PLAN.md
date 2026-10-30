@@ -302,6 +302,21 @@ Built on a branch, so rolling back means installing `main` (tag `pre-tmux`) agai
 - [x] Floating mode is a normal window: title bar, taskbar button, minimise/maximise, not on top; maximised state remembered. No collapse while floating. The strip's expand button moved to the bottom. Usage bars capped at 360 px. Maximise and restore tested on screen.
 - [x] Wide layout (concept 2 of 3 mock-ups): projects in masonry columns from 760 px, drawer as a side column. Keyboard navigation (arrows, Enter, A/D, Esc). Seen on screen in the user's floating window: two columns, side drawer; arrows moved down a column and across. Rejected for now: a "needs you" lane, bigger cards in wide mode, a docked terminal.
 
+## M32: Job progress (2026-10-30)
+
+Generic progress for background jobs (SPEC §3.18): the job reports it, the sidebar renders it. Option chosen from four (sidebar polls the provider itself; Claude reports via a helper; Haiku summarises the output; elapsed time only): the helper, plus elapsed time as the fallback. Haiku summaries not needed for now.
+
+- [x] Elapsed time and "quiet N" on job lines (first-seen time; output file mtime).
+- [x] `dev/bin/cc-progress`: prints `##cc-progress {json}`, always exits 0, skips unchanged lines per item and parent PID. Installed by `install.sh`.
+- [x] `jobs.rs` parses progress lines (merged per item); `last_line` skips them; a task with progress is a job.
+- [x] Card: steps, bar or state per item, ↗ link, colours; blocked/failed alerts.
+- [x] Background agents: their TodoWrite becomes their job line's progress.
+- [x] SessionStart answered with `additionalContext` describing `cc-progress`.
+- [x] Sandbox test (headless sessions given the same SessionStart context through a project-local hook): unprompted, a deploy watcher reported its stages (`--steps … --at … --state`, done at the end, with the run URL), a 25-file batch reported `--done n --total 25`, and a static file server didn't use it. Repeats were skipped (4 progress lines in 14 polls).
+- [x] Seen on screen (installed app, sandbox `claude -p` session given the context by the app itself): the job line read `Build ✓ ─ Dev ✓ ─ TST ⏸ · awaiting approval ↗` in amber with the timer and output line, and the 🚦 alert raised.
+- [x] Fix from that test: the 🚦 alert stayed after the deploy finished. Only blocked raises it now, and it goes once nothing running is blocked (also on load). Failed only turns the line red.
+- [x] Fix: headless sessions (`claude -p`) send no `scratchpad_dir`, so their jobs' output was never read. The output folder now comes from the transcript when missing.
+
 ## Fixes (2026-10-27)
 
 - [x] An artifact's "live updates" subscription showed as a job (Haiku's label). Commandless subscriptions ("live updates for …", "re-armed on session resume") are always background tasks.

@@ -19,6 +19,7 @@ const SOUND_KINDS: [string, string][] = [
   ["repeated_failure", "🔁 Same tool keeps failing"],
   ["waiting", "⏳ Waiting on you"],
   ["finished", "✅ Background job finished"],
+  ["job", "🚦 Background job blocked (needs you)"],
   ["slow", "🐌 Silent while working"],
   ["compact", "📦 Compacting context"],
   ["pr", "🔀 PR checks failed, changes requested or merged"],

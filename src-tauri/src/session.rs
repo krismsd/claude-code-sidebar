@@ -62,6 +62,8 @@ pub enum AlertKind {
     RepeatedFailure,
     /// ⏳ waiting on the user too long
     Waiting,
+    /// 🚦 a background job reported itself blocked (`cc-progress`): it needs a person
+    Job,
     /// 🐌 working with no events for a long time
     Slow,
     /// ✅ a job Claude was waiting on reported back and the session is ready for you
@@ -164,6 +166,51 @@ pub struct Background {
     /// a poll loop), as opposed to a service it leaves running such as a dev server.
     #[serde(default)]
     pub awaited: bool,
+    /// What it reported with `cc-progress`, one per item (SPEC §3.18); for a background agent,
+    /// its task list.
+    #[serde(default)]
+    pub progress: Vec<Progress>,
+    /// When the sidebar first saw it running.
+    #[serde(default)]
+    pub seen_at: Option<Ms>,
+    /// When its output file last changed.
+    #[serde(default)]
+    pub output_at: Option<Ms>,
+}
+
+/// One thing a job tracks, as it last reported it with `cc-progress` (SPEC §3.18).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Progress {
+    #[serde(default)]
+    pub item: Option<String>,
+    /// Stage names in order; `at` is the current one, earlier ones are done.
+    #[serde(default)]
+    pub steps: Vec<String>,
+    #[serde(default)]
+    pub at: Option<String>,
+    #[serde(default)]
+    pub done: Option<u64>,
+    #[serde(default)]
+    pub total: Option<u64>,
+    /// running, waiting, blocked, failed or done.
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+impl Progress {
+    /// A background agent's task list as progress.
+    fn from_todos(t: &Todos) -> Progress {
+        Progress {
+            done: Some(t.done.into()),
+            total: Some(t.total.into()),
+            detail: t.current.clone(),
+            ..Default::default()
+        }
+    }
 }
 
 const WAIT_WORDS: [&str; 10] = [
@@ -522,9 +569,11 @@ impl Session {
         let haiku = self.jobs_awaited;
         for b in &mut self.background {
             let label = self.job_labels.get(&b.description).copied();
-            b.awaited = awaited(b.agent, &b.description, &b.command, label, haiku);
+            b.awaited = !b.progress.is_empty()
+                || awaited(b.agent, &b.description, &b.command, label, haiku);
         }
         self.pending_jobs = self.awaited_jobs();
+        self.clear_unblocked();
         self
     }
 
@@ -554,17 +603,79 @@ impl Session {
             self.job_labels.extend(recap.labels);
             for b in self.background.iter_mut() {
                 let label = self.job_labels.get(&b.description).copied();
-                b.awaited = awaited(
-                    b.agent,
-                    &b.description,
-                    &b.command,
-                    label,
-                    self.jobs_awaited,
-                );
+                b.awaited = !b.progress.is_empty()
+                    || awaited(
+                        b.agent,
+                        &b.description,
+                        &b.command,
+                        label,
+                        self.jobs_awaited,
+                    );
             }
             self.pending_jobs = self.awaited_jobs();
         }
         true
+    }
+
+    /// What `jobs::watch` read from a task's output: its latest line, the progress lines in its
+    /// tail (merged per item with what was read before) and when it last changed. A task that
+    /// reports progress is a job; an item turning blocked raises an alert, kept while anything
+    /// is blocked. Returns whether the card changed.
+    pub fn job_output(
+        &mut self,
+        id: &str,
+        line: Option<String>,
+        progress: Vec<Progress>,
+        output_at: Option<Ms>,
+        now: Ms,
+    ) -> bool {
+        let Some(b) = self.background.iter_mut().find(|b| b.id == id) else {
+            return false;
+        };
+        let mut merged = b.progress.clone();
+        let mut alert = None;
+        for p in progress {
+            let was = merged.iter().position(|q| q.item == p.item);
+            let before = was.and_then(|i| merged[i].state.clone());
+            if p.state != before && p.state.as_deref() == Some("blocked") {
+                let what = p
+                    .item
+                    .as_ref()
+                    .map_or(b.description.clone(), |i| format!("{}: {i}", b.description));
+                let detail = p.detail.as_deref().unwrap_or("blocked");
+                alert = Some(format!("{what}: {detail}"));
+            }
+            match was {
+                Some(i) => merged[i] = p,
+                None => merged.push(p),
+            }
+        }
+        let changed = b.last_line != line || b.progress != merged || b.output_at != output_at;
+        b.last_line = line;
+        b.output_at = output_at;
+        if b.progress != merged {
+            b.progress = merged;
+            b.awaited = true;
+        }
+        self.pending_jobs = self.awaited_jobs();
+        if let Some(text) = alert {
+            self.alert(AlertKind::Job, text, now);
+        }
+        self.clear_unblocked();
+        changed
+    }
+
+    /// The 🚦 alert lasts while a running job reports something blocked: it goes once that moves
+    /// on, or the job ends.
+    fn clear_unblocked(&mut self) {
+        let blocked = self.background.iter().any(|b| {
+            b.progress
+                .iter()
+                .any(|p| p.state.as_deref() == Some("blocked"))
+        });
+        if !blocked {
+            self.alerts.retain(|a| a.kind != AlertKind::Job);
+        }
     }
 
     fn awaited_jobs(&self) -> Vec<String> {
@@ -680,7 +791,7 @@ impl Session {
             self.status == Status::Idle || self.background.iter().any(|b| b.agent && b.id == id)
         });
         if background_agent {
-            self.background_agent_event(&hook.event, now);
+            self.background_agent_event(c.agent_id.as_deref().unwrap_or(""), &hook.event, now);
             return;
         }
 
@@ -728,7 +839,7 @@ impl Session {
                 self.pending_permission = None;
                 self.subagents_running = 0;
                 self.in_turn = false;
-                self.set_background(&[]);
+                self.set_background(&[], now);
                 self.set_status(Status::Closed, now);
                 // Ended while ready (for sitting idle, or its tab closed): still the same ready
                 // conversation, same timer.
@@ -881,7 +992,7 @@ impl Session {
                 }
                 // A new turn: Haiku's verdict on the last one no longer applies.
                 self.jobs_awaited = None;
-                self.set_background(background_tasks);
+                self.set_background(background_tasks, now);
                 // The turn is over, so the only agents still going are background ones.
                 self.subagents_running = self.background.iter().filter(|b| b.agent).count() as u32;
                 self.current_tool = None;
@@ -949,7 +1060,7 @@ impl Session {
                     self.subagents_running = self.subagents_running.saturating_sub(1);
                 }
                 if let Some(tasks) = background_tasks {
-                    self.set_background(tasks);
+                    self.set_background(tasks, now);
                 }
             }
             _ => {}
@@ -962,7 +1073,7 @@ impl Session {
         }
     }
 
-    fn background_agent_event(&mut self, event: &Event, now: Ms) {
+    fn background_agent_event(&mut self, agent_id: &str, event: &Event, now: Ms) {
         // "Working" with no turn running was set by this agent before its events were told
         // apart (an older build): it's ready, since the turn ended.
         if self.status == Status::Working && !self.in_turn {
@@ -971,6 +1082,21 @@ impl Session {
             self.status_since = self.last_stop_at.unwrap_or(now);
         }
         match event {
+            // Its task list is its progress (SPEC §3.18).
+            Event::PreToolUse {
+                tool_name,
+                tool_input,
+            } if tool_name == "TodoWrite" => {
+                if let Some(b) = self
+                    .background
+                    .iter_mut()
+                    .find(|b| b.agent && b.id == agent_id)
+                {
+                    b.progress = Todos::from_input(tool_input)
+                        .map(|t| vec![Progress::from_todos(&t)])
+                        .unwrap_or_default();
+                }
+            }
             Event::PermissionRequest {
                 tool_name,
                 tool_input,
@@ -1013,7 +1139,7 @@ impl Session {
         }
     }
 
-    fn set_background(&mut self, tasks: &[crate::events::BackgroundTask]) {
+    fn set_background(&mut self, tasks: &[crate::events::BackgroundTask], now: Ms) {
         let before = std::mem::take(&mut self.background);
         self.background = tasks
             .iter()
@@ -1024,16 +1150,21 @@ impl Session {
                 let command = t.command.clone().unwrap_or_default();
                 // Keep what was already read from its output.
                 let seen = before.iter().find(|b| !id.is_empty() && b.id == id);
+                let progress = seen.map(|b| b.progress.clone()).unwrap_or_default();
                 Background {
                     agent: t.is_agent(),
-                    awaited: awaited(
-                        t.is_agent(),
-                        &description,
-                        &command,
-                        self.job_labels.get(&description).copied(),
-                        self.jobs_awaited,
-                    ),
+                    awaited: !progress.is_empty()
+                        || awaited(
+                            t.is_agent(),
+                            &description,
+                            &command,
+                            self.job_labels.get(&description).copied(),
+                            self.jobs_awaited,
+                        ),
                     last_line: seen.and_then(|b| b.last_line.clone()),
+                    progress,
+                    seen_at: Some(seen.and_then(|b| b.seen_at).unwrap_or(now)),
+                    output_at: seen.and_then(|b| b.output_at),
                     id,
                     description,
                     command,
@@ -1041,6 +1172,7 @@ impl Session {
             })
             .collect();
         self.background_running = self.background.iter().filter(|b| !b.agent).count() as u32;
+        self.clear_unblocked();
     }
 
     /// A tmux-hosted session with no terminal showing it and nothing to do: no turn running, not
@@ -1125,7 +1257,7 @@ impl Session {
         self.current_tool = None;
         self.pending_permission = None;
         self.subagents_running = 0;
-        self.set_background(&[]);
+        self.set_background(&[], now);
         self.closed_reason = Some(LOST.into());
         // Found gone later (the app wasn't running, the machine restarted): it ended no later
         // than its last event. Ready, it's the same ready conversation, same timer.

@@ -1,5 +1,6 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
-import type { Session, UiState } from "./types";
+import type { Background, Progress, Session, UiState } from "./types";
+import { elapsed } from "./format";
 
 /** Removed by the user (or `/exit`): in its project's "closed" section. */
 export const removed = (s: Session) => s.removed === true;
@@ -135,4 +136,49 @@ export function tokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
   return String(n);
+}
+
+/** How long a job has run and, once its output has been still for a minute, for how long:
+ * "12m · quiet 12m". */
+export function jobTiming(b: Background, now: number): string | null {
+  if (b.seen_at === null) return null;
+  const quiet = b.output_at !== null && now - b.output_at >= 60_000;
+  return quiet
+    ? `${elapsed(b.seen_at, now)} · quiet ${elapsed(b.output_at!, now)}`
+    : elapsed(b.seen_at, now);
+}
+
+const STEP_MARK: Record<string, string> = {
+  running: "●",
+  waiting: "◌",
+  blocked: "⏸",
+  failed: "✗",
+  done: "✓",
+};
+
+/** A progress item's line: its stages ("Build ✓ ─ Dev ● ─ TST ○"), else a bar for a count
+ * ("▰▰▰▱▱▱▱▱ 14/40"), else its state; then the detail. */
+export function progressLine(p: Progress): string {
+  const parts: string[] = [];
+  if (p.steps.length > 0) {
+    const at = p.at === null ? -1 : p.steps.indexOf(p.at);
+    const finished = p.state === "done";
+    parts.push(
+      p.steps
+        .map((name, i) => {
+          const mark =
+            finished || i < at ? "✓" : i === at ? (STEP_MARK[p.state ?? "running"] ?? "●") : "○";
+          return `${name} ${mark}`;
+        })
+        .join(" ─ "),
+    );
+  } else if (p.total !== null && p.total > 0) {
+    const done = Math.min(p.done ?? 0, p.total);
+    const filled = Math.round((done / p.total) * 8);
+    parts.push(`${"▰".repeat(filled)}${"▱".repeat(8 - filled)} ${done}/${p.total}`);
+  } else if (p.state) {
+    parts.push(p.state);
+  }
+  if (p.detail) parts.push(p.detail);
+  return parts.join(" · ");
 }

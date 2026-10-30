@@ -1,13 +1,17 @@
 //! Background job progress without asking Claude (SPEC §3.14): Claude Code writes each
 //! background task's output to `<tasks_dir>/<id>.output` in WSL. Every few seconds, for open
 //! sessions, read the end of each running task's file (over \\wsl.localhost) and keep its
-//! latest line on the card.
-use crate::server::{Ctx, publish};
+//! latest line on the card, and the progress it reports with `cc-progress` (SPEC §3.18).
+use crate::server::{Ctx, now_ms, publish};
+use crate::session::Progress;
 use std::io::{Read, Seek, SeekFrom};
 use std::time::Duration;
 
 /// How much of the end of an output file to read for its latest line.
 const TAIL_BYTES: u64 = 16 * 1024;
+
+/// What `cc-progress` puts before its JSON.
+const PROGRESS_TAG: &str = "##cc-progress ";
 
 pub async fn watch(ctx: Ctx) {
     let mut backfilled = std::collections::HashSet::new();
@@ -41,13 +45,19 @@ pub async fn watch(ctx: Ctx) {
         let _ = tauri::async_runtime::spawn_blocking(move || {
             let mut changed = false;
             for f in files {
-                let text = read_tail(&crate::project::windows_path(&f.distro, &f.path));
-                let line = text.as_deref().and_then(last_line);
-                changed |= ctx
-                    .store
-                    .lock()
-                    .unwrap()
-                    .set_job_output(&f.session_id, &f.id, line);
+                let tail = read_tail(&crate::project::windows_path(&f.distro, &f.path));
+                let text = tail.as_ref().map(|(t, _)| t.as_str());
+                let line = text.and_then(last_line);
+                let progress = text.map(progress_in).unwrap_or_default();
+                let modified = tail.and_then(|(_, m)| m);
+                changed |= ctx.store.lock().unwrap().set_job_output(
+                    &f.session_id,
+                    &f.id,
+                    line,
+                    progress,
+                    modified,
+                    now_ms(),
+                );
             }
             if changed {
                 publish(&ctx);
@@ -152,18 +162,25 @@ pub fn started_in(jsonl: &str) -> Vec<Started> {
     out
 }
 
-fn read_tail(path: &std::path::Path) -> Option<String> {
+/// The end of a file, and when it last changed (ms since the epoch).
+fn read_tail(path: &std::path::Path) -> Option<(String, Option<u64>)> {
     let mut f = std::fs::File::open(path).ok()?;
-    let len = f.metadata().ok()?.len();
-    f.seek(SeekFrom::Start(len.saturating_sub(TAIL_BYTES)))
+    let meta = f.metadata().ok()?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64);
+    f.seek(SeekFrom::Start(meta.len().saturating_sub(TAIL_BYTES)))
         .ok()?;
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).ok()?;
-    Some(String::from_utf8_lossy(&buf).into_owned())
+    Some((String::from_utf8_lossy(&buf).into_owned(), modified))
 }
 
 /// The last non-empty line, as a terminal would show it: escape sequences removed, and only
-/// what follows the last carriage return (progress bars rewrite their line).
+/// what follows the last carriage return (progress bars rewrite their line). `cc-progress`
+/// lines are shown as progress, not as output.
 pub fn last_line(text: &str) -> Option<String> {
     text.lines()
         .rev()
@@ -172,8 +189,48 @@ pub fn last_line(text: &str) -> Option<String> {
                 .trim()
                 .to_string()
         })
-        .find(|l| !l.is_empty())
+        .find(|l| !l.is_empty() && !l.starts_with(PROGRESS_TAG))
         .map(|l| crate::events::truncate(&l, 160))
+}
+
+/// The progress `cc-progress` reported in an output tail: the latest line per item, in the
+/// order the items first appear. Unreadable lines (one cut off by the tail) are skipped.
+pub fn progress_in(text: &str) -> Vec<Progress> {
+    let mut out: Vec<Progress> = Vec::new();
+    for l in text.lines() {
+        let Some(json) = strip_ansi(l)
+            .trim()
+            .strip_prefix(PROGRESS_TAG)
+            .map(String::from)
+        else {
+            continue;
+        };
+        let Ok(mut p) = serde_json::from_str::<Progress>(&json) else {
+            continue;
+        };
+        let short = |s: &mut Option<String>, n| {
+            *s = s
+                .take()
+                .filter(|v| !v.is_empty())
+                .map(|v| crate::events::truncate(&v, n))
+        };
+        short(&mut p.item, 40);
+        short(&mut p.at, 40);
+        short(&mut p.state, 20);
+        short(&mut p.detail, 120);
+        p.url = p
+            .url
+            .filter(|u| u.starts_with("https://") || u.starts_with("http://"));
+        p.steps
+            .iter_mut()
+            .for_each(|s| *s = crate::events::truncate(s, 40));
+        p.steps.truncate(12);
+        match out.iter_mut().find(|q| q.item == p.item) {
+            Some(q) => *q = p,
+            None => out.push(p),
+        }
+    }
+    out
 }
 
 /// Remove ANSI escape sequences (CSI, OSC and two-byte escapes).
@@ -222,6 +279,30 @@ mod tests {
         assert_eq!(last_line(out).as_deref(), Some("step 2: running"));
         assert_eq!(last_line("10%\r50%\r90%\n").as_deref(), Some("90%"));
         assert_eq!(last_line("\n  \n"), None);
+    }
+
+    #[test]
+    fn progress_lines() {
+        let out = concat!(
+            "polling\n",
+            "##cc-progress {\"item\":\"website\",\"steps\":[\"Build\",\"Dev\"],\"at\":\"Build\"}\n",
+            "##cc-progress {\"done\":3,\"total\":9,\"state\":\"\",\"url\":\"javascript:x\"}\n",
+            "##cc-progress {\"item\":\"website\",\"steps\":[\"Build\",\"Dev\"],\"at\":\"Dev\",\"state\":\"blocked\"}\n",
+            "##cc-progress {\"item\":\"cut off\n",
+            "\x1b[32m3 runs\x1b[0m\n",
+        );
+        let p = progress_in(out);
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0].item.as_deref(), Some("website"));
+        assert_eq!(p[0].at.as_deref(), Some("Dev"));
+        assert_eq!(p[0].state.as_deref(), Some("blocked"));
+        assert_eq!(
+            (p[1].done, p[1].total, p[1].state.as_deref()),
+            (Some(3), Some(9), None)
+        );
+        assert_eq!(p[1].url, None);
+        assert_eq!(last_line(out).as_deref(), Some("3 runs"));
+        assert_eq!(last_line("##cc-progress {}\n"), None);
     }
 
     #[test]

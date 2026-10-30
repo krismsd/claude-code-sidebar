@@ -214,13 +214,17 @@ A footer shows the account's 5-hour and weekly usage (% and reset time), read fr
 **Processes only live while they're needed** (2026-10-21). A conversation (the card) is permanent; its process is not. A tmux session with no terminal showing it, for 5 s with no new event, is ended (SIGTERM) when it has nothing to do: it's idle, new or errored, with no pending permission, nothing in the background (jobs, dev servers, background agents) and no agents running. Working, waiting-on-you and background work keep it alive. A session never prompted whose view the user closes in the sidebar's terminal window skips the 5 s wait: the close triggers an immediate check, and it ends within about a second (its card goes with it). Its SessionEnd is recorded as `idle`, and the UI treats that as **dormant**: shown and sorted as a ready conversation (green pill, ✅ alert kept), and a click resumes it. Resumed sessions start as "ready", not "new".
 
 **Job or service** (2026-10-21, revised 2026-10-22): each running background command is classified as follows.
+- **A task reporting progress is a job** (2026-10-30): it called `cc-progress` (§3.18).
 - **Subscriptions are never jobs** (2026-10-27): items Claude Code keeps itself, with no command, such as "live updates for artifact … (re-armed on session resume)" (comments and republishes of a published artifact), never finish, so they are background tasks whatever Haiku says.
 - **Otherwise Haiku's label wins:** cc-recap is given the running commands and labels each `job` or `service` (`BACKGROUND:` line). The label is kept per task.
 - **Before a label arrives:** services are recognised by their *description* (Claude writes it for people: "server", "serve", and "api", "backend", "frontend" or "localhost" when nothing speaks of waiting), plus unmistakable server commands (`npm run dev`, `vite`, `tail -f`, `docker compose up`, …). A long script's other words are ignored, since its `api-version=` once made a pipeline watcher look like a service. Then the session-wide `WAITING:` verdict, then waiting words in the description ("watch", "until", "poll", "follow", "track", …).
 
 **Background task progress** (2026-10-21). Claude Code writes each background task's output to `<session>/tasks/<id>.output` next to the scratchpad the hooks report (`scratchpad_dir`). `jobs::watch` reads the end of each running task's file every 3 s (over \\wsl.localhost) without involving Claude. Cards show:
-- each job's latest output line under its name (ANSI stripped, after the last `\r`), and a ↗ link when its output (or command) contains an http(s) URL;
-- clicking a job, or the "⧗ N background tasks" count, opens its whole output following live (`tail -f`) as a tab in the sidebar's terminal window.
+- each job's latest output line under its name (ANSI stripped, after the last `\r`, `cc-progress` lines skipped);
+- how long it has run and, once its output has been still for a minute, for how long ("12m · quiet 12m"); the start is when the sidebar first saw it, the quiet time comes from the output file's modification time;
+- its reported progress, when it reports any (§3.18).
+
+(The ↗ link and the click-through to the whole output were removed in M22.)
 
 Items recorded without a task id (older builds, or events the app missed) get theirs from the transcript, where each background command's result says "running in background with ID: … Output is being written to: …".
 
@@ -255,6 +259,22 @@ Claude Code caches the conversation so far; every request refreshes it for its l
 - **Looked up** read-only with the user's logins in WSL, every 5 minutes while open and after each turn: `gh pr view --json state,isDraft,title,reviewDecision,statusCheckRollup`; `az repos pr show` (status, draft, title, reviewer votes) plus `az repos pr policy list` (Build policies are the checks). Merged and closed PRs aren't looked up again.
 - **Card footer:** open PRs sit in a footer band at the bottom of the card (tinted like the title bar, kept when the card is minimised), one line each: "🔀 frontend #4209 Title… ✓ review". The repo shows as the project folder that holds it (each project's subfolders, two levels deep, are mapped from their `origin` remote: `Project.repos`); nothing when the repo is the project itself, the repo name when it isn't cloned there. Status right-aligned: draft, checks ✓/✗/⋯, review/approved/changes (red when failing or changes requested, green when approved with checks done); words, full repo and URL in the tooltip. Click opens it in the browser. Like the title bar, the footer doesn't open the hover copy (and closes it). Merged and closed PRs drop off.
 - **Alerts** (🔀, sound `pr`): checks start failing, changes requested, merged. Never on a PR's first successful lookup.
+
+### 3.18 Job progress (2026-10-30)
+
+Jobs report their own progress, so it works for anything a job tracks (a deploy, an ML run, an ingestion, a migration), not only what the sidebar knows how to query.
+
+- **`cc-progress`** (installed next to `cc-hook`) prints one line into the job's output: `##cc-progress {json}`. Fields, all optional: `item` (one job can track several things, e.g. two pipelines; the latest line per item wins), `steps` (names in order) with `at` (the current one: earlier steps are done), `done`/`total` (a count), `state` (`running`, `waiting`, `blocked`, `failed`, `done`), `detail` (a short phrase) and `url`. It always exits 0 and prints nothing when the same item's line is unchanged since its last call from the same script (kept per parent PID), so Claude doesn't read repeats.
+  ```bash
+  cc-progress --item website --steps Build,Dev,TST --at Dev --state running --url "$RUN"
+  cc-progress --done 14 --total 40 --detail "ingesting files"
+  cc-progress --state blocked --detail "TST needs approval" --url "$APPROVAL"
+  ```
+- **Claude learns of it from the app:** the app answers SessionStart (every source: startup, resume, clear, compact) with `additionalContext`, a few sentences telling Claude to report a background watcher's stages or counts with `cc-progress`. No change to the hook scripts or settings: sessions see it only while the app is running, and the app ships with the helper.
+- **Reading:** `jobs::watch` takes the progress lines from the output tail along with the latest line, merged per item with what it read before (an item whose line scrolled out of the tail keeps its last state).
+- **Card:** in the job band, under the job's name, one line per item (at most 3, then "+N"): `item  Build ✓ ─ Dev ● ─ TST ○`, or a bar `▰▰▰▱▱ 14/40`, then the detail, with ↗ when there's a URL (click opens it). State colours: blocked amber, failed red, done green. Minimised cards keep the name only, as before.
+- **Alerts:** an item turning blocked raises a 🚦 alert ("<job>: <detail>", its own sound, `job`). It goes by itself once nothing running is blocked (approved, or the job ended), or with ✕. Failed raises none: the line turns red, and Claude reports on the job when it ends.
+- **Background agents** get progress for free from their own task list: TodoWrite calls carry the agent's `agent_id`, so its "▰▰▱ 2/3 · current item" shows on its job line (the session's own task list is unaffected).
 
 ## 4. Testing denials
 

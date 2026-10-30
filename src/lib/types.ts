@@ -7,6 +7,7 @@ export type AlertKind =
   | "stop_failure"
   | "repeated_failure"
   | "waiting"
+  | "job"
   | "slow"
   | "compact"
   | "finished"
@@ -253,4 +254,22 @@ export interface Background {
   awaited: boolean;
   /** Latest line of its output. */
   last_line: string | null;
+  /** What it reported with `cc-progress`, one per item (a background agent: its task list). */
+  progress: Progress[];
+  /** When the sidebar first saw it running, and when its output last changed (ms). */
+  seen_at: number | null;
+  output_at: number | null;
+}
+
+/** One thing a job tracks, as it last reported it (SPEC §3.18). */
+export interface Progress {
+  item: string | null;
+  /** Stage names in order; `at` is the current one, earlier ones are done. */
+  steps: string[];
+  at: string | null;
+  done: number | null;
+  total: number | null;
+  state: "running" | "waiting" | "blocked" | "failed" | "done" | string | null;
+  detail: string | null;
+  url: string | null;
 }

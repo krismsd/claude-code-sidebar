@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# cc-progress: report a background job's progress to cc-sidebar (SPEC §3.18). Prints one line,
+# `##cc-progress {json}`, into the job's output, which the sidebar reads; nothing else.
+# Never fails the calling script: bad arguments are ignored and it always exits 0. Prints
+# nothing when the item's line is the same as on its last call from the same script.
+# Usage: cc-progress [--item NAME] [--steps A,B,C --at B] [--done N --total M]
+#                    [--state running|waiting|blocked|failed|done] [--detail TEXT] [--url URL]
+
+esc() {
+  local s=$1
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//[[:cntrl:]]/ }
+  printf '"%s"' "$s"
+}
+
+item='' fields=()
+while [ $# -gt 0 ]; do
+  key=$1 val=${2-}
+  shift 2 2>/dev/null || shift
+  case "$key" in
+    --item) item=$val; fields+=("\"item\":$(esc "$val")") ;;
+    --at | --state | --detail | --url) fields+=("\"${key#--}\":$(esc "$val")") ;;
+    --done | --total) [[ "$val" =~ ^[0-9]+$ ]] && fields+=("\"${key#--}\":$val") ;;
+    --steps)
+      steps=''
+      IFS=',' read -ra names <<<"$val"
+      for n in "${names[@]}"; do
+        n="${n#"${n%%[![:space:]]*}"}"
+        n="${n%"${n##*[![:space:]]}"}"
+        [ -n "$n" ] && steps+="${steps:+,}$(esc "$n")"
+      done
+      fields+=("\"steps\":[$steps]")
+      ;;
+  esac
+done
+[ ${#fields[@]} -gt 0 ] || exit 0
+
+line="##cc-progress {$(IFS=,; echo "${fields[*]}")}"
+last="${XDG_RUNTIME_DIR:-/tmp}/cc-progress-$(id -u)-$PPID-$(printf '%s' "$item" | cksum | cut -d' ' -f1)"
+[ "$(cat "$last" 2>/dev/null)" = "$line" ] && exit 0
+printf '%s\n' "$line" >"$last" 2>/dev/null
+printf '%s\n' "$line"
+exit 0

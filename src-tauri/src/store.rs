@@ -3,6 +3,7 @@
 use crate::events::{Event, Hook};
 use crate::project::Project;
 use crate::session::{AlertKind, Ms, Session, Status, Thresholds};
+use crate::todos::{Todo, TodoState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,6 +20,9 @@ pub struct Tracked {
     /// follow in their usual order.
     #[serde(default)]
     pub session_order: Vec<String>,
+    /// The project's to-do list (SPEC §3.19), in the user's order.
+    #[serde(default)]
+    pub todos: Vec<Todo>,
 }
 
 pub struct Store {
@@ -125,6 +129,7 @@ impl Store {
                 added_at: now,
                 shelved: false,
                 session_order: Vec::new(),
+                todos: Vec::new(),
             }),
         }
     }
@@ -269,6 +274,110 @@ impl Store {
 
     pub fn projects(&self) -> &[Tracked] {
         &self.projects
+    }
+
+    /// The most recently active open session matching `f`.
+    pub fn sessions_where(&self, f: impl Fn(&Session) -> bool) -> Option<Session> {
+        self.sessions
+            .values()
+            .filter(|s| s.status != Status::Closed && f(s))
+            .max_by_key(|s| s.last_event_at)
+            .cloned()
+    }
+
+    pub fn todos(&self, root: &str) -> &[Todo] {
+        self.projects
+            .iter()
+            .find(|t| t.project.root == root)
+            .map_or(&[], |t| &t.todos)
+    }
+
+    fn todos_mut(&mut self, root: &str) -> Option<&mut Vec<Todo>> {
+        self.projects
+            .iter_mut()
+            .find(|t| t.project.root == root)
+            .map(|t| &mut t.todos)
+    }
+
+    /// Add to the end of a project's list. None if the project isn't tracked.
+    pub fn todo_add(
+        &mut self,
+        root: &str,
+        text: String,
+        added_by: Option<String>,
+        now: Ms,
+    ) -> Option<u64> {
+        let list = self.todos_mut(root)?;
+        let id = list.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+        list.push(Todo {
+            id,
+            text,
+            state: TodoState::Open,
+            added_by,
+            session: None,
+            session_name: None,
+            at: now,
+            updated: now,
+        });
+        Some(id)
+    }
+
+    /// Reword an item and/or change its state; `by` (session id, name) is who's on it or
+    /// finished it. Back to open or sent forgets the session.
+    pub fn todo_update(
+        &mut self,
+        root: &str,
+        id: u64,
+        text: Option<String>,
+        state: Option<TodoState>,
+        by: Option<(String, String)>,
+        now: Ms,
+    ) -> Option<Todo> {
+        let t = self.todos_mut(root)?.iter_mut().find(|t| t.id == id)?;
+        if let Some(text) = text {
+            t.text = text;
+        }
+        if let Some(state) = state {
+            t.state = state;
+            match state {
+                TodoState::Doing | TodoState::Done => {
+                    if let Some((sid, name)) = by {
+                        t.session = Some(sid);
+                        t.session_name = Some(name);
+                    }
+                }
+                TodoState::Open | TodoState::Sent => {
+                    t.session = None;
+                    t.session_name = None;
+                }
+            }
+        }
+        t.updated = now;
+        Some(t.clone())
+    }
+
+    pub fn todo_remove(&mut self, root: &str, ids: &[u64]) -> bool {
+        let Some(list) = self.todos_mut(root) else {
+            return false;
+        };
+        let before = list.len();
+        list.retain(|t| !ids.contains(&t.id));
+        list.len() != before
+    }
+
+    /// Put the items in this order (ids not listed keep their place after them).
+    pub fn todo_order(&mut self, root: &str, ids: &[u64]) -> bool {
+        let Some(list) = self.todos_mut(root) else {
+            return false;
+        };
+        let mut rest = std::mem::take(list);
+        for id in ids {
+            if let Some(i) = rest.iter().position(|t| t.id == *id) {
+                list.push(rest.remove(i));
+            }
+        }
+        list.extend(rest);
+        true
     }
 
     pub fn restore_projects(&mut self, saved: Vec<Tracked>) {

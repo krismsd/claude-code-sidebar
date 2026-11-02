@@ -144,6 +144,23 @@ export interface Tracked {
   shelved: boolean;
   /** Session ids in the order the user dragged them into. */
   session_order: string[];
+  /** The project's to-do list (SPEC §3.19), in the user's order. */
+  todos: Todo[];
+}
+
+export type TodoState = "open" | "sent" | "doing" | "done";
+
+export interface Todo {
+  id: number;
+  text: string;
+  state: TodoState;
+  /** The session that added it (its name then); null: the user. */
+  added_by: string | null;
+  /** The session working on it, or that finished it. */
+  session: string | null;
+  session_name: string | null;
+  at: number;
+  updated: number;
 }
 
 export interface UiState {

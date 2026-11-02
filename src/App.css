@@ -2296,3 +2296,101 @@ button {
 .fold:hover {
   color: var(--fg);
 }
+
+/* ---- project to-do list (§3.19) ---- */
+.todo-count {
+  color: var(--project);
+}
+
+.todos {
+  margin: 0 0 6px 8px;
+  padding: 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--project);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.todo {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 2px;
+  border-radius: 4px;
+}
+
+.todo:hover {
+  background: var(--bg);
+}
+
+.todo.dragging {
+  opacity: 0.4;
+}
+
+.todo input[type="checkbox"] {
+  margin: 2px 0 0;
+  flex: none;
+}
+
+.todo-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  cursor: grab;
+}
+
+.todo.done .todo-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.todo.sent .todo-text,
+.todo.doing .todo-text {
+  color: var(--muted);
+}
+
+.todo-text a {
+  color: var(--blue);
+}
+
+.todo-note {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.todo.doing .todo-note {
+  color: var(--blue);
+}
+
+.todo .x {
+  flex: none;
+  visibility: hidden;
+}
+
+.todo:hover .x {
+  visibility: visible;
+}
+
+.todo-edit {
+  flex: 1;
+  font: inherit;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.todo-done {
+  margin-top: 4px;
+}

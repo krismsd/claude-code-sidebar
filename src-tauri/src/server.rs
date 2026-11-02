@@ -195,6 +195,41 @@ impl Drop for HoldGuard {
     }
 }
 
+/// The to-do MCP server (SPEC §3.19): one JSON-RPC message per POST from the `cc-mcp` relay,
+/// which says who's calling in headers. A notification gets 202 and no body.
+async fn mcp(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let header = |k: &str| {
+        headers
+            .get(k)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(String::from)
+    };
+    let caller = crate::todos::Caller {
+        pid: header("x-cc-pid").and_then(|p| p.parse().ok()),
+        session_id: header("x-cc-session"),
+        cwd: header("x-cc-cwd"),
+    };
+    let Ok(msg) = serde_json::from_slice::<serde_json::Value>(&body) else {
+        let err = serde_json::json!({"jsonrpc": "2.0", "id": null,
+            "error": {"code": -32700, "message": "parse error"}});
+        return axum::Json(err).into_response();
+    };
+    let (reply, changed) = {
+        let mut store = ctx.store.lock().unwrap();
+        crate::todos::handle(&mut store, &caller, &msg, now_ms())
+    };
+    if changed {
+        publish(&ctx);
+    }
+    match reply {
+        Some(r) => axum::Json(r).into_response(),
+        None => axum::http::StatusCode::ACCEPTED.into_response(),
+    }
+}
+
 async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String {
     let meta = HookMeta::from_headers(|k| {
         headers
@@ -510,6 +545,7 @@ pub fn wsl_host_ip() -> Option<IpAddr> {
 pub async fn run(ctx: Ctx) {
     let router = Router::new()
         .route("/hook", post(hook))
+        .route("/mcp", post(mcp))
         .with_state(ctx.clone());
     let mut bound: HashSet<IpAddr> = HashSet::new();
     loop {

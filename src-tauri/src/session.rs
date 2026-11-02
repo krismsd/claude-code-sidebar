@@ -712,6 +712,15 @@ impl Session {
         self.removed == Some(true)
     }
 
+    /// What the sidebar calls it: the name given in the sidebar, its title, its first prompt.
+    pub fn display_name(&self) -> String {
+        self.user_title
+            .clone()
+            .or_else(|| self.title.clone())
+            .or_else(|| self.first_prompt.clone())
+            .unwrap_or_else(|| "New session".into())
+    }
+
     pub fn is_unused(&self) -> bool {
         self.first_prompt.is_none()
             && matches!(self.start_source.as_deref(), Some("startup" | "clear"))

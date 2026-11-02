@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { Project, Session } from "../lib/types";
+import type { Project, Session, Todo } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
-import { arrange, projectStatus, reorder } from "../lib/view";
+import { TodoPanel } from "./TodoPanel";
+import { arrange, openTodos, projectStatus, reorder } from "../lib/view";
 import { elapsed, sessionName } from "../lib/format";
 import {
   DRAG_TYPE,
@@ -50,6 +51,8 @@ interface Props {
   onShelve: (root: string) => void;
   /** Session ids in the user's dragged order. */
   sessionOrder: string[];
+  /** The project's to-do list. */
+  todos: Todo[];
   onReorderSessions: (root: string, ids: string[]) => void;
 }
 
@@ -68,6 +71,7 @@ export function ProjectSection({
   onDropProject,
   onShelve,
   sessionOrder,
+  todos,
   onReorderSessions,
   onDeleteSession,
   onMinimizeAll,
@@ -76,6 +80,8 @@ export function ProjectSection({
   onMessage,
 }: Props) {
   const [showTasks, setShowTasks] = useState(false);
+  const [showTodos, setShowTodos] = useState(false);
+  const todoCount = openTodos(todos).length;
   /** Open menu: the project's actions (⋯) or its closed sessions ("N closed"). */
   const [menu, setMenu] = useState<"actions" | "closed" | false>(false);
   /** Open the menu upwards when there's no room under the header (the last project). */
@@ -162,6 +168,15 @@ export function ProjectSection({
             {closed.length} closed
           </button>
         )}
+        {root && todoCount > 0 && (
+          <button
+            className="closed-link todo-count"
+            title={`${todoCount} to-do${todoCount === 1 ? "" : "s"}: click to show the list`}
+            onClick={() => setShowTodos(!showTodos)}
+          >
+            ☐ {todoCount}
+          </button>
+        )}
         {root && (
           <>
             <button className="icon" title="New session here" onClick={() => onNewSession(root)}>
@@ -203,6 +218,7 @@ export function ProjectSection({
       )}
       {menu === "actions" && root && (
         <div className={`project-menu${menuUp ? " up" : ""}`} ref={menuRef}>
+          <button onClick={() => (setShowTodos(true), setMenu(false))}>To-do list</button>
           {hasTasks ? (
             <button onClick={() => (setShowTasks(true), setMenu(false))}>Tasks…</button>
           ) : (
@@ -252,6 +268,14 @@ export function ProjectSection({
               : "Close project"}
           </button>
         </div>
+      )}
+      {showTodos && root && (
+        <TodoPanel
+          root={root}
+          todos={todos}
+          onClose={() => setShowTodos(false)}
+          onMessage={onMessage}
+        />
       )}
       {showTasks && root && (
         <TasksPanel root={root} onClose={() => setShowTasks(false)} onMessage={onMessage} />

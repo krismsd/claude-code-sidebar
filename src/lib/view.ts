@@ -1,5 +1,5 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
-import type { Background, Progress, Session, UiState } from "./types";
+import type { Background, Progress, Session, Todo, UiState } from "./types";
 import { elapsed } from "./format";
 
 /** Removed by the user (or `/exit`): in its project's "closed" section. */
@@ -202,4 +202,37 @@ export function answerBody(answer: string, question: string | null): string {
     else lines.pop();
   }
   return lines.join("\n");
+}
+
+/** A project's to-do items still to do, in the user's order. */
+export function openTodos(todos: Todo[]): Todo[] {
+  return todos.filter((t) => t.state !== "done");
+}
+
+/** A to-do's text split into plain parts and links (http/https), for rendering; a link shows
+ * as its host and last path part. A trailing full stop or bracket stays outside the link. */
+export function todoParts(text: string): { text: string; url?: string }[] {
+  const parts: { text: string; url?: string }[] = [];
+  const re = /https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]']/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index > last) parts.push({ text: text.slice(last, m.index) });
+    parts.push({ text: shortUrl(m[0]), url: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
+}
+
+/** "https://dev.example.com/org/proj/_wiki/wikis/x/1894" → "dev.example.com/…/1894". */
+export function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.split("/").filter(Boolean);
+    if (segs.length === 0) return u.host;
+    const last = decodeURIComponent(segs[segs.length - 1]);
+    return segs.length === 1 ? `${u.host}/${last}` : `${u.host}/…/${last}`;
+  } catch {
+    return url;
+  }
 }

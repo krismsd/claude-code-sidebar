@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# cc-mcp: the project to-do list's MCP server for Claude Code (SPEC §3.19). A stdio relay:
+# each JSON-RPC message Claude Code writes is POSTed to the cc-sidebar app on the Windows host,
+# with who's asking in headers (the session id, the PID of its claude, which started this, and
+# the folder), and the reply is written back. When the app isn't there, requests get an error
+# reply and the session carries on. Register with: claude mcp add --scope user cc-sidebar -- cc-mcp
+# CC_MCP_LOG=<file> logs what it sends and gets (tests).
+port="${CC_SIDEBAR_PORT:-47821}"
+# CC_SIDEBAR_HOST overrides the app's address (tests); see cc-hook.
+case "${CC_SIDEBAR_HOST:-}" in tmux | terminal | window | none) unset CC_SIDEBAR_HOST ;; esac
+
+while IFS= read -r line; do
+  [ -n "${line//[[:space:]]/}" ] || continue
+  # Found again for each message: the host IP can change while a session runs.
+  host="${CC_SIDEBAR_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
+  out=$(printf '%s' "$line" | curl -s --fail --connect-timeout 1 --max-time 10 \
+    -H 'Content-Type: application/json' \
+    -H "X-CC-Pid: $PPID" \
+    -H "X-CC-Session: ${CLAUDE_CODE_SESSION_ID:-}" \
+    -H "X-CC-Cwd: $PWD" \
+    --data-binary @- "http://$host:$port/mcp")
+  [ -n "${CC_MCP_LOG:-}" ] && printf 'pid=%s session=%s cwd=%s\n> %s\n< %s\n' "$PPID" "${CLAUDE_CODE_SESSION_ID:-}" "$PWD" "$line" "$out" >>"$CC_MCP_LOG"
+  if [ -n "$out" ]; then
+    printf '%s\n' "$out"
+    continue
+  fi
+  # No reply: fine for a notification; a request needs an answer or Claude Code waits.
+  id=$(jq -c '.id // empty' <<<"$line" 2>/dev/null)
+  [ -n "$id" ] && printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32000,"message":"cc-sidebar isn'"'"'t running (or isn'"'"'t reachable from WSL)"}}\n' "$id"
+done
+exit 0

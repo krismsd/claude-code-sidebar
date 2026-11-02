@@ -12,6 +12,7 @@ import {
   readyStale,
   projectStatus,
   reorder,
+  todoParts,
   tokens,
 } from "./view";
 import { elapsed, sessionName, usageLevel, usageNow } from "./format";
@@ -126,7 +127,9 @@ describe("groupSessions", () => {
     const b = session({ project: null, cwd: "/x" });
     const c = session({ project: { ...a.project!, root: "/p/untracked" } });
     const state: UiState = {
-      projects: [{ project: a.project!, added_at: 0, shelved: false, session_order: [] }],
+      projects: [
+        { project: a.project!, added_at: 0, shelved: false, session_order: [], todos: [] },
+      ],
       sessions: [a, b, c],
       task_projects: [],
       collapsed: false,
@@ -326,5 +329,21 @@ describe("answerBody", () => {
   });
   it("keeps the answer when the question isn't at its end", () => {
     expect(answerBody("Push now? Done.", "Push now?")).toBe("Push now? Done.");
+  });
+});
+
+describe("todoParts", () => {
+  it("finds links and shortens them", () => {
+    expect(todoParts("Review https://wiki.example.com/a/b/Deploy%20Site. Then ship")).toEqual([
+      { text: "Review " },
+      { text: "wiki.example.com/…/Deploy Site", url: "https://wiki.example.com/a/b/Deploy%20Site" },
+      { text: ". Then ship" },
+    ]);
+    expect(todoParts("(see https://x.io/pr/42)")).toEqual([
+      { text: "(see " },
+      { text: "x.io/…/42", url: "https://x.io/pr/42" },
+      { text: ")" },
+    ]);
+    expect(todoParts("no links")).toEqual([{ text: "no links" }]);
   });
 });

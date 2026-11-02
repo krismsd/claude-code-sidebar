@@ -30,6 +30,7 @@ mod tasks;
 mod term;
 #[cfg(test)]
 mod tests;
+pub mod todos;
 mod ui;
 mod usage;
 
@@ -242,6 +243,76 @@ fn set_session_order(ctx: State<'_, Ctx>, root: String, ids: Vec<String>) {
     if ctx.store.lock().unwrap().set_session_order(&root, ids) {
         server::publish(&ctx);
     }
+}
+
+#[tauri::command]
+fn todo_add(ctx: State<'_, Ctx>, root: String, text: String) -> Result<u64, String> {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return Err("Nothing to add".into());
+    }
+    let id = ctx
+        .store
+        .lock()
+        .unwrap()
+        .todo_add(&root, text, None, server::now_ms())
+        .ok_or("That project isn't tracked")?;
+    server::publish(&ctx);
+    Ok(id)
+}
+
+/// The user changed an item: reworded it, ticked it, put it back.
+#[tauri::command]
+fn todo_update(
+    ctx: State<'_, Ctx>,
+    root: String,
+    id: u64,
+    text: Option<String>,
+    state: Option<todos::TodoState>,
+) {
+    let text = text.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+    let changed = ctx
+        .store
+        .lock()
+        .unwrap()
+        .todo_update(&root, id, text, state, None, server::now_ms())
+        .is_some();
+    if changed {
+        server::publish(&ctx);
+    }
+}
+
+#[tauri::command]
+fn todo_remove(ctx: State<'_, Ctx>, root: String, ids: Vec<u64>) {
+    if ctx.store.lock().unwrap().todo_remove(&root, &ids) {
+        server::publish(&ctx);
+    }
+}
+
+#[tauri::command]
+fn todo_order(ctx: State<'_, Ctx>, root: String, ids: Vec<u64>) {
+    if ctx.store.lock().unwrap().todo_order(&root, &ids) {
+        server::publish(&ctx);
+    }
+}
+
+/// The items as a prompt to paste (one bullet each); open ones become sent.
+#[tauri::command]
+fn todo_copy(ctx: State<'_, Ctx>, root: String, ids: Vec<u64>) -> String {
+    let mut store = ctx.store.lock().unwrap();
+    let picked: Vec<todos::Todo> = store
+        .todos(&root)
+        .iter()
+        .filter(|t| ids.contains(&t.id))
+        .cloned()
+        .collect();
+    let now = server::now_ms();
+    for t in picked.iter().filter(|t| t.state == todos::TodoState::Open) {
+        store.todo_update(&root, t.id, None, Some(todos::TodoState::Sent), None, now);
+    }
+    drop(store);
+    server::publish(&ctx);
+    todos::as_prompt(&picked.iter().collect::<Vec<_>>())
 }
 
 #[tauri::command]
@@ -639,6 +710,11 @@ pub fn run() {
             move_project,
             set_shelved,
             set_session_order,
+            todo_add,
+            todo_update,
+            todo_remove,
+            todo_order,
+            todo_copy,
             close_project,
             dismiss_alert,
             dismiss_session,

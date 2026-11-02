@@ -319,6 +319,17 @@ Generic progress for background jobs (SPEC §3.18): the job reports it, the side
 - [x] Fix from live use (a GitHub Actions watcher): its count covered only the jobs GitHub had listed so far (2/3, 3/4, 5/7), so it looked nearly done all along. The SessionStart text now says to take the stages or total from the run's definition. And in Claude Code's Bash sandbox `/run` is read-only, so `cc-progress` printed an error into the output (which became the card's line) and never skipped repeats. It now keeps its state in the first writable of `$TMPDIR`, `$XDG_RUNTIME_DIR` and `/tmp`, keyed by the calling script's command line too (the sandbox restarts PIDs), and keeps its own errors quiet.
 - [x] Fix (2026-11-02): the same session kept reusing its old watcher script (it never got the new text: it compacted before that release), so the bar still looked nearly done. Sandbox test of the new text: a fresh session watching a fake pipeline that lists jobs once they start read the workflow file and reported all 8 stages from the first poll. As a safeguard for scripts that don't, a count whose total grows is marked open-ended and shown as `5/7+` without a bar.
 
+## M33: Project to-do lists (2026-11-02)
+
+A running to-do per project (SPEC §3.19), replacing the notepad the user kept while sessions worked. Chosen over a tracker (statuses, tickets, deployments): those stay with job progress and PRs. Hand-off by copy/paste and by an MCP server; queueing items to a session (a Stop hook continuing the turn) deferred until these have been used.
+
+- [x] Items on `Tracked` (`projects.json`); store add/update/remove/order; Tauri commands incl. copy-as-prompt.
+- [x] Panel under the project header: add, tick, edit, drag, links, copy, done fold.
+- [x] `/mcp` endpoint (`todos.rs`): three tools, caller → project by session id, PID, folder. Unit tests.
+- [x] `dev/bin/cc-mcp` relay, installed by `install.sh` (not registered).
+- [x] Sandbox test through `--mcp-config` (2026-11-02): a real session added two items, marked one doing and listed them; its own session id resolved it (not the parent's). Panel: add, tick, copy (→ sent), links. App unreachable: requests get an error reply, notifications nothing.
+- [ ] User-level registration (needs the user's approval).
+
 ## Fixes (2026-10-30)
 
 - [x] An Azure DevOps PR created from a repo subfolder without `--org` (the shell had `cd api` earlier) was never looked up: the lookup ran in the session's folder, which has no Azure DevOps remote ("--organization must be specified"). PRs now remember the folder they were created from (transcript `cwd` plus any `cd` in the command, heredocs skipped), and the lookup runs there. PRs saved without one get it from a transcript re-read on load. Verified live: after the release, the PR got its repo subfolder and its lookup succeeded (open, checks passing, review required).

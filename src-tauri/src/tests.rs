@@ -1992,3 +1992,230 @@ fn azure_pr_saved_without_a_folder_gets_one_on_rescan() {
     assert_eq!(prs.len(), 1);
     assert_eq!(prs[0].dir.as_deref(), Some("/p/api"));
 }
+
+#[test]
+fn todo_mcp_server() {
+    use crate::todos::{Caller, TodoState, handle};
+    let mut st = Store::default();
+    with_project(&mut st, "a", "/p/alpha", 0);
+    with_project(&mut st, "b", "/p/bravo", 1);
+    st.rename("a", "Fix the strip");
+    let rpc = |id: u64, method: &str, params: Value| serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+    let tool = |id: u64, name: &str, args: Value| {
+        rpc(
+            id,
+            "tools/call",
+            serde_json::json!({"name": name, "arguments": args}),
+        )
+    };
+    let text = |r: &Option<Value>| {
+        r.as_ref().unwrap()["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    // Both test sessions share the fixture's PID: the most recently active one is the caller.
+    let by_pid = Caller {
+        pid: Some(382308),
+        ..Default::default()
+    };
+    let r = crate::todos::resolve(&st, &by_pid).unwrap();
+    assert_eq!(
+        (r.root.as_str(), r.session_id.as_deref()),
+        ("/p/bravo", Some("b"))
+    );
+    let me = Caller {
+        session_id: Some("a".into()),
+        ..Default::default()
+    };
+
+    let (r, _) = handle(
+        &mut st,
+        &me,
+        &rpc(
+            1,
+            "initialize",
+            serde_json::json!({"protocolVersion": "2025-03-26"}),
+        ),
+        10,
+    );
+    let r = r.unwrap();
+    assert_eq!(r["result"]["protocolVersion"], "2025-03-26");
+    assert!(r["result"]["capabilities"]["tools"].is_object());
+    let note = serde_json::json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+    assert_eq!(handle(&mut st, &me, &note, 10), (None, false));
+    let (r, _) = handle(
+        &mut st,
+        &me,
+        &rpc(2, "tools/list", serde_json::json!({})),
+        10,
+    );
+    assert_eq!(r.unwrap()["result"]["tools"].as_array().unwrap().len(), 3);
+
+    // The user's own item, then one the session adds.
+    st.todo_add("/p/bravo", "Rename the drawer".into(), None, 11);
+    assert_eq!(
+        text(
+            &handle(
+                &mut st,
+                &me,
+                &tool(3, "todo_list", serde_json::json!({})),
+                12
+            )
+            .0
+        ),
+        "The to-do list is empty."
+    );
+    let (r, changed) = handle(
+        &mut st,
+        &me,
+        &tool(
+            4,
+            "todo_add",
+            serde_json::json!({"items": ["Strip  needs\nthe same fix", " "]}),
+        ),
+        13,
+    );
+    assert!(changed);
+    assert_eq!(text(&r), "Added #1.");
+    let t = &st.todos("/p/alpha")[0];
+    assert_eq!(
+        (t.text.as_str(), t.added_by.as_deref()),
+        ("Strip needs the same fix", Some("Fix the strip"))
+    );
+
+    // Doing, then done: who did it is kept.
+    let (r, _) = handle(
+        &mut st,
+        &me,
+        &tool(
+            5,
+            "todo_update",
+            serde_json::json!({"id": 1, "state": "doing"}),
+        ),
+        14,
+    );
+    assert_eq!(text(&r), "#1 is doing: Strip needs the same fix");
+    assert_eq!(
+        text(
+            &handle(
+                &mut st,
+                &me,
+                &tool(6, "todo_list", serde_json::json!({})),
+                15
+            )
+            .0
+        ),
+        "1 to do:\n#1 [doing: Fix the strip] Strip needs the same fix"
+    );
+    handle(
+        &mut st,
+        &me,
+        &tool(
+            7,
+            "todo_update",
+            serde_json::json!({"id": 1, "state": "done"}),
+        ),
+        16,
+    );
+    let t = &st.todos("/p/alpha")[0];
+    assert_eq!(
+        (t.state, t.session.as_deref()),
+        (TodoState::Done, Some("a"))
+    );
+    assert_eq!(
+        text(
+            &handle(
+                &mut st,
+                &me,
+                &tool(8, "todo_list", serde_json::json!({"include_done": true})),
+                17
+            )
+            .0
+        ),
+        "The to-do list is empty.\n\nDone:\n#1 [done] Strip needs the same fix"
+    );
+
+    // Errors come back as tool errors.
+    let (r, _) = handle(
+        &mut st,
+        &me,
+        &tool(
+            9,
+            "todo_update",
+            serde_json::json!({"id": 9, "state": "done"}),
+        ),
+        18,
+    );
+    assert_eq!(r.as_ref().unwrap()["result"]["isError"], true);
+    let (r, _) = handle(
+        &mut st,
+        &me,
+        &tool(
+            10,
+            "todo_update",
+            serde_json::json!({"id": 1, "state": "sent"}),
+        ),
+        18,
+    );
+    assert_eq!(r.as_ref().unwrap()["result"]["isError"], true);
+
+    // No session matched: the tracked project holding the folder.
+    let elsewhere = Caller {
+        cwd: Some("/p/bravo/src".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        text(
+            &handle(
+                &mut st,
+                &elsewhere,
+                &tool(11, "todo_list", serde_json::json!({})),
+                19
+            )
+            .0
+        ),
+        "1 to do:\n#1 [open] Rename the drawer"
+    );
+    let nowhere = Caller {
+        cwd: Some("/p/bravo-two".into()),
+        ..Default::default()
+    };
+    let (r, _) = handle(
+        &mut st,
+        &nowhere,
+        &tool(12, "todo_list", serde_json::json!({})),
+        19,
+    );
+    assert_eq!(r.unwrap()["result"]["isError"], true);
+}
+
+#[test]
+fn todos_from_the_sidebar() {
+    use crate::todos::TodoState;
+    let mut st = Store::default();
+    with_project(&mut st, "a", "/p/alpha", 0);
+    for t in ["one", "two", "three"] {
+        st.todo_add("/p/alpha", t.into(), None, 1);
+    }
+    assert_eq!(st.todo_add("/p/nope", "x".into(), None, 1), None);
+    st.todo_order("/p/alpha", &[3, 1]);
+    let ids: Vec<u64> = st.todos("/p/alpha").iter().map(|t| t.id).collect();
+    assert_eq!(ids, vec![3, 1, 2]);
+    st.todo_update(
+        "/p/alpha",
+        1,
+        None,
+        Some(TodoState::Doing),
+        Some(("a".into(), "A".into())),
+        2,
+    );
+    // Put back: no longer anyone's.
+    let t = st
+        .todo_update("/p/alpha", 1, None, Some(TodoState::Open), None, 3)
+        .unwrap();
+    assert_eq!(t.session, None);
+    assert!(st.todo_remove("/p/alpha", &[2]));
+    // Ids aren't reused.
+    assert_eq!(st.todo_add("/p/alpha", "four".into(), None, 4), Some(4));
+}

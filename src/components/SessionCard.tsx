@@ -8,6 +8,7 @@ import {
   jobTiming,
   progressLine,
   readyStale,
+  waiting,
   tokens,
 } from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
@@ -110,6 +111,8 @@ export function SessionCard({
   const asleep = dormant(s);
   const closed = s.status === "closed" && !asleep;
   const status = asleep ? "idle" : s.status;
+  // Ready, with Claude waiting on background work it will come back to (SPEC §3.17).
+  const busy = waiting(s);
   // Minimised: just the title bar, unless it needs the user (permission, a question, an
   // error), when it opens until that's dealt with. The hover copy always shows everything.
   const needsYou = ["needs_permission", "needs_input", "error"].includes(s.status);
@@ -185,9 +188,11 @@ export function SessionCard({
           {label && <span className="card-branch"> · {label}</span>}
         </span>
         <span
-          className={`chip card-status-block chip-${status}${status === "idle" && readyStale(s, now) ? " stale" : ""}`}
+          className={`chip card-status-block chip-${busy ? "waiting" : status}${status === "idle" && !busy && readyStale(s, now) ? " stale" : ""}`}
           title={
             [
+              busy &&
+                `Ready for a prompt · waiting on ${jobs.length} ${jobs.every((b) => b.agent) ? "agent" : "job"}${jobs.length === 1 ? "" : "s"}`,
               cache && cacheDetail(cache),
               [s.permission_mode, s.model, s.tag && `#${s.tag}`].filter(Boolean).join(" · "),
             ]
@@ -195,7 +200,8 @@ export function SessionCard({
               .join("\n") || undefined
           }
         >
-          {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
+          {closed ? closedLabel(s) : busy ? "waiting" : STATUS_LABEL[status]} ·{" "}
+          {elapsed(s.status_since, now)}
         </span>
       </header>
       {!folded && (

@@ -2,7 +2,7 @@ import { useRef, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Session, Tracked, Usage } from "../lib/types";
 import { usageLevel, usageNow, sessionName, STATUS_LABEL } from "../lib/format";
-import { arrange, freshKeys, isOpen } from "../lib/view";
+import { arrange, freshKeys, isOpen, waiting } from "../lib/view";
 
 interface Props {
   projects: Tracked[];
@@ -68,7 +68,7 @@ export function Strip(props: Props) {
       {shown.map((s) => {
         const state = needsYou(s)
           ? "attention"
-          : s.status === "working"
+          : s.status === "working" || waiting(s)
             ? "working"
             : !isOpen(s)
               ? "closed"

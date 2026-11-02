@@ -14,6 +14,7 @@ import {
   reorder,
   todoParts,
   tokens,
+  waiting,
 } from "./view";
 import { elapsed, sessionName, usageLevel, usageNow } from "./format";
 
@@ -345,5 +346,16 @@ describe("todoParts", () => {
       { text: ")" },
     ]);
     expect(todoParts("no links")).toEqual([{ text: "no links" }]);
+  });
+});
+
+describe("waiting", () => {
+  const bg = (awaited: boolean) => ({ awaited, agent: awaited }) as Background;
+  it("is ready with background work Claude will act on", () => {
+    expect(waiting(session({ status: "idle", background: [bg(true)] }))).toBe(true);
+    // A dev server alone isn't waiting on anything.
+    expect(waiting(session({ status: "idle", background: [bg(false)] }))).toBe(false);
+    expect(waiting(session({ status: "working", background: [bg(true)] }))).toBe(false);
+    expect(waiting(session({ status: "idle" }))).toBe(false);
   });
 });

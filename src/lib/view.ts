@@ -33,6 +33,12 @@ export function arrange(
 
 const ATTENTION = new Set(["needs_permission", "needs_input", "error"]);
 
+/** Ready for a prompt, but Claude is waiting on background work it will act on (a background
+ * agent, a watcher): it carries on by itself, so it doesn't need the user. Services don't count. */
+export function waiting(s: Session): boolean {
+  return s.status === "idle" && s.background.some((b) => b.awaited);
+}
+
 /** Keys of alerts and permission prompts, for the "just appeared" flash. */
 export function freshKeys(s: Session): string[] {
   const keys = s.alerts.map((a) => `${s.session_id}:${a.id}`);
@@ -55,7 +61,7 @@ export function projectStatus(sessions: Session[], fresh: Set<string>): ProjectS
   const attention = open.some(
     (s) => ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact"),
   );
-  const working = open.some((s) => s.status === "working");
+  const working = open.some((s) => s.status === "working" || waiting(s));
   const flashing = sessions.some((s) => freshKeys(s).some((k) => fresh.has(k)));
   return {
     open: open.length,

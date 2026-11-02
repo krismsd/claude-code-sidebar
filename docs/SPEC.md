@@ -79,7 +79,7 @@ Status state machine:
 | `needs_permission` | PermissionRequest, or Notification `permission_prompt` | amber, pulsing; approve/deny buttons |
 | `needs_input` | AskUserQuestion, ExitPlanMode, an interrupt, a permission declined in the terminal; Notification `elicitation_dialog` / `agent_needs_input` (not `idle_prompt`) | amber |
 | `idle` | Stop | green "ready" plus recap |
-| `idle` + jobs | Stop with background work Claude waits on (the blue band: background agents, watchers; not services) | "waiting" (2026-11-02): blue outline, faint stripes, same timer. Promptable, but it carries on by itself, so it counts with working (project dot, strip), not as needing the user. Tooltip: "Ready for a prompt · waiting on N agents/jobs". |
+| `idle` + jobs | Stop with background work Claude waits on (the blue band: background agents, watchers; not services) | "waiting" (2026-11-02): faint blue stripes (no outline: it stood out too much), same timer. Promptable, but it carries on by itself, so it counts with working (project dot, strip), not as needing the user. Tooltip: "Ready for a prompt · waiting on N agents/jobs". |
 | `error` | StopFailure | red ⚠️ |
 | `closed` | SessionEnd (`/exit` → reason `prompt_input_exit`; closing the tab → reason `other`), or PID gone without SessionEnd (crash, kill) | dimmed, in a "Closed" group at the bottom; click resumes it in a new tab |
 | (removed) | dismissed by the user; auto-pruned after 7 days closed (configurable); or SessionEnd reason `clear` (the session is replaced by a new one) | card fades out |

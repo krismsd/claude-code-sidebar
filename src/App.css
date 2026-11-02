@@ -241,7 +241,6 @@ body,
     color-mix(in srgb, var(--blue) 30%, transparent) 0 6px,
     color-mix(in srgb, var(--blue) 14%, transparent) 6px 12px
   );
-  box-shadow: inset 0 0 0 1px var(--blue);
 }
 
 /* Ready, but the prompt cache has gone: the next prompt re-sends everything. */

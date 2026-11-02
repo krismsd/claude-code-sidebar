@@ -182,3 +182,20 @@ export function progressLine(p: Progress): string {
   if (p.detail) parts.push(p.detail);
   return parts.join(" · ");
 }
+
+/** Claude's last answer as the card shows it: no blank lines (they only take room), and without
+ * the question it ends on, which is pinned below it instead (so it's never clipped). */
+export function answerBody(answer: string, question: string | null): string {
+  const lines = answer.split("\n").filter((l) => l.trim());
+  const q = question?.trim();
+  const last = lines[lines.length - 1]?.trimEnd();
+  if (q && last?.endsWith(q)) {
+    const rest = last
+      .slice(0, -q.length)
+      .replace(/^\s*•\s*$/, "")
+      .trimEnd();
+    if (rest) lines[lines.length - 1] = rest;
+    else lines.pop();
+  }
+  return lines.join("\n");
+}

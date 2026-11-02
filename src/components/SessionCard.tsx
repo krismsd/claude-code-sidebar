@@ -1,7 +1,15 @@
 import { useState, useRef, type CSSProperties } from "react";
 import type { Alert, Background, PullRequest, Session } from "../lib/types";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { cacheState, dormant, jobTiming, progressLine, readyStale, tokens } from "../lib/view";
+import {
+  answerBody,
+  cacheState,
+  dormant,
+  jobTiming,
+  progressLine,
+  readyStale,
+  tokens,
+} from "../lib/view";
 import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
 
 interface Props {
@@ -18,7 +26,7 @@ interface Props {
   onMenu: (s: Session, x: number, y: number) => void;
   /** Minimise the card to its title bar, or expand it. */
   onMinimize: (s: Session, minimized: boolean) => void;
-  /** The hover copy: full recap and details below the usual content. */
+  /** The hover copy (and the strip's peek): what the card cuts off, shown in full. */
   expanded?: boolean;
   /** Selected with the keyboard (arrow keys). */
   focused?: boolean;
@@ -49,6 +57,18 @@ function recentSteps(trail: { label: string; count: number }[]) {
     out.unshift(t);
   }
   return out;
+}
+
+/** Whether the hover copy would show more than the card: a clamped or cut-off line, or steps
+ * and progress items left out (marked `data-more`). Only then does hovering open it. */
+function hasMore(card: HTMLElement): boolean {
+  if (card.querySelector("[data-more]")) return true;
+  const cut = card.querySelectorAll<HTMLElement>(
+    ".card-recap, .card-job-name, .card-job-output, .card-job-steps",
+  );
+  return [...cut].some(
+    (el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
+  );
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -120,9 +140,12 @@ export function SessionCard({
       onClick={() => onActivate(s)}
       // The title bar and PR links are controls (the fold toggle, opening a PR), so only the
       // rest of the body opens the hover copy, which would cover them; a minimised card, all
-      // title bar, never does.
+      // title bar, never does. Nor does a card that already shows everything.
       onMouseOver={(e) => {
-        const body = !folded && !(e.target as Element).closest(".card-head, .card-footer");
+        const body =
+          !folded &&
+          !(e.target as Element).closest(".card-head, .card-footer") &&
+          hasMore(e.currentTarget);
         if (body !== overBody.current) {
           overBody.current = body;
           onHover(s, body ? e.currentTarget : null);
@@ -149,13 +172,24 @@ export function SessionCard({
             {folded ? "▸" : "▾"}
           </button>
         )}
-        <span className="card-title">
+        {/* The prompt in the title's tooltip: on the body it would cover the hover copy. */}
+        <span
+          className="card-title"
+          title={!turn && s.last_prompt ? `You: ${s.last_prompt}` : undefined}
+        >
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>
         <span
           className={`chip card-status-block chip-${status}${status === "idle" && readyStale(s, now) ? " stale" : ""}`}
-          title={cache ? cacheDetail(cache) : undefined}
+          title={
+            [
+              cache && cacheDetail(cache),
+              [s.permission_mode, s.model, s.tag && `#${s.tag}`].filter(Boolean).join(" · "),
+            ]
+              .filter(Boolean)
+              .join("\n") || undefined
+          }
         >
           {closed ? closedLabel(s) : STATUS_LABEL[status]} · {elapsed(s.status_since, now)}
         </span>
@@ -169,7 +203,7 @@ export function SessionCard({
             </div>
           )}
           {/* A turn in progress: what you asked, how far along it is, and its recent steps.
-          The last answer is old news by now (it's on hover). */}
+          The last answer is old news by now. */}
           {turn && (
             <div className="card-turn-prompt" title={s.turn_note ?? s.last_prompt ?? undefined}>
               ▸ {s.turn_note ?? (s.last_prompt ? `You: ${s.last_prompt}` : "Working")}
@@ -189,7 +223,10 @@ export function SessionCard({
             </div>
           )}
           {turn && s.trail.length > 0 && (
-            <div className={`card-trail${expanded ? " full" : ""}`}>
+            <div
+              className={`card-trail${expanded ? " full" : ""}`}
+              data-more={!expanded && recentSteps(s.trail).length < s.trail.length ? "" : undefined}
+            >
               {(expanded ? s.trail : recentSteps(s.trail)).map((t, i) => (
                 <span key={i}>
                   {t.label}
@@ -209,43 +246,14 @@ export function SessionCard({
               </button>
             </div>
           )}
-          {/* Claude's last answer as written: the start on the card, all of it on hover. The
+          {/* Claude's last answer as written: the start on the card, more of it on hover. The
           question it ended on, if any, is pinned below so it's never clipped. */}
-          {(s.last_answer ?? s.recap) && (!turn || expanded) && (
-            <div className={`card-recap${expanded ? " full" : ""}${turn ? " previous" : ""}`}>
-              {turn && <div className="muted small">Last answer</div>}
-              {/* No blank lines: they only take room (saved answers may still have them). */}
-              {(s.last_answer ?? s.recap ?? "")
-                .split("\n")
-                .filter((l) => l.trim())
-                .join("\n")}
+          {(s.last_answer ?? s.recap) && !turn && (
+            <div className={`card-recap${expanded ? " full" : ""}`}>
+              {answerBody(s.last_answer ?? s.recap ?? "", s.question)}
             </div>
           )}
-          {s.question && !expanded && !turn && <div className="card-question">{s.question}</div>}
-          {expanded && (
-            <div className="card-more">
-              {s.last_prompt && !turn && (
-                <div>
-                  <span className="muted">You: </span>
-                  {s.last_prompt}
-                </div>
-              )}
-              {services.map((b, i) => (
-                <JobLine
-                  key={b.id || `bg${i}`}
-                  job={b}
-                  name={`⧗ ${jobName(b)}`}
-                  now={now}
-                  expanded
-                />
-              ))}
-              {cache && <div className="muted small">{cacheDetail(cache)}</div>}
-              <div className="muted small">
-                {[s.tag && `#${s.tag}`, s.model, s.permission_mode].filter(Boolean).join(" · ")}
-              </div>
-              <div className="muted small right-click-hint">Right-click for more</div>
-            </div>
-          )}
+          {s.question && !turn && <div className="card-question">{s.question}</div>}
         </>
       )}
       {/* Footer bands, kept when the card is minimised: jobs Claude will act on when they
@@ -281,7 +289,6 @@ export function SessionCard({
           {alerts.length > 0 && (
             <AlertBand
               alerts={alerts}
-              all={expanded}
               fresh={alerts.some((a) => isFresh(a.id))}
               onDismiss={(id) => onDismissAlert(s, id)}
             />
@@ -290,7 +297,12 @@ export function SessionCard({
             <div className="card-status">
               {services.length > 0 && (
                 <span
-                  title={`${plural(services.length, "background task")}:\n${services.map(jobName).join("\n")}`}
+                  title={[
+                    `${plural(services.length, "background task")}:`,
+                    ...services.map((b) =>
+                      b.last_line ? `${jobName(b)}\n   ${b.last_line}` : jobName(b),
+                    ),
+                  ].join("\n")}
                 >
                   ⧗ {services.length}
                 </span>
@@ -394,21 +406,18 @@ function PrLine({
 }
 
 /** The alert band: the newest alert with ✕ (the next one moves up when it's dismissed) and
- * "+N" for the others, which expands the band into a list, each with ✕, and "Dismiss all".
- * The hover copy (`all`) always lists them. */
+ * "+N" for the others, which expands the band into a list, each with ✕, and "Dismiss all". */
 function AlertBand({
   alerts,
-  all,
   fresh,
   onDismiss,
 }: {
   alerts: Alert[];
-  all: boolean;
   fresh: boolean;
   onDismiss: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const list = (all || open) && alerts.length > 1;
+  const list = open && alerts.length > 1;
   const rows = list ? alerts : alerts.slice(0, 1);
   const more = alerts.length - 1;
   return (
@@ -435,7 +444,7 @@ function AlertBand({
           </button>
         </div>
       ))}
-      {list && !all && (
+      {list && (
         <div className="alert-actions">
           <button className="alert-more" onClick={stop(() => setOpen(false))}>
             Fewer
@@ -498,7 +507,11 @@ function JobLine({
             )}
           </span>
         ))}
-      {!brief && more > 0 && <span className="card-job-progress muted">+{more} more</span>}
+      {!brief && more > 0 && (
+        <span className="card-job-progress muted" data-more="">
+          +{more} more
+        </span>
+      )}
       {!brief && job.last_line && <span className="card-job-output">{job.last_line}</span>}
     </div>
   );

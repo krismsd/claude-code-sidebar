@@ -343,11 +343,6 @@ body,
   row-gap: 1px;
 }
 
-.card-recap.previous {
-  margin-top: 4px;
-  opacity: 0.8;
-}
-
 /* Status band, the last footer band: counts and markers that are only information (services,
    agents, an expired cache, a compaction), alert badges on the right. */
 .card-status {
@@ -1406,17 +1401,6 @@ button {
   overflow: hidden;
 }
 
-.card-more {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .session-menu {
   position: fixed;
   z-index: 50;
@@ -1645,10 +1629,6 @@ button {
 .peek .card {
   border-radius: 0 6px 6px 0;
   box-shadow: none;
-}
-
-.peek .right-click-hint {
-  display: none;
 }
 
 /* ---- settings window (M16) ---- */

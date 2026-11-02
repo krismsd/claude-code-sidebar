@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Background, Progress, Session, UiState } from "./types";
 import {
+  answerBody,
   arrange,
   cacheState,
   dropIndex,
@@ -305,5 +306,21 @@ describe("job progress", () => {
     expect(jobTiming(b, 12 * 60_000)).toBe("12m · quiet 12m");
     expect(jobTiming({ ...b, output_at: 11.5 * 60_000 }, 12 * 60_000)).toBe("12m");
     expect(jobTiming({ ...b, seen_at: null }, 1)).toBeNull();
+  });
+});
+
+describe("answerBody", () => {
+  it("drops blank lines", () => {
+    expect(answerBody("Done.\n\n• one\n\n• two", null)).toBe("Done.\n• one\n• two");
+  });
+  it("takes the pinned question off the end", () => {
+    expect(answerBody("Fixed the bug.\n\nWant me to push?", "Want me to push?")).toBe(
+      "Fixed the bug.",
+    );
+    expect(answerBody("Fixed it. Want me to push?", "Want me to push?")).toBe("Fixed it.");
+    expect(answerBody("Fixed it.\n• Push now?", "Push now?")).toBe("Fixed it.");
+  });
+  it("keeps the answer when the question isn't at its end", () => {
+    expect(answerBody("Push now? Done.", "Push now?")).toBe("Push now? Done.");
   });
 });

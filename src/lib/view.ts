@@ -164,8 +164,23 @@ const STEP_MARK: Record<string, string> = {
 
 /** A progress item's line: its stages ("Build ✓ ─ Dev ● ─ TST ○"), else a bar for a count
  * ("▰▰▰▱▱▱▱▱ 14/40"), else its state; then the detail. */
-export function progressLine(p: Progress): string {
+/** "12m left", or "over by 3m" once the expected end has passed. */
+export function countdown(until: number, now: number): string {
+  return until > now ? `${elapsed(now, until)} left` : `over by ${elapsed(until, now)}`;
+}
+
+const bar = (frac: number) => {
+  const filled = Math.round(Math.min(1, Math.max(0, frac)) * 8);
+  return `${"▰".repeat(filled)}${"▱".repeat(8 - filled)}`;
+};
+
+/** One progress item as a line. With an end time (`until`) and `now`, a countdown: a time bar
+ * from when `until` was given (else `seen`, when the job was first seen) when there's nothing
+ * else to show, otherwise appended. */
+export function progressLine(p: Progress, now?: number, seen?: number | null): string {
   const parts: string[] = [];
+  const timed = p.until != null && now !== undefined && p.state !== "done";
+  const start = p.since ?? seen;
   if (p.steps.length > 0) {
     const at = p.at === null ? -1 : p.steps.indexOf(p.at);
     const finished = p.state === "done";
@@ -184,11 +199,19 @@ export function progressLine(p: Progress): string {
     parts.push(`${p.done ?? 0}/${p.total}+`);
   } else if (p.total !== null && p.total > 0) {
     const done = Math.min(p.done ?? 0, p.total);
-    const filled = Math.round((done / p.total) * 8);
-    parts.push(`${"▰".repeat(filled)}${"▱".repeat(8 - filled)} ${done}/${p.total}`);
+    parts.push(`${bar(done / p.total)} ${done}/${p.total}`);
+  } else if (timed) {
+    const left = countdown(p.until!, now!);
+    parts.push(
+      start != null && p.until! > start
+        ? `${bar((now! - start) / (p.until! - start))} ${left}`
+        : left,
+    );
   } else if (p.state) {
     parts.push(p.state);
   }
+  if (timed && (p.steps.length > 0 || (p.total !== null && p.total > 0)))
+    parts.push(countdown(p.until!, now!));
   if (p.detail) parts.push(p.detail);
   return parts.join(" · ");
 }

@@ -5,6 +5,9 @@
 # nothing when the item's line is the same as on its last call from the same script.
 # Usage: cc-progress [--item NAME] [--steps A,B,C --at B] [--done N --total M]
 #                    [--state running|waiting|blocked|failed|done] [--detail TEXT] [--url URL]
+#                    [--until +30m|+1h30m|17:00|2026-11-03T09:00|EPOCH]
+# --until is when the job should finish, for a countdown: give it once, on the first call (a
+# relative +30m would move on every call). A clock time already past today means tomorrow.
 
 esc() {
   local s=$1
@@ -12,6 +15,29 @@ esc() {
   s=${s//\"/\\\"}
   s=${s//[[:cntrl:]]/ }
   printf '"%s"' "$s"
+}
+
+# --until's value as epoch milliseconds, or nothing if it can't be read.
+until_ms() {
+  local v=$1 now secs=0 t
+  now=$(date +%s)
+  if [[ "$v" =~ ^\+([0-9]+[hms])+$ ]]; then
+    t=${v#+}
+    while [[ "$t" =~ ^([0-9]+)([hms])(.*)$ ]]; do
+      case "${BASH_REMATCH[2]}" in
+        h) secs=$((secs + BASH_REMATCH[1] * 3600)) ;;
+        m) secs=$((secs + BASH_REMATCH[1] * 60)) ;;
+        s) secs=$((secs + BASH_REMATCH[1])) ;;
+      esac
+      t=${BASH_REMATCH[3]}
+    done
+    echo $(((now + secs) * 1000))
+  elif [[ "$v" =~ ^[0-9]{9,10}$ ]]; then
+    echo $((v * 1000))
+  elif t=$(date -d "$v" +%s 2>/dev/null); then
+    [[ "$v" =~ ^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?$ ]] && [ "$t" -le "$now" ] && t=$((t + 86400))
+    echo $((t * 1000))
+  fi
 }
 
 item='' fields=()
@@ -22,6 +48,8 @@ while [ $# -gt 0 ]; do
     --item) item=$val; fields+=("\"item\":$(esc "$val")") ;;
     --at | --state | --detail | --url) fields+=("\"${key#--}\":$(esc "$val")") ;;
     --done | --total) [[ "$val" =~ ^[0-9]+$ ]] && fields+=("\"${key#--}\":$val") ;;
+    # With when it was given (the job's start, on its first call), for the time bar.
+    --until) u=$(until_ms "$val") && [ -n "$u" ] && fields+=("\"until\":$u,\"since\":$(($(date +%s) * 1000))") ;;
     --steps)
       steps=''
       IFS=',' read -ra names <<<"$val"

@@ -310,6 +310,7 @@ Generic progress for background jobs (SPEC §3.18): the job reports it, the side
 - [x] `dev/bin/cc-progress`: prints `##cc-progress {json}`, always exits 0, skips unchanged lines per item and parent PID. Installed by `install.sh`.
 - [x] `jobs.rs` parses progress lines (merged per item); `last_line` skips them; a task with progress is a job.
 - [x] Card: steps, bar or state per item, ↗ link, colours; blocked/failed alerts.
+- [x] Countdown (2026-11-02): `--until` (duration, clock, ISO, epoch) → `until`; time bar or "18m left" / "over by 3m"; the session note suggests `--until +30m` for jobs with a known duration (e.g. a 30-minute screen recording).
 - [x] Background agents: their TodoWrite becomes their job line's progress.
 - [x] SessionStart answered with `additionalContext` describing `cc-progress`.
 - [x] Sandbox test (headless sessions given the same SessionStart context through a project-local hook): unprompted, a deploy watcher reported its stages (`--steps … --at … --state`, done at the end, with the run URL), a 25-file batch reported `--done n --total 25`, and a static file server didn't use it. Repeats were skipped (4 progress lines in 14 polls).

@@ -2230,3 +2230,17 @@ fn an_end_alone_makes_no_card() {
     ));
     assert!(st.get("x").is_none());
 }
+
+#[test]
+fn a_countdown_is_given_once() {
+    use crate::session::Progress;
+    let line = |s: &str| serde_json::from_str::<Progress>(s).unwrap();
+    let first = line(r#"{"until":1793600000000,"since":1793598200000,"detail":"recording"}"#);
+    let later = line(r#"{"detail":"recording, 40 frames"}"#).after(&first);
+    assert_eq!(later.until, Some(1_793_600_000_000));
+    assert_eq!(later.since, Some(1_793_598_200_000));
+    assert_eq!(later.detail.as_deref(), Some("recording, 40 frames"));
+    // A new end time replaces it.
+    let moved = line(r#"{"until":1793600600000}"#).after(&later);
+    assert_eq!(moved.until, Some(1_793_600_600_000));
+}

@@ -284,6 +284,8 @@ describe("job progress", () => {
     detail: null,
     url: null,
     grew: false,
+    until: null,
+    since: null,
     ...over,
   });
 
@@ -306,6 +308,26 @@ describe("job progress", () => {
     expect(progressLine(p({ done: 3, total: 4, grew: true, detail: "deploy" }))).toBe(
       "3/4+ · deploy",
     );
+  });
+
+  it("counts down to a job's expected end", () => {
+    const min = 60_000;
+    // A 30-minute recording, 12 minutes in.
+    const rec = p({ until: 30 * min, detail: "recording" });
+    expect(progressLine(rec, 12 * min, 0)).toBe("▰▰▰▱▱▱▱▱ 18m left · recording");
+    expect(progressLine(rec, 33 * min, 0)).toBe("▰▰▰▰▰▰▰▰ over by 3m · recording");
+    // Not knowing when it started: just the time left.
+    expect(progressLine(rec, 12 * min, null)).toBe("18m left · recording");
+    // Timed from when the job gave its end, not when the sidebar first saw it.
+    expect(progressLine({ ...rec, since: 0 }, 12 * min, 10 * min)).toBe(
+      "▰▰▰▱▱▱▱▱ 18m left · recording",
+    );
+    // With a count, appended; finished, none; without `now`, as before.
+    expect(progressLine(p({ until: 30 * min, done: 2, total: 4 }), 12 * min, 0)).toBe(
+      "▰▰▰▰▱▱▱▱ 2/4 · 18m left",
+    );
+    expect(progressLine(p({ until: 30 * min, state: "done" }), 12 * min, 0)).toBe("done");
+    expect(progressLine(rec)).toBe("recording");
   });
 
   it("times a job and says when its output went quiet", () => {

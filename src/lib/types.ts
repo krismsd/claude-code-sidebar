@@ -291,4 +291,8 @@ export interface Progress {
   url: string | null;
   /** The total has grown: the count only covers what was known so far. */
   grew: boolean;
+  /** When it's expected to finish (epoch ms), for a countdown. */
+  until: number | null;
+  /** When `until` was given: the countdown's start. */
+  since: number | null;
 }

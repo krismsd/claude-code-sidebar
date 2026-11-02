@@ -203,6 +203,13 @@ pub struct Progress {
     /// (a pipeline whose later jobs are listed once they start), so it isn't shown as a bar.
     #[serde(default)]
     pub grew: bool,
+    /// When it's expected to finish (epoch ms): a job with a known duration (a recording, a
+    /// soak test, a timed wait) shows a countdown.
+    #[serde(default)]
+    pub until: Option<u64>,
+    /// When `until` was given (epoch ms): the countdown's start.
+    #[serde(default)]
+    pub since: Option<u64>,
 }
 
 impl Progress {
@@ -210,6 +217,11 @@ impl Progress {
     pub fn after(mut self, before: &Progress) -> Progress {
         self.grew |=
             before.grew || matches!((before.total, self.total), (Some(a), Some(b)) if b > a);
+        // Given once at the start; later lines needn't repeat it.
+        if self.until.is_none() {
+            self.until = before.until;
+            self.since = before.since;
+        }
         self
     }
 

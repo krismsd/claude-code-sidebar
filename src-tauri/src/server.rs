@@ -76,7 +76,9 @@ with `cc-progress` on every poll: `cc-progress --steps Build,Dev,TST --at Dev --
 --item NAME only when one job tracks several things. Cover the whole run from the start: take \
 the stages or total from its definition (the workflow file, the plan), since pipelines often list \
 later jobs only once they start, and a count of those looks nearly done at every stage. It prints \
-one line into the output, skips repeats and never fails. Not for servers or one-off commands.";
+one line into the output, skips repeats and never fails. A job that runs for a known time (a \
+recording, a soak test, a timed wait) gets a countdown: add `--until +30m` (its expected duration) \
+on its first call. Not for servers or one-off commands.";
 
 pub fn now_ms() -> Ms {
     SystemTime::now()

@@ -505,7 +505,12 @@ function JobLine({
         shown.map((p, i) => (
           <span key={p.item ?? i} className={`card-job-progress state-${p.state ?? "running"}`}>
             {p.item && <span className="card-job-item">{p.item}</span>}
-            <span className="card-job-steps">{progressLine(p)}</span>
+            <span
+              className="card-job-steps"
+              title={p.until ? `Expected to finish ${clock(p.until)}` : undefined}
+            >
+              {progressLine(p, now, job.seen_at)}
+            </span>
             {p.url && (
               <button
                 className="card-job-link"

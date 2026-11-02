@@ -279,6 +279,7 @@ describe("job progress", () => {
     state: null,
     detail: null,
     url: null,
+    grew: false,
     ...over,
   });
 
@@ -298,6 +299,9 @@ describe("job progress", () => {
     );
     expect(progressLine(p({ done: 50, total: 40 }))).toBe("▰▰▰▰▰▰▰▰ 40/40");
     expect(progressLine(p({ state: "waiting", detail: "queued" }))).toBe("waiting · queued");
+    expect(progressLine(p({ done: 3, total: 4, grew: true, detail: "deploy" }))).toBe(
+      "3/4+ · deploy",
+    );
   });
 
   it("times a job and says when its output went quiet", () => {

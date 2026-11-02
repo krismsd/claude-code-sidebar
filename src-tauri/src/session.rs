@@ -199,9 +199,20 @@ pub struct Progress {
     pub detail: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    /// The total has grown since an earlier line: the count only covers what was known so far
+    /// (a pipeline whose later jobs are listed once they start), so it isn't shown as a bar.
+    #[serde(default)]
+    pub grew: bool,
 }
 
 impl Progress {
+    /// `self` replaces `before` for the same item: keep the mark of a total that grew.
+    pub fn after(mut self, before: &Progress) -> Progress {
+        self.grew |=
+            before.grew || matches!((before.total, self.total), (Some(a), Some(b)) if b > a);
+        self
+    }
+
     /// A background agent's task list as progress.
     fn from_todos(t: &Todos) -> Progress {
         Progress {
@@ -655,7 +666,7 @@ impl Session {
                 alert = Some(format!("{what}: {detail}"));
             }
             match was {
-                Some(i) => merged[i] = p,
+                Some(i) => merged[i] = p.after(&merged[i]),
                 None => merged.push(p),
             }
         }

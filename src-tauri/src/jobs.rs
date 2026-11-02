@@ -226,7 +226,7 @@ pub fn progress_in(text: &str) -> Vec<Progress> {
             .for_each(|s| *s = crate::events::truncate(s, 40));
         p.steps.truncate(12);
         match out.iter_mut().find(|q| q.item == p.item) {
-            Some(q) => *q = p,
+            Some(q) => *q = p.after(q),
             None => out.push(p),
         }
     }
@@ -303,6 +303,22 @@ mod tests {
         assert_eq!(p[1].url, None);
         assert_eq!(last_line(out).as_deref(), Some("3 runs"));
         assert_eq!(last_line("##cc-progress {}\n"), None);
+        assert!(!p[0].grew && !p[1].grew);
+    }
+
+    #[test]
+    fn a_growing_total_is_marked() {
+        let out = concat!(
+            "##cc-progress {\"done\":2,\"total\":3}\n",
+            "##cc-progress {\"done\":3,\"total\":4}\n",
+            "##cc-progress {\"done\":3,\"total\":4}\n",
+        );
+        let p = progress_in(out);
+        assert!(p[0].grew);
+        // Once grown, it stays marked even when a later tail no longer shows the growth.
+        let later = progress_in("##cc-progress {\"done\":4,\"total\":4}\n");
+        assert!(!later[0].grew);
+        assert!(later[0].clone().after(&p[0]).grew);
     }
 
     #[test]

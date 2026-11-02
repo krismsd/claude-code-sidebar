@@ -272,4 +272,6 @@ export interface Progress {
   state: "running" | "waiting" | "blocked" | "failed" | "done" | string | null;
   detail: string | null;
   url: string | null;
+  /** The total has grown: the count only covers what was known so far. */
+  grew: boolean;
 }

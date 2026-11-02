@@ -172,6 +172,10 @@ export function progressLine(p: Progress): string {
         })
         .join(" ─ "),
     );
+  } else if (p.total !== null && p.total > 0 && p.grew) {
+    // A total that grows (later stages listed once they start) would make the bar look nearly
+    // full throughout: just the count, open-ended.
+    parts.push(`${p.done ?? 0}/${p.total}+`);
   } else if (p.total !== null && p.total > 0) {
     const done = Math.min(p.done ?? 0, p.total);
     const filled = Math.round((done / p.total) * 8);

@@ -2219,3 +2219,14 @@ fn todos_from_the_sidebar() {
     // Ids aren't reused.
     assert_eq!(st.todo_add("/p/alpha", "four".into(), None, 4), Some(4));
 }
+
+#[test]
+fn an_end_alone_makes_no_card() {
+    // `claude mcp add` and the like send SessionEnd for a session never started.
+    let mut st = Store::default();
+    assert!(!st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "x"})),
+        1
+    ));
+    assert!(st.get("x").is_none());
+}

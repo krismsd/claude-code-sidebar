@@ -49,9 +49,12 @@ impl Store {
     /// Apply a hook event. Returns false if it was ignored.
     pub fn apply(&mut self, hook: &Hook, now: Ms) -> bool {
         let id = &hook.common.session_id;
-        // Our own calls, and unknown events for sessions we haven't seen, don't make cards.
+        // Our own calls, and unknown events for sessions we haven't seen, don't make cards. Nor
+        // does the end of one never seen: `claude mcp …` and other one-off commands send only
+        // SessionEnd, and there's nothing to show for it.
         if hook.meta.internal
-            || matches!(hook.event, Event::Other) && !self.sessions.contains_key(id)
+            || matches!(hook.event, Event::Other | Event::SessionEnd { .. })
+                && !self.sessions.contains_key(id)
         {
             return false;
         }

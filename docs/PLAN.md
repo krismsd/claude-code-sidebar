@@ -328,7 +328,7 @@ A running to-do per project (SPEC §3.19), replacing the notepad the user kept w
 - [x] `/mcp` endpoint (`todos.rs`): three tools, caller → project by session id, PID, folder. Unit tests.
 - [x] `dev/bin/cc-mcp` relay, installed by `install.sh` (not registered).
 - [x] Sandbox test through `--mcp-config` (2026-11-02): a real session added two items, marked one doing and listed them; its own session id resolved it (not the parent's). Panel: add, tick, copy (→ sent), links. App unreachable: requests get an error reply, notifications nothing.
-- [ ] User-level registration (needs the user's approval).
+- [x] User-level registration (2026-11-02, approved): `claude mcp add --scope user cc-sidebar -- ~/.local/bin/cc-mcp`; connects.
 
 ## Fixes (2026-10-30)
 

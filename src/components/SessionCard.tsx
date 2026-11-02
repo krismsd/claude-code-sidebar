@@ -20,7 +20,8 @@ interface Props {
   onActivate: (s: Session) => void;
   onDismissAlert: (s: Session, alertId: number) => void;
   onAnswer: (s: Session, allow: boolean) => void;
-  /** Hover in/out, with the card element so the expanded copy can be drawn over it. */
+  /** Hover in/out, with the card element so the expanded copy can be drawn over it. Called
+   * again on every movement over the body, so the wait for the copy counts from a rest. */
   onHover: (s: Session, el: HTMLElement | null) => void;
   /** Right-click: the session menu at the cursor. */
   onMenu: (s: Session, x: number, y: number) => void;
@@ -150,6 +151,9 @@ export function SessionCard({
           overBody.current = body;
           onHover(s, body ? e.currentTarget : null);
         }
+      }}
+      onMouseMove={(e) => {
+        if (overBody.current) onHover(s, e.currentTarget);
       }}
       onMouseLeave={() => {
         overBody.current = false;

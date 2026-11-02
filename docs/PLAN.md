@@ -336,6 +336,7 @@ Generic progress for background jobs (SPEC §3.18): the job reports it, the side
 ## Hover copy trimmed (2026-11-02)
 
 - [x] The cards now show most of what hovering used to add (SPEC §3.12). Hovering opens the expanded copy only when the card cuts something off (answer past 5 lines, steps, job progress, a cut job line); otherwise it would only cover the cards below. Prompt, permission mode, model and tag, and service output moved into tooltips; the previous answer, cache line, alert list and right-click hint are gone from the hover copy. The pinned question shows on the hover copy too (it was hidden there, so a long answer could lose it under the 12-line clamp) and is taken off the end of the answer (`answerBody`). Seen on screen: a clipped card opens the copy; the prompt tooltip first sat on the answer, where it covered the copy, so it's on the title.
+- [x] Hover timing: the copy opens after the pointer rests 800 ms on a card's body (restarted by every movement), not 300 ms after entering it, and moving to another card closes the copy instead of swapping to it (a chain that showed the hidden cards under the copy in turn). The strip's peek keeps its 300 ms.
 
 ## Housekeeping (2026-10-17, v0.2.0)
 - [x] Test data cleared from the sidebar (sandbox projects/sessions) and `%APPDATA%\cc-sidebar` (dev backups).

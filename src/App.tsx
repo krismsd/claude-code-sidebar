@@ -29,8 +29,12 @@ const OUTCOME_MESSAGE: Partial<Record<Outcome, string>> = {
 };
 
 const FLASH_MS = 4000;
-const HOVER_OPEN_MS = 300;
-/** Between leaving one card and entering the next, so the overlay doesn't blink. */
+/** How long the pointer must rest on a card's body before its expanded copy opens. Counted from
+ * when it stops, not when it enters, so passing over the sidebar never opens one; longer than
+ * the browser's tooltip delay would be pointless, shorter and it opens while you glance. */
+const HOVER_OPEN_MS = 800;
+/** Between leaving a card's body and coming back to it (via its title bar, say), so the
+ * overlay doesn't blink. */
 const HOVER_CLOSE_MS = 60;
 
 /** The hovered card drawn expanded, exactly over the original (SPEC §3.12). It ignores the
@@ -184,19 +188,26 @@ function App() {
 
   const report = useCallback((e: unknown) => setToast(String(e)), []);
 
-  // Hover: the expanded card opens after a short pause; while one is open, moving to another
-  // card switches straight away.
+  // Hover: the expanded card opens once the pointer has rested on a card's body (each movement
+  // calls this again and restarts the wait). Every card needs its own rest: moving to another
+  // card closes the open copy rather than switching to that card's, since the copy covers the
+  // cards below and they'd take turns appearing as the pointer moves down.
   const onHover = (s: Session, el: HTMLElement | null) => {
     clearTimeout(openTimer.current);
-    clearTimeout(closeTimer.current);
-    if (el && dragging.current) return;
     if (!el) {
+      clearTimeout(closeTimer.current);
       closeTimer.current = setTimeout(() => setHover(null), HOVER_CLOSE_MS);
       return;
     }
+    if (dragging.current) return;
+    if (hover?.id === s.session_id) {
+      clearTimeout(closeTimer.current);
+      return;
+    }
+    clearTimeout(closeTimer.current);
+    if (hover) setHover(null);
     const next = { id: s.session_id, el };
-    if (hover) setHover(next);
-    else openTimer.current = setTimeout(() => setHover(next), HOVER_OPEN_MS);
+    openTimer.current = setTimeout(() => setHover(next), HOVER_OPEN_MS);
   };
 
   // Our own right-click menu replaces the browser's (text boxes keep theirs).

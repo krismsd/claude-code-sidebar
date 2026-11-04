@@ -3,6 +3,7 @@
 //! which). Past that, the next prompt sends the whole context again at full price. Every 30 s,
 //! for sessions not removed, read the end of the transcript (over \\wsl.localhost, only when
 //! it has grown) for the last request's time, lifetime and size, and any compaction since.
+//! Sessions mid-turn are read every 5 s: pressing Escape fires no hook, and only shows here.
 use crate::server::{Ctx, publish};
 use crate::session::Ms;
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,8 @@ pub struct Compacted {
 pub struct Scan {
     pub cache: Option<Cache>,
     pub compacted: Option<Compacted>,
+    /// The user pressed Escape after the last request (Claude Code fires no hook for that).
+    pub interrupted: Option<Ms>,
 }
 
 /// Read a transcript's tail (JSONL; the first line may be cut).
@@ -70,6 +73,7 @@ pub fn scan(text: &str) -> Scan {
                     ttl = Some(FIVE_MIN);
                 }
                 let Some(at) = at else { continue };
+                out.interrupted = None;
                 out.cache = Some(Cache {
                     at,
                     ttl: ttl.unwrap_or(FIVE_MIN),
@@ -79,7 +83,11 @@ pub fn scan(text: &str) -> Scan {
                 });
                 out.compacted = None;
             }
-            Some("user") if is_prompt(&v) => out.compacted = None,
+            Some("user") if is_interrupt(&v) => out.interrupted = at,
+            Some("user") if is_prompt(&v) => {
+                out.compacted = None;
+                out.interrupted = None;
+            }
             Some("system") if v["subtype"] == "compact_boundary" => {
                 let m = &v["compactMetadata"];
                 out.compacted = at.map(|at| Compacted {
@@ -106,6 +114,19 @@ pub fn scan(text: &str) -> Scan {
         }
     }
     out
+}
+
+/// Claude Code's note that the user pressed Escape: "[Request interrupted by user]" (or "… for
+/// tool use").
+fn is_interrupt(v: &Value) -> bool {
+    let starts = |t: &str| t.starts_with("[Request interrupted by user");
+    match &v["message"]["content"] {
+        Value::String(t) => starts(t),
+        Value::Array(parts) => parts
+            .iter()
+            .any(|p| p["type"] == "text" && p["text"].as_str().is_some_and(starts)),
+        _ => false,
+    }
 }
 
 /// A prompt the user typed (not a tool result, an injected notice or a compaction summary).
@@ -160,13 +181,22 @@ fn read(path: &std::path::Path, len: u64) -> Option<String> {
 pub async fn watch(ctx: Ctx) {
     // Transcript length when last read, by session: unchanged files aren't read again.
     let mut seen: HashMap<String, u64> = HashMap::new();
+    let mut pass: u64 = 0;
     loop {
         let todo = ctx.store.lock().unwrap().transcripts();
+        let full = pass.is_multiple_of(6);
         let ctx2 = ctx.clone();
         seen = tauri::async_runtime::spawn_blocking(move || {
             let mut changed = false;
             let mut next = HashMap::new();
-            for (id, distro, transcript) in todo {
+            for (id, distro, transcript, busy) in todo {
+                // Mid-turn sessions every pass (an Escape shows only here); the rest every 30 s.
+                if !busy && !full {
+                    if let Some(len) = seen.get(&id) {
+                        next.insert(id.clone(), *len);
+                    }
+                    continue;
+                }
                 let path = crate::project::windows_path(&distro, &transcript);
                 let Some(len) = std::fs::metadata(&path).ok().map(|m| m.len()) else {
                     continue;
@@ -188,7 +218,8 @@ pub async fn watch(ctx: Ctx) {
         })
         .await
         .unwrap_or_default();
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        pass += 1;
+        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
@@ -231,6 +262,25 @@ mod tests {
         // Subagents' requests are another cache.
         let side = five.replace("\"isSidechain\":false", "\"isSidechain\":true");
         assert_eq!(scan(&side).cache, None);
+    }
+
+    #[test]
+    fn escape_after_the_last_request() {
+        let esc = r#"{"type":"user","timestamp":"2026-10-26T01:10:05.000Z","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}}"#;
+        let t = [
+            assistant("2026-10-26T01:10:00.000Z", 0, 0, 1000),
+            esc.into(),
+        ]
+        .join("\n");
+        assert_eq!(scan(&t).interrupted, parse_time("2026-10-26T01:10:05.000Z"));
+        // The next prompt (or answer) is a new turn.
+        let later = format!(
+            "{t}\n{}",
+            r#"{"type":"user","timestamp":"2026-10-26T01:11:00.000Z","message":{"role":"user","content":"try again"}}"#
+        );
+        assert_eq!(scan(&later).interrupted, None);
+        let tool = esc.replace("by user]", "by user for tool use]");
+        assert!(scan(&tool).interrupted.is_some());
     }
 
     #[test]

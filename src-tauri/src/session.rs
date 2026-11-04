@@ -944,8 +944,7 @@ impl Session {
             } => {
                 self.pending_permission = None;
                 if *is_interrupt {
-                    self.current_tool = None;
-                    self.set_status(Status::NeedsInput, now);
+                    self.interrupted(now, now);
                 } else {
                     let n = self.tool_failures.entry(tool_name.clone()).or_insert(0);
                     *n += 1;
@@ -1112,6 +1111,29 @@ impl Session {
         if self.status != Status::Idle && self.closed_reason.as_deref() != Some("idle") {
             self.alerts.retain(|a| a.kind != AlertKind::Finished);
         }
+    }
+
+    /// The user pressed Escape (`at`, as the transcript or a hook says): the turn is over and
+    /// Claude Code fires no Stop. Ready again, unless that was an earlier turn's interrupt.
+    pub fn interrupted(&mut self, at: Ms, now: Ms) -> bool {
+        // Clock differences between WSL and Windows; small, so an Escape just before the next
+        // prompt isn't taken for that turn's.
+        const SLACK: Ms = 500;
+        let turn = matches!(
+            self.status,
+            Status::Working | Status::NeedsPermission | Status::NeedsInput
+        );
+        if !turn || at + SLACK < self.status_since {
+            return false;
+        }
+        self.current_tool = None;
+        self.pending_permission = None;
+        self.in_turn = false;
+        self.subagents_running = self.background.iter().filter(|b| b.agent).count() as u32;
+        self.last_stop_at = Some(at.min(now));
+        self.set_status(Status::Idle, now);
+        self.status_since = at.min(now);
+        true
     }
 
     fn background_agent_event(&mut self, agent_id: &str, event: &Event, now: Ms) {

@@ -2244,3 +2244,29 @@ fn a_countdown_is_given_once() {
     let moved = line(r#"{"until":1793600600000}"#).after(&later);
     assert_eq!(moved.until, Some(1_793_600_600_000));
 }
+
+#[test]
+fn escape_ends_the_turn() {
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("UserPromptSubmit"), 1_000, &th());
+    s.apply(&ours("PreToolUse"), 2_000, &th());
+    // An earlier turn's Escape changes nothing.
+    assert!(!s.interrupted(400, 3_000));
+    assert_eq!(s.status, Status::Working);
+    // This turn's: ready, timed from the Escape.
+    assert!(s.interrupted(2_500, 3_000));
+    assert_eq!((s.status, s.status_since), (Status::Idle, 2_500));
+    assert_eq!(s.current_tool, None);
+    assert!(!s.interrupted(2_600, 3_000), "already ready");
+    // Escape during a tool: Claude Code says so in a hook.
+    s.apply(&ours("UserPromptSubmit"), 4_000, &th());
+    s.apply(
+        &fx_with(
+            "PostToolUseFailure",
+            serde_json::json!({"session_id": SID, "is_interrupt": true}),
+        ),
+        5_000,
+        &th(),
+    );
+    assert_eq!(s.status, Status::Idle);
+}

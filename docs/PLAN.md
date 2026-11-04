@@ -330,6 +330,7 @@ A running to-do per project (SPEC §3.19), replacing the notepad the user kept w
 - [x] `dev/bin/cc-mcp` relay, installed by `install.sh` (not registered).
 - [x] Sandbox test through `--mcp-config` (2026-11-02): a real session added two items, marked one doing and listed them; its own session id resolved it (not the parent's). Panel: add, tick, copy (→ sent), links. App unreachable: requests get an error reply, notifications nothing.
 - [x] A ready session waiting on background agents or jobs looked the same as one waiting for the user. It now shows a "waiting" pill (faint blue stripes; its first outline stood out too much) and counts as busy; from the first item on the to-do list.
+- [x] Escape mid-turn left the card "working": no hook fires for it. The transcript's "[Request interrupted by user]" now ends the turn (mid-turn transcripts read every 5 s).
 - [x] `claude mcp add`/`get` sent a lone SessionEnd (with the calling session's tag and PID), which made a "New session" card. SessionEnd for a session never seen now makes no card.
 - [x] User-level registration (2026-11-02, approved): `claude mcp add --scope user cc-sidebar -- ~/.local/bin/cc-mcp`; connects.
 

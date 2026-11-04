@@ -656,7 +656,8 @@ impl Store {
     }
 
     /// Sessions not removed, with a transcript: (session id, distro, transcript path).
-    pub fn transcripts(&self) -> Vec<(String, String, String)> {
+    /// (session id, distro, transcript path, mid-turn) for sessions not removed.
+    pub fn transcripts(&self) -> Vec<(String, String, String, bool)> {
         self.sessions
             .values()
             .filter(|s| !s.is_removed())
@@ -666,6 +667,10 @@ impl Store {
                     s.session_id.clone(),
                     s.distro.clone().unwrap_or_else(|| "Ubuntu".into()),
                     t,
+                    matches!(
+                        s.status,
+                        Status::Working | Status::NeedsPermission | Status::NeedsInput
+                    ),
                 ))
             })
             .collect()
@@ -678,9 +683,12 @@ impl Store {
         };
         // A tail without any request (a long tool output) says nothing new about the cache.
         let cache = scan.cache.or_else(|| s.cache.clone());
-        let changed = s.cache != cache || s.compacted != scan.compacted;
+        let mut changed = s.cache != cache || s.compacted != scan.compacted;
         s.cache = cache;
         s.compacted = scan.compacted;
+        if let Some(at) = scan.interrupted {
+            changed |= s.interrupted(at, crate::server::now_ms());
+        }
         changed
     }
 

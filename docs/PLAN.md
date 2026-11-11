@@ -332,6 +332,7 @@ A running to-do per project (SPEC §3.19), replacing the notepad the user kept w
 - [x] A ready session waiting on background agents or jobs looked the same as one waiting for the user. It now shows a "waiting" pill (faint blue stripes; its first outline stood out too much) and counts as busy; from the first item on the to-do list.
 - [x] Escape mid-turn left the card "working": no hook fires for it. The transcript's "[Request interrupted by user]" now ends the turn (mid-turn transcripts read every 5 s).
 - [x] `claude mcp add`/`get` sent a lone SessionEnd (with the calling session's tag and PID), which made a "New session" card. SessionEnd for a session never seen now makes no card.
+- [x] A session ending its turn on a background build showed "ready" for the few seconds Haiku took to label it a job, then "waiting". Before the label, anything that doesn't look like a service now counts as a job.
 - [x] User-level registration (2026-11-02, approved): `claude mcp add --scope user cc-sidebar -- ~/.local/bin/cc-mcp`; connects.
 
 ## Fixes (2026-10-30)

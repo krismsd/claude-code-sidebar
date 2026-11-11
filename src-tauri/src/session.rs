@@ -269,13 +269,6 @@ pub fn looks_service(description: &str, command: &str) -> bool {
         || (!waits && APP_PART.iter().any(|w| words.contains(w)))
 }
 
-/// First guess, before Haiku's label: does this background command look like Claude waiting
-/// for something to finish (a deploy watcher, a poll loop) rather than a service?
-pub fn looks_awaited(description: &str, command: &str) -> bool {
-    let d = description.to_lowercase();
-    !looks_service(description, command) && WAIT_WORDS.iter().any(|w| d.contains(w))
-}
-
 /// A prompt Claude Code injected (`<task-notification>`, `<agent-message>`, …) rather than one
 /// the user typed: they start with a tag.
 pub fn injected(prompt: &str) -> bool {
@@ -284,7 +277,9 @@ pub fn injected(prompt: &str) -> bool {
 
 /// Is a background task a job Claude waits on? Agents always are. Otherwise Haiku's label for
 /// this task decides; without one, services (by their wording) aren't, and for the rest
-/// Haiku's verdict on the session, else the guess from the wording, decides.
+/// Haiku's verdict on the session decides, else they are: Claude runs builds, tests and
+/// watchers in the background to act on them, and guessing "job" until the label comes keeps
+/// the card from showing "ready" for the seconds Haiku takes.
 /// A background item Claude Code keeps itself rather than a command: no command, and its
 /// description says what it listens for ("live updates for artifact …", "(re-armed on
 /// session resume)").
@@ -313,8 +308,7 @@ fn awaited(
     if let Some(label) = label {
         return label;
     }
-    !looks_service(description, command)
-        && haiku.unwrap_or_else(|| looks_awaited(description, command))
+    !looks_service(description, command) && haiku.unwrap_or(true)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,8 +1,6 @@
 //! State machine tests driven by real hook payloads captured in dev/fixtures/ (M1 spikes).
 use crate::events::{Event, Hook, HookMeta};
-use crate::session::{
-    AlertKind, Session, Status, Thresholds, first_sentence, looks_awaited, recap_text,
-};
+use crate::session::{AlertKind, Session, Status, Thresholds, first_sentence, recap_text};
 use crate::store::Store;
 use serde_json::Value;
 
@@ -178,7 +176,7 @@ fn stop_with_background_tasks() {
             b.command.as_str(),
             b.awaited
         ),
-        ("bxyho0k31", false, "sleep 90", "sleep 90", false)
+        ("bxyho0k31", false, "sleep 90", "sleep 90", true)
     );
     // Its output file sits next to the scratchpad the hooks report.
     assert!(
@@ -1132,14 +1130,12 @@ fn jobs_claude_waits_on() {
     assert_eq!(s.status, Status::Idle);
     assert!(s.background[0].awaited);
 
-    // A plain background command is a job once Haiku says Claude will act on it.
+    // A plain background command is a job from the Stop, before Haiku has a say: it would
+    // otherwise show "ready" for the seconds Haiku takes. Haiku confirms it.
     let mut s = Session::new(SID, 0);
     s.apply(&ours("UserPromptSubmit"), 1, &th());
     s.apply(&ours("Stop.background-shell"), 2, &th());
-    assert!(
-        !s.background[0].awaited,
-        "\"sleep 90\" doesn't look like a watcher"
-    );
+    assert!(s.background[0].awaited, "a job straight away");
     assert!(s.set_haiku_recap(s.stop_seq, haiku(true)));
     assert!(s.background[0].awaited);
     assert_eq!(s.status, Status::Idle);
@@ -1191,15 +1187,14 @@ fn haiku_can_say_background_commands_are_not_jobs() {
 
 #[test]
 fn awaited_background_commands() {
-    assert!(looks_awaited(
-        "Watch the nightly ML job until it finishes",
-        ""
+    use crate::session::looks_service;
+    assert!(looks_service("Start the dev server npm run dev", ""));
+    assert!(looks_service("tail -f app.log", ""));
+    assert!(!looks_service("Watch the CN, PL and frontend deploys", ""));
+    assert!(!looks_service(
+        "Keep block bottom despite plateau drop; full build",
+        "python3 tools/render.py"
     ));
-    assert!(looks_awaited("Poll the deploy status", ""));
-    assert!(!looks_awaited("Start the dev server npm run dev", ""));
-    assert!(!looks_awaited("sleep 90 sleep 90", ""));
-    assert!(!looks_awaited("tail -f app.log", ""));
-    assert!(looks_awaited("Watch the CN, PL and frontend deploys", ""));
     assert!(crate::session::looks_service(
         "Start reports API with read-only groups",
         ""
@@ -1212,7 +1207,6 @@ fn awaited_background_commands() {
         "az rest --uri \"https://management.azure.com/x?api-version=2023-01-01\"",
     );
     assert!(!crate::session::looks_service(d, c));
-    assert!(looks_awaited(d, c));
     // A dev server is still recognised from its command.
     assert!(crate::session::looks_service(
         "Start the app",
@@ -1834,8 +1828,9 @@ fn artifact_live_updates_are_a_background_task_not_a_job() {
 fn job_progress_makes_a_job_and_alerts_when_blocked() {
     use crate::session::Progress;
     let mut s = Session::new(SID, 0);
-    // "sleep 90" reads as neither: not awaited until it reports progress.
+    // Haiku says "sleep 90" is nothing Claude waits on, until it reports progress.
     s.apply(&ours("Stop.background-shell"), 5, &th());
+    s.set_haiku_recap(s.stop_seq, haiku(false));
     assert!(!s.background[0].awaited);
     assert_eq!(s.background[0].seen_at, Some(5));
     let step = |at: &str, state: &str| Progress {

@@ -115,6 +115,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Monitor selection for the sidebar (config + ⚙ menu). `monitor = 0` (primary) or n (counting from the left), each monitor's own DPI sets the width; falls back to the primary if the chosen one is gone. **Not verified on real multi-monitor hardware** (one monitor here).
 - [x] Collapse to a slim docked status strip (30 DIP: expand button + one status dot per project, flashing on new alerts). Header » / strip « / tray "Collapse / expand"; remembered in `ui.json`. Verified: other windows reflow into the freed space.
 - [x] Floating window mode: a normal movable, resizable window instead of the AppBar (config + ⚙ menu). Unregisters the AppBar (no reserved space), header is a drag region, frameless resize from the edges; position/size saved in `ui.json` and restored on restart (verified). `config::set_value` edits single keys in config.toml, keeping comments.
+- [x] Single instance (2026-11-12): clicking the pinned taskbar icon again opened a second sidebar. `tauri-plugin-single-instance` now hands the launch to the running app, which expands, unminimises and focuses its window.
 
 ## M10: Feedback round 3 (2026-10-17)
 - [x] Session flyout: no Folder/VS Code (they're on the project menu); End and Remove only.
@@ -331,8 +332,8 @@ A running to-do per project (SPEC §3.19), replacing the notepad the user kept w
 - [x] Sandbox test through `--mcp-config` (2026-11-02): a real session added two items, marked one doing and listed them; its own session id resolved it (not the parent's). Panel: add, tick, copy (→ sent), links. App unreachable: requests get an error reply, notifications nothing.
 - [x] A ready session waiting on background agents or jobs looked the same as one waiting for the user. It now shows a "waiting" pill (faint blue stripes; its first outline stood out too much) and counts as busy; from the first item on the to-do list.
 - [x] Escape mid-turn left the card "working": no hook fires for it. The transcript's "[Request interrupted by user]" now ends the turn (mid-turn transcripts read every 5 s).
-- [x] `claude mcp add`/`get` sent a lone SessionEnd (with the calling session's tag and PID), which made a "New session" card. SessionEnd for a session never seen now makes no card.
 - [x] A session ending its turn on a background build showed "ready" for the few seconds Haiku took to label it a job, then "waiting". Before the label, anything that doesn't look like a service now counts as a job.
+- [x] `claude mcp add`/`get` sent a lone SessionEnd (with the calling session's tag and PID), which made a "New session" card. SessionEnd for a session never seen now makes no card.
 - [x] User-level registration (2026-11-02, approved): `claude mcp add --scope user cc-sidebar -- ~/.local/bin/cc-mcp`; connects.
 
 ## Fixes (2026-10-30)

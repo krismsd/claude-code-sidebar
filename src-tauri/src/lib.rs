@@ -664,6 +664,20 @@ pub fn run() {
     let store: Shared = Arc::new(Mutex::new(store::Store::default()));
     server::load_saved(&mut store.lock().unwrap());
     tauri::Builder::default()
+        // Must be the first plugin. Launching the app again (e.g. clicking the pinned taskbar
+        // icon) brings the running sidebar forward instead of starting a second one.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(ctx) = app.try_state::<Ctx>()
+                && ctx.prefs.lock().unwrap().collapsed
+            {
+                server::set_collapsed(&ctx, false);
+            }
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())

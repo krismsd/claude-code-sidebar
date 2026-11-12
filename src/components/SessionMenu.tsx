@@ -145,19 +145,6 @@ export function SessionMenu({
           >
             Copy session ID
           </button>
-          {!removed && (
-            <button
-              className={confirm === "remove" ? "danger" : ""}
-              title="Move it to the closed section, ending it if it's still running"
-              onClick={() => {
-                if (busy && confirm !== "remove") return setConfirm("remove");
-                onRemove(s);
-                onClose();
-              }}
-            >
-              {confirm === "remove" ? `Remove? ${busy}` : "Remove"}
-            </button>
-          )}
           {running && (
             <button
               className={confirm === "force" ? "danger" : ""}
@@ -174,6 +161,19 @@ export function SessionMenu({
               }}
             >
               {confirm === "force" ? "Kill it now?" : "Force end"}
+            </button>
+          )}
+          {!removed && (
+            <button
+              className={confirm === "remove" ? "danger" : ""}
+              title="Move it to the closed section, ending it if it's still running"
+              onClick={() => {
+                if (busy && confirm !== "remove") return setConfirm("remove");
+                onRemove(s);
+                onClose();
+              }}
+            >
+              {confirm === "remove" ? `Remove? ${busy}` : "Remove"}
             </button>
           )}
           {removed && closed && (

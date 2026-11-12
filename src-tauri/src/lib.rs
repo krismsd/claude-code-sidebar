@@ -338,6 +338,14 @@ fn dismiss_session(ctx: State<'_, Ctx>, session_id: String) {
     }
 }
 
+/// The terminal window shows this session and has focus: the user has read it.
+#[tauri::command]
+fn session_seen(ctx: State<'_, Ctx>, session_id: String) {
+    if ctx.store.lock().unwrap().seen(&session_id) {
+        server::publish(&ctx);
+    }
+}
+
 /// Card click: focus the session's Windows Terminal tab, or resume it if closed.
 #[cfg(windows)]
 #[tauri::command]
@@ -735,6 +743,7 @@ pub fn run() {
             answer_permission,
             #[cfg(windows)]
             activate_session,
+            session_seen,
             #[cfg(windows)]
             session_action,
             #[cfg(windows)]

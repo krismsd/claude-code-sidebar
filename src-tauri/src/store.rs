@@ -430,8 +430,9 @@ impl Store {
         }
     }
 
-    /// The user opened the session: "job finished" has been seen (its card shows no line to
-    /// dismiss it from, so otherwise it would flash the project until the next turn).
+    /// The user opened the session: its last turn is read, and "job finished" has been seen
+    /// (its card shows no line to dismiss it from, so otherwise it would flash the project
+    /// until the next turn).
     pub fn seen(&mut self, session_id: &str) -> bool {
         let Some(s) = self.sessions.get_mut(session_id) else {
             return false;
@@ -439,7 +440,8 @@ impl Store {
         let before = s.alerts.len();
         s.alerts
             .retain(|a| a.kind != crate::session::AlertKind::Finished);
-        s.alerts.len() != before
+        let unread = std::mem::take(&mut s.unread);
+        unread || s.alerts.len() != before
     }
 
     /// Delete a removed session's card for good. Live sessions can't be deleted.

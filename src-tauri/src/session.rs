@@ -434,6 +434,10 @@ pub struct Session {
     /// Minimised by the user: its card shows only the title bar (unless it needs them).
     #[serde(default)]
     pub minimized: bool,
+    /// A turn finished that the user hasn't looked at yet: set at Stop, cleared when they
+    /// open the session (card click, its view focused in the terminal window) or prompt it.
+    #[serde(default)]
+    pub unread: bool,
     /// The prompt cache as the last request left it (read from the transcript, `cache`).
     #[serde(default)]
     pub cache: Option<crate::cache::Cache>,
@@ -518,6 +522,7 @@ impl Session {
             closed_reason: None,
             removed: Some(false),
             minimized: false,
+            unread: false,
             cache: None,
             compacted: None,
             prs: Vec::new(),
@@ -814,6 +819,7 @@ impl Session {
 
         if matches!(&hook.event, Event::UserPromptSubmit { prompt } if !injected(prompt)) {
             self.user_turn = true;
+            self.unread = false;
         }
 
         // A background agent works on after the turn: its tool calls aren't the session's turn,
@@ -1032,6 +1038,7 @@ impl Session {
                 self.current_tool = None;
                 self.pending_permission = None;
                 self.in_turn = false;
+                self.unread = true;
                 self.set_status(Status::Idle, now);
                 // A job Claude was waiting on is gone, and the turn wasn't the user's: it
                 // reported back, and Claude has dealt with it. Ready for you right away.
@@ -1123,6 +1130,8 @@ impl Session {
         self.current_tool = None;
         self.pending_permission = None;
         self.in_turn = false;
+        // The user pressed Escape: they're looking at it.
+        self.unread = false;
         self.subagents_running = self.background.iter().filter(|b| b.agent).count() as u32;
         self.last_stop_at = Some(at.min(now));
         self.set_status(Status::Idle, now);

@@ -118,6 +118,8 @@ export function SessionCard({
   const asleep = dormant(s);
   const closed = s.status === "closed" && !asleep;
   const status = asleep ? "idle" : s.status;
+  // Ready with a finished turn the user hasn't looked at.
+  const unread = s.unread && status === "idle";
   // Ready, with Claude waiting on background work it will come back to (SPEC §3.17).
   const busy = waiting(s);
   // Minimised: just the title bar, unless it needs the user (permission, a question, an
@@ -149,7 +151,7 @@ export function SessionCard({
 
   return (
     <article
-      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}${focused ? " kb-focus" : ""}`}
+      className={`card status-${status}${flashing ? " flash" : ""}${closed ? " is-closed" : ""}${folded ? " minimized" : ""}${focused ? " kb-focus" : ""}${unread ? " unread" : ""}`}
       data-session={expanded ? undefined : s.session_id}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
@@ -195,6 +197,7 @@ export function SessionCard({
           className="card-title"
           title={!turn && s.last_prompt ? `You: ${s.last_prompt}` : undefined}
         >
+          {unread && <span className="unread-dot" title="New since you last looked" />}
           <span className="card-name">{sessionName(s)}</span>
           {label && <span className="card-branch"> · {label}</span>}
         </span>

@@ -72,6 +72,7 @@ function session(over: Partial<Session> = {}): Session {
     closed_reason: null,
     removed: false,
     minimized: false,
+    unread: false,
     cache: null,
     compacted: null,
     prs: [],

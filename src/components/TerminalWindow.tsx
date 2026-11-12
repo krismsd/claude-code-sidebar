@@ -84,6 +84,17 @@ export function TerminalWindow() {
     document.title = current ? `${sessionName(current)} · Claude Code` : "Claude Code";
   }, [current]);
 
+  // The session in front of the user (shown tab, window focused) is read: a turn that
+  // finishes while they watch never shows as unread, and switching to it clears it.
+  const [focused, setFocused] = useState(() => document.hasFocus());
+  useEffect(() => {
+    const sub = getCurrentWindow().onFocusChanged(({ payload }) => setFocused(payload));
+    return () => void sub.then((f) => f());
+  }, []);
+  useEffect(() => {
+    if (focused && current?.unread) invoke("session_seen", { sessionId: current.session_id });
+  }, [focused, current?.unread, current?.session_id]);
+
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
     const w = getCurrentWindow();

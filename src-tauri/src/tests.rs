@@ -2265,3 +2265,34 @@ fn escape_ends_the_turn() {
     );
     assert_eq!(s.status, Status::Idle);
 }
+
+#[test]
+fn finished_turns_are_unread_until_seen_or_prompted() {
+    let mut st = Store::default();
+    st.apply(&ours("UserPromptSubmit"), 1);
+    assert!(!st.get(SID).unwrap().unread);
+    st.apply(&ours("Stop"), 2);
+    assert!(st.get(SID).unwrap().unread);
+    assert!(st.seen(SID));
+    assert!(!st.get(SID).unwrap().unread);
+    assert!(!st.seen(SID), "nothing left to clear");
+
+    // Prompting it means the user read it; a subagent's hand-back doesn't.
+    st.apply(&ours("Stop"), 3);
+    st.apply(&ours("UserPromptSubmit.agent-handback"), 4);
+    assert!(st.get(SID).unwrap().unread);
+    st.apply(&ours("UserPromptSubmit"), 5);
+    assert!(!st.get(SID).unwrap().unread);
+
+    // Escape during a turn Claude started: the user is there.
+    st.apply(&ours("Stop"), 6);
+    st.apply(&ours("UserPromptSubmit.agent-handback"), 7);
+    assert!(st.get(SID).unwrap().unread);
+    let esc = crate::cache::Scan {
+        interrupted: Some(8),
+        ..Default::default()
+    };
+    assert!(st.set_cache(SID, esc));
+    assert_eq!(st.get(SID).unwrap().status, Status::Idle);
+    assert!(!st.get(SID).unwrap().unread);
+}

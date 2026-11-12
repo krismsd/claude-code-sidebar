@@ -90,6 +90,8 @@ export interface Session {
   removed: boolean | null;
   /** Minimised by the user: the card shows only its title bar. */
   minimized: boolean;
+  /** A finished turn the user hasn't looked at yet. */
+  unread: boolean;
   /** The prompt cache as the last request left it (from the transcript). */
   cache: PromptCache | null;
   /** A compaction since the last request (e.g. Claude Code's idle compaction). */

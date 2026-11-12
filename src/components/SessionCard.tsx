@@ -102,10 +102,11 @@ export function SessionCard({
   const asleep = dormant(s);
   const closed = s.status === "closed" && !asleep;
   const status = asleep ? "idle" : s.status;
-  // Ready with a finished turn the user hasn't looked at.
-  const unread = s.unread && status === "idle";
   // Ready, with Claude waiting on background work it will come back to (SPEC §3.17).
   const busy = waiting(s);
+  // Ready with a finished turn the user hasn't looked at. Not while waiting on background work:
+  // Claude isn't done yet (its report-back turn sets it again).
+  const unread = s.unread && status === "idle" && !busy;
   // Minimised: just the title bar, unless it needs the user (permission, a question, an
   // error), when it opens until that's dealt with. The peek always shows everything.
   const needsYou = ["needs_permission", "needs_input", "error"].includes(s.status);

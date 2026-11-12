@@ -248,14 +248,14 @@ Claude Code caches the conversation so far; every request refreshes it for its l
 
 ### 3.17 Card layout (2026-10-26)
 
-- **Keyboard:** arrow keys select a card (by position, across columns; outlined in blue), Enter opens its session, A/D allow or deny its permission prompt, Esc clears the selection. Ignored while typing in a field.
+- **Keyboard:** arrow keys select a card (by position, across columns; outlined in blue), Enter opens its session, A/D allow or deny its permission prompt, Esc clears the selection, and so does the sidebar losing focus (2026-11-12: the outline lingered while the user worked elsewhere). Ignored while typing in a field.
 
 - **Title bar:** title, branch, and the status as a square block flush with the right edge, the bar's full height ("ready · 12m"; colours as before).
 - **Body, between turns:** Claude's answer and the question it ended on.
 - **Body, during a turn** (working, permission, question): the turn instead of the old answer. "▸ You: <prompt>" (or what started it: "▸ Background command … completed"), Claude's task-list progress when it keeps one (TodoWrite: ▰▰▱ 2/3 · current item), the recent steps that fit on one line ("📄 auth.ts ✎ auth.ts ×2 ▶ npm run", newest last, all of them in the peek), then the current action. The pinned question is hidden: it's been answered.
 - **Body, either way:** what needs acting on: Allow/Deny, the plain-`claude` warning.
 - **Footer bands**, kept when minimised: jobs Claude waits on (blue), PRs (§3.16), then an **alert band** (the newest alert with ✕, tinted red, amber for 🐌, blue for 📦 and 🔀; "+N" for the others, which expands the band into a list with a ✕ each, "Fewer" and "Dismiss all"; ✕ on the newest moves the next one up), then a faint **status band** for information only: ⧗ services, 🤖 agents, ❄ expired cache size, 📦 compaction, and the model on the right ("Opus 5.5", full id in the tooltip; from SessionStart, then the transcript's last request, so `/model` switches show within 30 s; 2026-11-12). Tooltips give the details. No band when there's nothing to show.
-- **Unread** (2026-11-12): a ready card whose last turn the user hasn't looked at gets a green ring and a green dot before its name. Set at Stop; cleared by clicking the card, prompting the session (not a subagent hand-back), pressing Escape in it, or its view being the shown tab of the focused terminal window ("window" mode), so a turn that ends while the user watches never shows as unread. In "terminal" mode a watched Windows Terminal tab isn't detected: only the click, a prompt or Escape clears it.
+- **Unread** (2026-11-12): a ready card (not "waiting" on background work: Claude isn't done, and its report-back turn sets it again) whose last turn the user hasn't looked at gets a green ring and a green dot before its name. Set at Stop; cleared by clicking the card, prompting the session (not a subagent hand-back), pressing Escape in it, or its view being the shown tab of the focused terminal window ("window" mode), so a turn that ends while the user watches never shows as unread. In "terminal" mode a watched Windows Terminal tab isn't detected: only the click, a prompt or Escape clears it.
 
 ### 3.16 Pull requests the session opened (2026-10-26)
 

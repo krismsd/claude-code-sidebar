@@ -127,6 +127,12 @@ function App() {
   const wide = useWide();
   /** The card selected with the keyboard. */
   const [focusId, setFocusId] = useState<string | null>(null);
+  // The selection belongs to the keyboard: once the user is elsewhere, it goes.
+  useEffect(() => {
+    const clear = () => setFocusId(null);
+    window.addEventListener("blur", clear);
+    return () => window.removeEventListener("blur", clear);
+  }, []);
 
   useEffect(() => {
     invoke<UiState>("get_state").then(setState);

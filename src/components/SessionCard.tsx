@@ -11,7 +11,14 @@ import {
   waiting,
   tokens,
 } from "../lib/view";
-import { ALERT_EMOJI, STATUS_LABEL, closedLabel, elapsed, sessionName } from "../lib/format";
+import {
+  ALERT_EMOJI,
+  STATUS_LABEL,
+  closedLabel,
+  elapsed,
+  modelLabel,
+  sessionName,
+} from "../lib/format";
 
 interface Props {
   session: Session;
@@ -129,7 +136,11 @@ export function SessionCard({
   const cache = s.status === "closed" && !asleep ? null : cacheState(s, now);
   // The status band (last footer band): counts and markers that are only information.
   const statusBand =
-    services.length > 0 || agents > 0 || (cache !== null && !cache.warm) || s.compacted !== null;
+    services.length > 0 ||
+    agents > 0 ||
+    (cache !== null && !cache.warm) ||
+    s.compacted !== null ||
+    s.model !== null;
   // A turn in progress: the body shows the turn (prompt, progress, steps), not the last answer.
   const turn = ["working", "needs_permission", "needs_input"].includes(s.status);
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
@@ -331,6 +342,11 @@ export function SessionCard({
                   title={`${s.compacted.idle ? "Compacted while idle" : "Compacted"} at ${clock(s.compacted.at)}`}
                 >
                   📦 {tokens(s.compacted.pre_tokens)}→{tokens(s.compacted.post_tokens)}
+                </span>
+              )}
+              {s.model && (
+                <span className="model" title={s.model}>
+                  {modelLabel(s.model)}
                 </span>
               )}
             </div>

@@ -686,6 +686,13 @@ impl Store {
         let mut changed = s.cache != cache || s.compacted != scan.compacted;
         s.cache = cache;
         s.compacted = scan.compacted;
+        // The transcript drops SessionStart's context suffix ("[1m]"): keep it for the same model.
+        if let Some(m) = scan.model
+            && s.model.as_deref().map(|o| o.split('[').next().unwrap_or(o)) != Some(m.as_str())
+        {
+            s.model = Some(m);
+            changed = true;
+        }
         if let Some(at) = scan.interrupted {
             changed |= s.interrupted(at, crate::server::now_ms());
         }

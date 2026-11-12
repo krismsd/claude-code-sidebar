@@ -16,7 +16,7 @@ import {
   tokens,
   waiting,
 } from "./view";
-import { elapsed, sessionName, usageLevel, usageNow } from "./format";
+import { elapsed, modelLabel, sessionName, usageLevel, usageNow } from "./format";
 
 let n = 0;
 function session(over: Partial<Session> = {}): Session {
@@ -379,5 +379,17 @@ describe("waiting", () => {
     expect(waiting(session({ status: "idle", background: [bg(false)] }))).toBe(false);
     expect(waiting(session({ status: "working", background: [bg(true)] }))).toBe(false);
     expect(waiting(session({ status: "idle" }))).toBe(false);
+  });
+});
+
+describe("modelLabel", () => {
+  it("shortens model ids", () => {
+    expect(modelLabel("claude-opus-5-5")).toBe("Opus 5.5");
+    expect(modelLabel("claude-opus-5-5[1m]")).toBe("Opus 5.5 1M");
+    expect(modelLabel("claude-haiku-4-5-20251001")).toBe("Haiku 4.5");
+    expect(modelLabel("claude-opus-4-20250514")).toBe("Opus 4");
+    expect(modelLabel("claude-fable-5-2")).toBe("Fable 5.2");
+    expect(modelLabel("opus")).toBe("opus");
+    expect(modelLabel("some-custom-model-x")).toBe("some-custom-model-x");
   });
 });

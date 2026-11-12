@@ -42,6 +42,8 @@ pub struct Scan {
     pub compacted: Option<Compacted>,
     /// The user pressed Escape after the last request (Claude Code fires no hook for that).
     pub interrupted: Option<Ms>,
+    /// The model of the last request (changes with `/model`).
+    pub model: Option<String>,
 }
 
 /// Read a transcript's tail (JSONL; the first line may be cut).
@@ -58,6 +60,13 @@ pub fn scan(text: &str) -> Scan {
         let at = v["timestamp"].as_str().and_then(parse_time);
         match v["type"].as_str() {
             Some("assistant") => {
+                // "<synthetic>": Claude Code's own messages (errors, interrupts), not a request.
+                if let Some(m) = v["message"]["model"]
+                    .as_str()
+                    .filter(|m| !m.starts_with('<'))
+                {
+                    out.model = Some(m.to_string());
+                }
                 let u = &v["message"]["usage"];
                 let n = |k: &str| u[k].as_u64().unwrap_or(0);
                 if u.is_null()
@@ -262,6 +271,26 @@ mod tests {
         // Subagents' requests are another cache.
         let side = five.replace("\"isSidechain\":false", "\"isSidechain\":true");
         assert_eq!(scan(&side).cache, None);
+    }
+
+    #[test]
+    fn model_of_the_last_request() {
+        let with = |m: &str| {
+            assistant("2026-10-26T01:00:00.000Z", 0, 0, 10).replace(
+                "\"message\":{",
+                &format!("\"message\":{{\"model\":\"{m}\","),
+            )
+        };
+        let t = [
+            with("claude-opus-5-5"),
+            with("claude-haiku-5-5"),
+            with("<synthetic>"),
+        ]
+        .join("\n");
+        assert_eq!(scan(&t).model.as_deref(), Some("claude-haiku-5-5"));
+        let side =
+            with("claude-fable-5-2").replace("\"isSidechain\":false", "\"isSidechain\":true");
+        assert_eq!(scan(&side).model, None);
     }
 
     #[test]

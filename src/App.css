@@ -371,6 +371,11 @@ body,
   color: var(--blue);
 }
 
+.card-status .model {
+  margin-left: auto;
+  opacity: 0.8;
+}
+
 .card-status .grow {
   flex: 1;
 }

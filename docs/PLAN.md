@@ -116,6 +116,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Collapse to a slim docked status strip (30 DIP: expand button + one status dot per project, flashing on new alerts). Header » / strip « / tray "Collapse / expand"; remembered in `ui.json`. Verified: other windows reflow into the freed space.
 - [x] Floating window mode: a normal movable, resizable window instead of the AppBar (config + ⚙ menu). Unregisters the AppBar (no reserved space), header is a drag region, frameless resize from the edges; position/size saved in `ui.json` and restored on restart (verified). `config::set_value` edits single keys in config.toml, keeping comments.
 - [x] Single instance (2026-11-12): clicking the pinned taskbar icon again opened a second sidebar. `tauri-plugin-single-instance` now hands the launch to the running app, which expands, unminimises and focuses its window.
+- [x] Model in the card footer (2026-11-12, from the to-do list): the status band shows "Opus 5.5" on the right (full id on hover). It follows `/model`: the transcript scan takes the last request's model (keeping SessionStart's "[1m]" suffix when it's the same model).
 
 ## M10: Feedback round 3 (2026-10-17)
 - [x] Session flyout: no Folder/VS Code (they're on the project menu); End and Remove only.

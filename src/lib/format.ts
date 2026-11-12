@@ -30,6 +30,17 @@ const CLOSED_REASON: Record<string, string> = {
   idle: "closed",
 };
 
+/** "claude-opus-5-5[1m]" → "Opus 5.5 1M"; "claude-haiku-4-5-20251001" → "Haiku 4.5". Unknown
+ * shapes are shown as they are, without the "claude-" prefix. */
+export function modelLabel(model: string): string {
+  const [id, ctx] = model.split("[");
+  const m = /^(?:claude-)?([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/.exec(id);
+  const name = m
+    ? `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ""}`
+    : id.replace(/^claude-/, "");
+  return ctx ? `${name} ${ctx.replace("]", "").toUpperCase()}` : name;
+}
+
 export function closedLabel(s: Session): string {
   return CLOSED_REASON[s.closed_reason ?? ""] ?? "closed";
 }

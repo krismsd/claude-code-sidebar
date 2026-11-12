@@ -46,7 +46,6 @@ export function Peek() {
           onActivate={noop}
           onDismissAlert={noop}
           onAnswer={noop}
-          onHover={noop}
           onMenu={noop}
           onMinimize={noop}
           expanded

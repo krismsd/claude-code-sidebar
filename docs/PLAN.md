@@ -118,6 +118,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Single instance (2026-11-12): clicking the pinned taskbar icon again opened a second sidebar. `tauri-plugin-single-instance` now hands the launch to the running app, which expands, unminimises and focuses its window.
 - [x] Model in the card footer (2026-11-12, from the to-do list): the status band shows "Opus 5.5" on the right (full id on hover). It follows `/model`: the transcript scan takes the last request's model (keeping SessionStart's "[1m]" suffix when it's the same model).
 - [x] Unread ready sessions are highlighted (2026-11-12, from the to-do list): `Session.unread`, set at Stop and cleared when the user opens, prompts or interrupts it, or watches it in the terminal window (`session_seen`). Green ring and dot on the card.
+- [x] Hover copy removed from the list (2026-11-12, from the to-do list: never used, and it covered the cards below). The strip's peek still shows the expanded card.
 
 ## M10: Feedback round 3 (2026-10-17)
 - [x] Session flyout: no Folder/VS Code (they're on the project menu); End and Remove only.

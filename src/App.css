@@ -1396,26 +1396,13 @@ button {
   color: var(--muted);
 }
 
-/* ---- hover card + session menu (M13) ---- */
-.hover-card {
-  position: fixed;
-  z-index: 30;
-  pointer-events: none; /* hover keeps following the cards underneath */
-}
-
-/* Closed cards are faded in the list, but the expanded copy must be readable. */
-.hover-card .card.is-closed,
+/* ---- peek + session menu (M13) ---- */
+/* Closed cards are faded in the list, but the peek must be readable. */
 .peek .card.is-closed {
   opacity: 1;
 }
 
-.hover-card .card {
-  box-shadow:
-    0 0 0 1px var(--project),
-    0 8px 24px rgb(0 0 0 / 0.45);
-}
-
-/* The hover copy: more of the answer, but not all of a long one. */
+/* The peek: more of the answer, but not all of a long one. */
 .card-recap.full {
   -webkit-line-clamp: 12;
   line-clamp: 12;

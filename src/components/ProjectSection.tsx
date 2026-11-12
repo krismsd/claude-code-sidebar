@@ -22,7 +22,6 @@ export interface CardHandlers {
   onActivate: (s: Session) => void;
   onDismissAlert: (s: Session, alertId: number) => void;
   onAnswer: (s: Session, allow: boolean) => void;
-  onHover: (s: Session, el: HTMLElement | null) => void;
   onMenu: (s: Session, x: number, y: number) => void;
   onMinimize: (s: Session, minimized: boolean) => void;
   /** The card selected with the keyboard. */

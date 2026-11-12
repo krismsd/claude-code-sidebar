@@ -1,4 +1,4 @@
-import { useState, useRef, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Alert, Background, PullRequest, Session } from "../lib/types";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -28,14 +28,11 @@ interface Props {
   onActivate: (s: Session) => void;
   onDismissAlert: (s: Session, alertId: number) => void;
   onAnswer: (s: Session, allow: boolean) => void;
-  /** Hover in/out, with the card element so the expanded copy can be drawn over it. Called
-   * again on every movement over the body, so the wait for the copy counts from a rest. */
-  onHover: (s: Session, el: HTMLElement | null) => void;
   /** Right-click: the session menu at the cursor. */
   onMenu: (s: Session, x: number, y: number) => void;
   /** Minimise the card to its title bar, or expand it. */
   onMinimize: (s: Session, minimized: boolean) => void;
-  /** The hover copy (and the strip's peek): what the card cuts off, shown in full. */
+  /** The strip's peek: what the card cuts off, shown in full. */
   expanded?: boolean;
   /** Selected with the keyboard (arrow keys). */
   focused?: boolean;
@@ -68,22 +65,10 @@ function recentSteps(trail: { label: string; count: number }[]) {
   return out;
 }
 
-/** Whether the hover copy would show more than the card: a clamped or cut-off line, or steps
- * and progress items left out (marked `data-more`). Only then does hovering open it. */
-function hasMore(card: HTMLElement): boolean {
-  if (card.querySelector("[data-more]")) return true;
-  const cut = card.querySelectorAll<HTMLElement>(
-    ".card-recap, .card-job-name, .card-job-output, .card-job-steps",
-  );
-  return [...cut].some(
-    (el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
-  );
-}
-
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/** Session card. Compact in the list (its height never changes); the hover overlay draws the
- * same card `expanded` on top of it, so the top part lines up exactly. */
+/** Session card. Compact in the list (its height never changes); the strip's peek draws it
+ * `expanded`, with what the list card cuts off. */
 export function SessionCard({
   session: s,
   now,
@@ -91,7 +76,6 @@ export function SessionCard({
   onActivate,
   onDismissAlert,
   onAnswer,
-  onHover,
   onMenu,
   onMinimize,
   expanded = false,
@@ -123,10 +107,9 @@ export function SessionCard({
   // Ready, with Claude waiting on background work it will come back to (SPEC §3.17).
   const busy = waiting(s);
   // Minimised: just the title bar, unless it needs the user (permission, a question, an
-  // error), when it opens until that's dealt with. The hover copy always shows everything.
+  // error), when it opens until that's dealt with. The peek always shows everything.
   const needsYou = ["needs_permission", "needs_input", "error"].includes(s.status);
   const folded = s.minimized && !expanded && !needsYou;
-  const overBody = useRef(false);
   const activity =
     s.status === "needs_permission" && s.pending_permission
       ? `Wants to: ${s.pending_permission.summary}`
@@ -155,26 +138,6 @@ export function SessionCard({
       data-session={expanded ? undefined : s.session_id}
       style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
       onClick={() => onActivate(s)}
-      // The title bar and PR links are controls (the fold toggle, opening a PR), so only the
-      // rest of the body opens the hover copy, which would cover them; a minimised card, all
-      // title bar, never does. Nor does a card that already shows everything.
-      onMouseOver={(e) => {
-        const body =
-          !folded &&
-          !(e.target as Element).closest(".card-head, .card-footer") &&
-          hasMore(e.currentTarget);
-        if (body !== overBody.current) {
-          overBody.current = body;
-          onHover(s, body ? e.currentTarget : null);
-        }
-      }}
-      onMouseMove={(e) => {
-        if (overBody.current) onHover(s, e.currentTarget);
-      }}
-      onMouseLeave={() => {
-        overBody.current = false;
-        onHover(s, null);
-      }}
       onContextMenu={(e) => {
         e.preventDefault();
         onMenu(s, e.clientX, e.clientY);
@@ -182,7 +145,7 @@ export function SessionCard({
     >
       <header className="card-head">
         {/* Fold toggle, in the header's left padding (the title doesn't move): always shown on
-            a minimised card, on hover otherwise. Not on the hover copy. */}
+            a minimised card, on hover otherwise. Not on the peek. */}
         {!expanded && (
           <button
             className={`fold${folded ? " folded" : ""}`}
@@ -192,7 +155,7 @@ export function SessionCard({
             {folded ? "▸" : "▾"}
           </button>
         )}
-        {/* The prompt in the title's tooltip: on the body it would cover the hover copy. */}
+        {/* The prompt it answered, in the title's tooltip. */}
         <span
           className="card-title"
           title={!turn && s.last_prompt ? `You: ${s.last_prompt}` : undefined}
@@ -247,10 +210,7 @@ export function SessionCard({
             </div>
           )}
           {turn && s.trail.length > 0 && (
-            <div
-              className={`card-trail${expanded ? " full" : ""}`}
-              data-more={!expanded && recentSteps(s.trail).length < s.trail.length ? "" : undefined}
-            >
+            <div className={`card-trail${expanded ? " full" : ""}`}>
               {(expanded ? s.trail : recentSteps(s.trail)).map((t, i) => (
                 <span key={i}>
                   {t.label}
@@ -270,7 +230,7 @@ export function SessionCard({
               </button>
             </div>
           )}
-          {/* Claude's last answer as written: the start on the card, more of it on hover. The
+          {/* Claude's last answer as written: the start on the card, more of it in the peek. The
           question it ended on, if any, is pinned below so it's never clipped. */}
           {(s.last_answer ?? s.recap) && !turn && (
             <div className={`card-recap${expanded ? " full" : ""}`}>
@@ -541,11 +501,7 @@ function JobLine({
             )}
           </span>
         ))}
-      {!brief && more > 0 && (
-        <span className="card-job-progress muted" data-more="">
-          +{more} more
-        </span>
-      )}
+      {!brief && more > 0 && <span className="card-job-progress muted">+{more} more</span>}
       {!brief && job.last_line && <span className="card-job-output">{job.last_line}</span>}
     </div>
   );

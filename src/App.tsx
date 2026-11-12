@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Session, UiState } from "./lib/types";
 import { ProjectSection, type CardHandlers } from "./components/ProjectSection";
-import { SessionCard } from "./components/SessionCard";
 import { SessionMenu } from "./components/SessionMenu";
 import { AddProject } from "./components/AddProject";
 import { Drawer } from "./components/Drawer";
@@ -29,45 +28,6 @@ const OUTCOME_MESSAGE: Partial<Record<Outcome, string>> = {
 };
 
 const FLASH_MS = 4000;
-/** How long the pointer must rest on a card's body before its expanded copy opens. Counted from
- * when it stops, not when it enters, so passing over the sidebar never opens one; longer than
- * the browser's tooltip delay would be pointless, shorter and it opens while you glance. */
-const HOVER_OPEN_MS = 800;
-/** Between leaving a card's body and coming back to it (via its title bar, say), so the
- * overlay doesn't blink. */
-const HOVER_CLOSE_MS = 60;
-
-/** The hovered card drawn expanded, exactly over the original (SPEC §3.12). It ignores the
- * mouse, so hover still follows the cards underneath: moving below the original card's bottom
- * edge hovers the next card. Shifted up only if it would run off the bottom of the window.
- * Placed from the original card on every render, so it follows when cards above it change
- * height. */
-function HoverCard({ anchor, children }: { anchor: HTMLElement; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const place = () => {
-      const rect = anchor.getBoundingClientRect();
-      const max = window.innerHeight - el.offsetHeight - 6;
-      el.style.left = `${rect.left}px`;
-      el.style.width = `${rect.width}px`;
-      el.style.top = `${Math.max(6, Math.min(rect.top, max))}px`;
-    };
-    place();
-    // Layout can also shift without a re-render of ours (fonts, a section's own state).
-    const ro = new ResizeObserver(place);
-    const list = anchor.closest(".masonry");
-    if (list) [...list.children].forEach((c) => ro.observe(c));
-    return () => ro.disconnect();
-  });
-  return (
-    <div ref={ref} className="hover-card">
-      {children}
-    </div>
-  );
-}
-
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -160,12 +120,8 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [windowMenu, setWindowMenu] = useState(false);
-  const [hover, setHover] = useState<{ id: string; el: HTMLElement } | null>(null);
   const [draggingProject, setDraggingProject] = useState(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const dragging = useRef(false);
   const now = useNow();
   const fresh = useFresh(state?.sessions ?? null);
   const wide = useWide();
@@ -188,28 +144,6 @@ function App() {
 
   const report = useCallback((e: unknown) => setToast(String(e)), []);
 
-  // Hover: the expanded card opens once the pointer has rested on a card's body (each movement
-  // calls this again and restarts the wait). Every card needs its own rest: moving to another
-  // card closes the open copy rather than switching to that card's, since the copy covers the
-  // cards below and they'd take turns appearing as the pointer moves down.
-  const onHover = (s: Session, el: HTMLElement | null) => {
-    clearTimeout(openTimer.current);
-    if (!el) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = setTimeout(() => setHover(null), HOVER_CLOSE_MS);
-      return;
-    }
-    if (dragging.current) return;
-    if (hover?.id === s.session_id) {
-      clearTimeout(closeTimer.current);
-      return;
-    }
-    clearTimeout(closeTimer.current);
-    if (hover) setHover(null);
-    const next = { id: s.session_id, el };
-    openTimer.current = setTimeout(() => setHover(next), HOVER_OPEN_MS);
-  };
-
   // Our own right-click menu replaces the browser's (text boxes keep theirs).
   useEffect(() => {
     const block = (e: MouseEvent) => {
@@ -221,15 +155,10 @@ function App() {
 
   // While a project is being dragged, the drawer shows its drop zone even when empty.
   useEffect(() => {
-    // No hover overlay while dragging, including one whose timer started as the drag began.
     const start = (e: DragEvent) => {
-      dragging.current = true;
-      clearTimeout(openTimer.current);
-      setHover(null);
       if (e.dataTransfer?.types.includes(DRAG_TYPE)) setDraggingProject(true);
     };
     const end = () => {
-      dragging.current = false;
       setDraggingProject(false);
     };
     document.addEventListener("dragstart", start);
@@ -248,13 +177,10 @@ function App() {
     onMinimize: (s, minimized) => minimize([s.session_id], minimized),
     now,
     fresh,
-    onHover,
     onMenu: (s, x, y) => {
-      setHover(null);
       setMenu({ id: s.session_id, x, y });
     },
     onActivate: async (s) => {
-      setHover(null);
       try {
         const outcome = await invoke<Outcome>("activate_session", { sessionId: s.session_id });
         setToast(OUTCOME_MESSAGE[outcome] ?? null);
@@ -282,7 +208,6 @@ function App() {
         e.preventDefault();
         const next = current ? neighbour(list, current, e.key) : (list[0] ?? null);
         if (next) {
-          setHover(null);
           setFocusId(next.dataset.session ?? null);
           next.scrollIntoView({ block: "nearest" });
         }
@@ -306,7 +231,6 @@ function App() {
   if (!state) return <main className="sidebar" />;
 
   const setCollapsed = (collapsed: boolean) => {
-    setHover(null);
     invoke("set_collapsed", { collapsed }).catch(report);
   };
   if (state.collapsed)
@@ -326,11 +250,9 @@ function App() {
   const drag = state.floating ? { "data-tauri-drag-region": true } : {};
 
   const { byRoot, other } = groupSessions(state);
-  const hovered = hover && state.sessions.find((s) => s.session_id === hover.id);
   const menuSession = menu && state.sessions.find((s) => s.session_id === menu.id);
 
   const shelve = (root: string, shelved: boolean) => {
-    setHover(null);
     invoke("set_shelved", { root, shelved }).catch(report);
   };
   /** A project dropped just before or after another, in the list or in the drawer: move it
@@ -376,7 +298,7 @@ function App() {
   return (
     <main className={`sidebar${wide ? " wide" : ""}`}>
       <div className="sidebar-body">
-        <div className="cards" onScroll={() => setHover(null)}>
+        <div className="cards">
           {/* Projects flow into as many columns as fit (one in a narrow sidebar). */}
           <div className="masonry">
             {state.projects.length === 0 && other.length === 0 && (
@@ -418,11 +340,6 @@ function App() {
           onDropAt={(dragged, onto, place) => placeProject(dragged, onto, place, true)}
         />
       </div>
-      {hover && hovered && !menu && hover.el.isConnected && (
-        <HoverCard anchor={hover.el}>
-          <SessionCard session={hovered} {...cards} expanded />
-        </HoverCard>
-      )}
       {menu && menuSession && (
         <SessionMenu
           session={menuSession}

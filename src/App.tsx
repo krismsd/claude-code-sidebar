@@ -10,6 +10,7 @@ import { Drawer } from "./components/Drawer";
 import { Strip } from "./components/Strip";
 import { UsageFooter } from "./components/UsageFooter";
 import { WindowMenu } from "./components/WindowMenu";
+import { OffscreenPills } from "./components/OffscreenPills";
 import { dropIndex, freshKeys, groupSessions } from "./lib/view";
 import { DRAG_TYPE } from "./lib/drag";
 import "./App.css";
@@ -122,6 +123,7 @@ function App() {
   const [creating, setCreating] = useState(false);
   const [windowMenu, setWindowMenu] = useState<HTMLElement | null>(null);
   const [draggingProject, setDraggingProject] = useState(false);
+  const cardsRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const now = useNow();
   const fresh = useFresh(state?.sessions ?? null);
@@ -307,36 +309,39 @@ function App() {
   return (
     <main className={`sidebar${wide ? " wide" : ""}`}>
       <div className="sidebar-body">
-        <div className="cards">
-          {/* Projects flow into as many columns as fit (one in a narrow sidebar). */}
-          <div className="masonry">
-            {state.projects.length === 0 && other.length === 0 && (
-              <p className="empty">No projects yet. Start a session, or use + above.</p>
-            )}
-            {state.projects
-              .filter((t) => !t.shelved)
-              .map((t) => (
+        <div className="cards-wrap">
+          <div className="cards" ref={cardsRef}>
+            {/* Projects flow into as many columns as fit (one in a narrow sidebar). */}
+            <div className="masonry">
+              {state.projects.length === 0 && other.length === 0 && (
+                <p className="empty">No projects yet. Start a session, or use + above.</p>
+              )}
+              {state.projects
+                .filter((t) => !t.shelved)
+                .map((t) => (
+                  <ProjectSection
+                    key={t.project.root}
+                    project={t.project}
+                    sessions={byRoot.get(t.project.root) ?? []}
+                    hasTasks={state.task_projects.includes(t.project.root)}
+                    sessionOrder={t.session_order}
+                    todos={t.todos ?? []}
+                    {...sectionProps}
+                  />
+                ))}
+              {other.length > 0 && (
                 <ProjectSection
-                  key={t.project.root}
-                  project={t.project}
-                  sessions={byRoot.get(t.project.root) ?? []}
-                  hasTasks={state.task_projects.includes(t.project.root)}
-                  sessionOrder={t.session_order}
-                  todos={t.todos ?? []}
+                  project={null}
+                  sessions={other}
+                  hasTasks={false}
+                  sessionOrder={[]}
+                  todos={[]}
                   {...sectionProps}
                 />
-              ))}
-            {other.length > 0 && (
-              <ProjectSection
-                project={null}
-                sessions={other}
-                hasTasks={false}
-                sessionOrder={[]}
-                todos={[]}
-                {...sectionProps}
-              />
-            )}
+              )}
+            </div>
           </div>
+          <OffscreenPills scroller={cardsRef} />
         </div>
         <Drawer
           shelved={state.projects.filter((t) => t.shelved)}

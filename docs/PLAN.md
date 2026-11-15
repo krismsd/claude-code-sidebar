@@ -120,6 +120,7 @@ Each spike can be a throwaway binary or script under `spikes/`.
 - [x] Unread ready sessions are highlighted (2026-11-12, from the to-do list): `Session.unread`, set at Stop and cleared when the user opens, prompts or interrupts it, or watches it in the terminal window (`session_seen`). Green ring and dot on the card.
 - [x] Hover copy removed from the list (2026-11-12, from the to-do list: never used, and it covered the cards below). The strip's peek still shows the expanded card.
 - [x] Fixes (2026-11-12): the unread ring showed on "waiting" cards (ready, background work running); now only on plain ready ones. The keyboard selection's blue outline stayed while the user worked in other apps; it now clears when the sidebar loses focus.
+- [x] Unread cards out of view (2026-11-16): a "↑ N ready" / "↓ N ready" pill on the list's edge while unread cards are scrolled off that way; a click scrolls the nearest in and pulses it. `lib/offscreen.ts` (tested), `OffscreenPills.tsx`.
 
 ## M10: Feedback round 3 (2026-10-17)
 - [x] Session flyout: no Folder/VS Code (they're on the project menu); End and Remove only.

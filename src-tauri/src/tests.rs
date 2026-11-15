@@ -785,23 +785,32 @@ fn projects_are_tracked_in_order_and_persist() {
 }
 
 #[test]
-fn close_project_only_when_no_open_sessions() {
+fn remove_project_drops_it_and_all_its_sessions() {
     let mut st = Store::default();
     with_project(&mut st, "a", "/p/alpha", 0);
     with_project(&mut st, "b", "/p/alpha", 0);
-    assert!(st.close_project("/p/alpha").is_err(), "open sessions");
-    for id in ["a", "b"] {
-        st.apply(
-            &fx_with("SessionEnd", serde_json::json!({"session_id": id})),
-            10,
-        );
-    }
-    assert!(st.close_project("/p/alpha").is_ok());
-    assert!(st.projects().is_empty());
-    assert!(
-        st.get("a").is_none() && st.get("b").is_none(),
-        "its closed sessions go too"
+    with_project(&mut st, "x", "/p/xray", 0);
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "b"})),
+        10,
     );
+    let running: Vec<_> = st
+        .running_in_project("/p/alpha")
+        .into_iter()
+        .map(|s| s.session_id)
+        .collect();
+    assert_eq!(running, ["a"], "only the live one needs ending");
+    assert!(st.remove_project("/p/alpha").is_ok());
+    assert!(st.remove_project("/p/alpha").is_err(), "already gone");
+    assert_eq!(st.projects().len(), 1);
+    assert!(st.get("a").is_none() && st.get("b").is_none());
+    assert!(st.get("x").is_some(), "other projects untouched");
+    // A late SessionEnd from an ended one doesn't bring it back.
+    st.apply(
+        &fx_with("SessionEnd", serde_json::json!({"session_id": "a"})),
+        11,
+    );
+    assert!(st.get("a").is_none());
     // A new session there tracks it again, at the bottom.
     with_project(&mut st, "z", "/p/zulu", 20);
     with_project(&mut st, "c", "/p/alpha", 21);

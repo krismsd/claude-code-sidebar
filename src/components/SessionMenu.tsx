@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { Menu } from "./Menu";
 import type { Session } from "../lib/types";
 import { sessionName } from "../lib/format";
 
@@ -36,7 +37,6 @@ export function SessionMenu({
   onAction,
   onMessage,
 }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(s.user_title ?? sessionName(s));
   const [confirm, setConfirm] = useState<"remove" | "force" | null>(null);
@@ -55,30 +55,8 @@ export function SessionMenu({
           ? "It's waiting for you"
           : "";
 
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    // Clicking anywhere outside the sidebar (another window) closes it too.
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onClose);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onClose);
-    };
-  }, [onClose]);
-
-  // Keep the menu on screen.
-  const style = {
-    left: Math.min(x, window.innerWidth - 230),
-    top: Math.min(y, window.innerHeight - 170),
-  };
-
   return (
-    <div className="session-menu" ref={ref} style={style}>
+    <Menu anchor={{ x, y }} className="session-menu" onClose={onClose}>
       {renaming ? (
         <form
           className="rename"
@@ -188,6 +166,6 @@ export function SessionMenu({
           )}
         </>
       )}
-    </div>
+    </Menu>
   );
 }

@@ -255,24 +255,28 @@ impl Store {
         true
     }
 
-    /// Stop tracking a project and drop its closed sessions (starred too). Refused while it
-    /// still has open sessions.
-    pub fn close_project(&mut self, root: &str) -> Result<(), String> {
-        let in_project = |s: &Session| s.project.as_ref().is_some_and(|p| p.root == root);
-        if self
-            .sessions
-            .values()
-            .any(|s| in_project(s) && s.status != Status::Closed)
-        {
-            return Err("It still has open sessions. End or close them first.".into());
-        }
-        self.sessions.retain(|_, s| !in_project(s));
+    /// Stop tracking a project and drop all its sessions. The caller ends any still running
+    /// first (see `running_in_project`), or their next event brings the project back.
+    pub fn remove_project(&mut self, root: &str) -> Result<(), String> {
         let before = self.projects.len();
         self.projects.retain(|t| t.project.root != root);
         if self.projects.len() == before {
             return Err("Not a tracked project.".into());
         }
+        self.sessions
+            .retain(|_, s| s.project.as_ref().is_none_or(|p| p.root != root));
         Ok(())
+    }
+
+    /// The project's sessions whose process is still running.
+    pub fn running_in_project(&self, root: &str) -> Vec<Session> {
+        self.sessions
+            .values()
+            .filter(|s| {
+                s.status != Status::Closed && s.project.as_ref().is_some_and(|p| p.root == root)
+            })
+            .cloned()
+            .collect()
     }
 
     pub fn projects(&self) -> &[Tracked] {

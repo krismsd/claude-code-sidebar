@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Project, Session, Todo } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
 import { TodoPanel } from "./TodoPanel";
+import { Menu } from "./Menu";
 import { arrange, openTodos, projectStatus, reorder } from "../lib/view";
 import { elapsed, sessionName } from "../lib/format";
 import {
@@ -39,7 +40,7 @@ interface Props {
   onMessage: (msg: string) => void;
   onNewSession: (root: string) => void;
   onProjectAction: (root: string, action: "folder" | "vscode") => void;
-  onCloseProject: (root: string) => void;
+  onRemoveProject: (root: string) => void;
   /** Minimise (or expand) all the project's session cards. */
   onMinimizeAll: (ids: string[], minimized: boolean) => void;
   /** Delete a closed session's card for good. */
@@ -55,18 +56,13 @@ interface Props {
   onReorderSessions: (root: string, ids: string[]) => void;
 }
 
-/** Roughly the project menu's height, to decide whether it fits below the header. */
-const MENU_HEIGHT = 150;
-/** Height of one entry in the closed-sessions menu, for the same decision. */
-const CLOSED_ITEM_HEIGHT = 28;
-
 export function ProjectSection({
   project,
   sessions,
   cards,
   onNewSession,
   onProjectAction,
-  onCloseProject,
+  onRemoveProject,
   onDropProject,
   onShelve,
   sessionOrder,
@@ -81,41 +77,18 @@ export function ProjectSection({
   const [showTasks, setShowTasks] = useState(false);
   const [showTodos, setShowTodos] = useState(false);
   const todoCount = openTodos(todos).length;
-  /** Open menu: the project's actions (⋯) or its closed sessions ("N closed"). */
-  const [menu, setMenu] = useState<"actions" | "closed" | false>(false);
-  /** Open the menu upwards when there's no room under the header (the last project). */
-  const [menuUp, setMenuUp] = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
+  /** Open menu: the project's actions (⋯) or its closed sessions ("N closed"), and the button
+   * it drops from. */
+  const [menu, setMenuState] = useState<{ which: "actions" | "closed"; from: HTMLElement } | null>(
+    null,
+  );
+  const closeMenu = () => setMenuState(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [dropAt, setDropAt] = useState<"before" | "after" | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // The menu closes on a click outside it or Escape (not on mouse-leave, which is twitchy).
-  useEffect(() => {
-    if (!menu) return;
-    const onDown = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
-    // Clicking anywhere outside the sidebar (another window) closes it too.
-    const onBlur = () => setMenu(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, [menu]);
   const { visible, closed } = arrange(sessions, sessionOrder);
   const { focusedId, ...handlers } = cards;
-  /** Open a header menu, upwards when there's no room under the header (the last project). */
-  const openMenu = (e: React.MouseEvent, which: "actions" | "closed", height: number) => {
-    const list = e.currentTarget.closest(".cards")?.getBoundingClientRect();
-    const head = e.currentTarget.getBoundingClientRect();
-    setMenuUp(!!list && head.bottom + height > list.bottom && head.top > height);
-    setMenu(menu === which ? false : which);
-  };
+  const openMenu = (e: React.MouseEvent<HTMLElement>, which: "actions" | "closed") =>
+    setMenuState({ which, from: e.currentTarget });
   const [cardDrop, setCardDrop] = useState<{ id: string; place: "before" | "after" } | null>(null);
   // Attention (dots, flashes) is shown on the sessions, not on their project.
   const status = projectStatus(sessions, cards.fresh);
@@ -161,8 +134,7 @@ export function ProjectSection({
           <button
             className="closed-link"
             title="Closed sessions: pick one to reopen it"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => openMenu(e, "closed", closed.length * CLOSED_ITEM_HEIGHT + 10)}
+            onClick={(e) => openMenu(e, "closed")}
           >
             {closed.length} closed
           </button>
@@ -184,22 +156,21 @@ export function ProjectSection({
             <button
               className="icon"
               title="Project actions"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => openMenu(e, "actions", MENU_HEIGHT)}
+              onClick={(e) => openMenu(e, "actions")}
             >
               ⋯
             </button>
           </>
         )}
       </header>
-      {menu === "closed" && (
-        <div className={`project-menu closed-menu${menuUp ? " up" : ""}`} ref={menuRef}>
+      {menu?.which === "closed" && (
+        <Menu anchor={menu.from} className="project-menu closed-menu" onClose={() => closeMenu()}>
           {closed.map((s) => (
             <div className="closed-item" key={s.session_id}>
               <button
                 className="closed-open"
                 title="Reopen"
-                onClick={() => (cards.onActivate(s), setMenu(false))}
+                onClick={() => (cards.onActivate(s), closeMenu())}
               >
                 <span className="closed-name">{sessionName(s)}</span>
                 <span className="muted small">{elapsed(s.status_since, cards.now)}</span>
@@ -213,22 +184,22 @@ export function ProjectSection({
               </button>
             </div>
           ))}
-        </div>
+        </Menu>
       )}
-      {menu === "actions" && root && (
-        <div className={`project-menu${menuUp ? " up" : ""}`} ref={menuRef}>
-          <button onClick={() => (setShowTodos(true), setMenu(false))}>To-do list</button>
+      {menu?.which === "actions" && root && (
+        <Menu anchor={menu.from} className="project-menu" onClose={() => closeMenu()}>
+          <button onClick={() => (setShowTodos(true), closeMenu())}>To-do list</button>
           {hasTasks ? (
-            <button onClick={() => (setShowTasks(true), setMenu(false))}>Tasks…</button>
+            <button onClick={() => (setShowTasks(true), closeMenu())}>Tasks…</button>
           ) : (
             <button
-              onClick={() => (onSetupTasks(), setMenu(false))}
+              onClick={() => (onSetupTasks(), closeMenu())}
               title="Add [project.tasks] for this project in projects.toml"
             >
               Set up tasks…
             </button>
           )}
-          <button onClick={() => (onShelve(root), setMenu(false))}>Put in drawer</button>
+          <button onClick={() => (onShelve(root), closeMenu())}>Put in drawer</button>
           {visible.length > 0 && (
             <button
               onClick={() => {
@@ -237,36 +208,33 @@ export function ProjectSection({
                   visible.map((v) => v.session_id),
                   !allMin,
                 );
-                setMenu(false);
+                closeMenu();
               }}
             >
               {visible.every((v) => v.minimized) ? "Expand all" : "Minimise all"}
             </button>
           )}
-          <button onClick={() => (onProjectAction(root, "folder"), setMenu(false))}>
+          <button onClick={() => (onProjectAction(root, "folder"), closeMenu())}>
             Open folder
           </button>
-          <button onClick={() => (onProjectAction(root, "vscode"), setMenu(false))}>VS Code</button>
+          <button onClick={() => (onProjectAction(root, "vscode"), closeMenu())}>VS Code</button>
           <button
-            className={confirmClose ? "danger" : ""}
-            disabled={status.open > 0}
-            title={status.open > 0 ? "Remove its running sessions first" : undefined}
+            className={confirmRemove ? "danger" : ""}
+            title="Untrack it and drop its sessions; a new session there brings it back"
             onClick={() => {
-              if (!confirmClose) {
-                setConfirmClose(true);
-                setTimeout(() => setConfirmClose(false), 3000);
+              if (!confirmRemove) {
+                setConfirmRemove(true);
+                setTimeout(() => setConfirmRemove(false), 3000);
               } else {
-                setConfirmClose(false);
-                setMenu(false);
-                onCloseProject(root);
+                setConfirmRemove(false);
+                closeMenu();
+                onRemoveProject(root);
               }
             }}
           >
-            {confirmClose
-              ? `Really close? Removes ${sessions.length} closed session${sessions.length === 1 ? "" : "s"}`
-              : "Close project"}
+            {confirmRemove ? removeWarning(status.open, sessions.length) : "Remove project"}
           </button>
-        </div>
+        </Menu>
       )}
       {showTodos && root && (
         <TodoPanel
@@ -319,4 +287,12 @@ export function ProjectSection({
       </div>
     </section>
   );
+}
+
+/** Second-click text for "Remove project": what it will end and drop. */
+function removeWarning(running: number, total: number): string {
+  const n = (k: number, what: string) => `${k} ${what}${k === 1 ? "" : "s"}`;
+  if (running > 0) return `Really remove? Ends ${n(running, "running session")}`;
+  if (total > 0) return `Really remove? Drops ${n(total, "session")}`;
+  return "Really remove?";
 }

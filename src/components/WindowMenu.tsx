@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Menu } from "./Menu";
 import { invoke } from "@tauri-apps/api/core";
 import type { Monitor } from "../lib/types";
 
 interface Props {
+  /** The ⚙ button it opens from. */
+  anchor: HTMLElement;
   floating: boolean;
   /** Configured monitor: 0 = primary, n = nth from the left. */
   monitor: number;
@@ -11,29 +14,12 @@ interface Props {
 }
 
 /** ⚙ menu: where the sidebar sits (docked on a monitor, or floating) and the settings window. */
-export function WindowMenu({ floating, monitor, onClose, onError }: Props) {
+export function WindowMenu({ anchor, floating, monitor, onClose, onError }: Props) {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     invoke<Monitor[]>("list_monitors").then(setMonitors).catch(onError);
   }, [onError]);
-
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    // Clicking anywhere outside the sidebar (another window) closes it too.
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onClose);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onClose);
-    };
-  }, [onClose]);
 
   const set = (args: { mode?: string; monitor?: number }) => {
     invoke("set_window", args).catch(onError);
@@ -41,7 +27,7 @@ export function WindowMenu({ floating, monitor, onClose, onError }: Props) {
   };
 
   return (
-    <div className="window-menu" ref={ref}>
+    <Menu anchor={anchor} className="window-menu" onClose={onClose}>
       <div className="menu-label">Position</div>
       {monitors.map((m) => {
         const current = !floating && (monitor === m.number || (monitor === 0 && m.primary));
@@ -64,6 +50,6 @@ export function WindowMenu({ floating, monitor, onClose, onError }: Props) {
       </button>
       <div className="menu-label">Settings</div>
       <button onClick={() => (invoke("open_settings").catch(onError), onClose())}>Settings…</button>
-    </div>
+    </Menu>
   );
 }

@@ -315,11 +315,34 @@ fn todo_copy(ctx: State<'_, Ctx>, root: String, ids: Vec<u64>) -> String {
     todos::as_prompt(&picked.iter().collect::<Vec<_>>())
 }
 
+/// Remove a project: end its running sessions (as Remove does for one), then untrack it and
+/// drop its sessions. A new session there brings it back.
 #[tauri::command]
-fn close_project(ctx: State<'_, Ctx>, root: String) -> Result<(), String> {
-    ctx.store.lock().unwrap().close_project(&root)?;
+async fn remove_project(ctx: State<'_, Ctx>, root: String) -> Result<(), String> {
+    let running = ctx.store.lock().unwrap().running_in_project(&root);
+    let mut unended = 0;
+    #[cfg(windows)]
+    for s in running.iter().filter(|s| s.pid.is_some()) {
+        let cfg = ctx.config.read().unwrap().clone();
+        let s = s.clone();
+        if tauri::async_runtime::spawn_blocking(move || actions::end_tree(&s, &cfg, "TERM"))
+            .await
+            .map_err(|e| e.to_string())?
+            .is_err()
+        {
+            unended += 1;
+        }
+    }
+    unended += running.iter().filter(|s| s.pid.is_none()).count();
+    ctx.store.lock().unwrap().remove_project(&root)?;
     server::publish(&ctx);
-    Ok(())
+    match unended {
+        0 => Ok(()),
+        n => Err(format!(
+            "Removed, but {n} of its sessions couldn't be ended (not started with claudes?). \
+             If they carry on, the project comes back."
+        )),
+    }
 }
 
 #[tauri::command]
@@ -737,7 +760,7 @@ pub fn run() {
             todo_remove,
             todo_order,
             todo_copy,
-            close_project,
+            remove_project,
             dismiss_alert,
             dismiss_session,
             answer_permission,

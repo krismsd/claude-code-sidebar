@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { Session, UiState } from "./lib/types";
 import { ProjectSection, type CardHandlers } from "./components/ProjectSection";
 import { SessionMenu } from "./components/SessionMenu";
+import { menuOpen } from "./components/Menu";
 import { AddProject } from "./components/AddProject";
 import { Drawer } from "./components/Drawer";
 import { Strip } from "./components/Strip";
@@ -119,7 +120,7 @@ function App() {
   const [state, setState] = useState<UiState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [windowMenu, setWindowMenu] = useState(false);
+  const [windowMenu, setWindowMenu] = useState<HTMLElement | null>(null);
   const [draggingProject, setDraggingProject] = useState(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const now = useNow();
@@ -206,6 +207,8 @@ function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.altKey || e.metaKey) return;
+      // An open menu has the keyboard (Enter, A/D mustn't act on the card behind it).
+      if (menuOpen()) return;
       if ((e.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
       const list = [...document.querySelectorAll<HTMLElement>(".cards .card[data-session]")];
       const current = list.find((el) => el.dataset.session === focusId) ?? null;
@@ -288,7 +291,7 @@ function App() {
         .catch(report),
     onProjectAction: (root: string, action: "folder" | "vscode") =>
       invoke("project_action", { root, action }).catch(report),
-    onCloseProject: (root: string) => invoke("close_project", { root }).catch(report),
+    onRemoveProject: (root: string) => invoke("remove_project", { root }).catch(report),
     onSetupTasks: () => invoke("open_settings", { tab: "projects" }).catch(report),
     onMessage: setToast,
     onDropProject: (dragged: string, onto: string, place: "before" | "after") =>
@@ -369,9 +372,10 @@ function App() {
       )}
       {windowMenu && (
         <WindowMenu
+          anchor={windowMenu}
           floating={state.floating}
           monitor={state.monitor}
-          onClose={() => setWindowMenu(false)}
+          onClose={() => setWindowMenu(null)}
           onError={report}
         />
       )}
@@ -389,8 +393,7 @@ function App() {
         <button
           className="plus"
           title="Window and settings"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={() => setWindowMenu(!windowMenu)}
+          onClick={(e) => setWindowMenu(e.currentTarget)}
         >
           ⚙
         </button>

@@ -1037,24 +1037,34 @@ button {
   background: var(--card);
 }
 
-.project-menu {
-  position: absolute;
-  right: 4px;
-  top: 30px;
-  z-index: 20;
+/* Every pop-up menu (Menu.tsx): fixed above everything, placed in the window by script, and
+   scrolling inside only when the window is too short for it. */
+.menu {
+  position: fixed;
+  z-index: 50;
   display: flex;
   flex-direction: column;
-  min-width: 170px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
 }
 
-.project-menu.up {
-  top: auto;
-  bottom: calc(100% + 2px);
+.menu > * {
+  flex-shrink: 0;
+}
+
+/* Keyboard focus looks like hover. */
+.menu button:focus-visible {
+  outline: none;
+  background: var(--bg);
+}
+
+.project-menu {
+  min-width: 170px;
 }
 
 .project-menu button {
@@ -1095,8 +1105,6 @@ button {
 
 .closed-menu {
   width: 260px;
-  max-height: 60vh;
-  overflow-y: auto;
 }
 
 .closed-item {
@@ -1261,19 +1269,7 @@ button {
 
 /* ---- window menu, strip (M9) ---- */
 .window-menu {
-  position: absolute;
-  right: 8px;
-  /* Opens upwards from the footer's ⚙. */
-  bottom: 52px;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
   min-width: 220px;
-  padding: 4px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
 }
 
 .window-menu button {
@@ -1421,17 +1417,8 @@ button {
 }
 
 .session-menu {
-  position: fixed;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
   min-width: 190px;
   max-width: 220px;
-  padding: 4px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
 }
 
 .session-menu button {

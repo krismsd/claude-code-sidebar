@@ -8,9 +8,11 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$HOME/.local/bin"
 dry=""; [ "${1:-}" = "--dry-run" ] && dry="--dry-run"
 
-for f in claudes cc-hook cc-recap cc-tasks cc-usage cc-progress cc-mcp; do
+for f in claudes cc-hook cc-recap cc-tasks cc-usage cc-progress; do
   if [ -n "$dry" ]; then echo "would install $bin/$f"; else install -D -m 755 "$repo/dev/bin/$f" "$bin/$f"; fi
 done
+# cc-mcp served the removed to-do lists (SPEC §3.19).
+if [ -n "$dry" ]; then if [ -e "$bin/cc-mcp" ]; then echo "would remove $bin/cc-mcp"; fi; else rm -f "$bin/cc-mcp"; fi
 # tmux config for sessions hosted in tmux (the sidebar's "Run sessions in" setting).
 if [ -n "$dry" ]; then echo "would install ~/.config/cc-sidebar/tmux.conf"; else
   install -D -m 644 "$repo/dev/tmux/tmux.conf" "${XDG_CONFIG_HOME:-$HOME/.config}/cc-sidebar/tmux.conf"; fi

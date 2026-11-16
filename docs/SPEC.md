@@ -284,15 +284,9 @@ Jobs report their own progress, so it works for anything a job tracks (a deploy,
 - **Alerts:** an item turning blocked raises a 🚦 alert ("<job>: <detail>", its own sound, `job`). It goes by itself once nothing running is blocked (approved, or the job ended), or with ✕. Failed raises none: the line turns red, and Claude reports on the job when it ends.
 - **Background agents** get progress for free from their own task list: TodoWrite calls carry the agent's `agent_id`, so its "▰▰▱ 2/3 · current item" shows on its job line (the session's own task list is unaffected).
 
-### 3.19 Project to-do lists (2026-11-02)
+### 3.19 Project to-do lists (removed 2026-11-16)
 
-A running list per project of what to do next: the user notes items while sessions work (instead of a text editor) and hands them over by pasting, or a session reads and ticks them off itself. It's a scratchpad, not a tracker: one line per item, no fields, no workflow.
-
-- **Item:** text (links in it are clickable, shown as host and last path part), state (`open`, `sent`: copied into a prompt by the user, `doing`: a session said it's on it, `done`), who added it (a session's name, or the user), the session doing or done with it. Kept on the tracked project in `projects.json`, in the user's order; ids are per project and never reused.
-- **Sidebar:** `☐ N` on the project header (open, sent and doing items) toggles the panel under it; "To-do list" in the project menu opens it when empty. Add with the input (Enter), tick, double-click to reword, drag to reorder, ✕ to delete. ⧉ copies one item as a prompt and "Copy open" all open ones (`- item` per line); copied open items become `sent`. Finished items fold under "N done" with Clear.
-- **MCP server** for sessions: `POST /mcp` on the hook server, one JSON-RPC message per request (initialize, ping, tools/list, tools/call; notifications get 202). Tools: `todo_list` (`include_done`), `todo_add` (`items`), `todo_update` (`id`, `state` open/doing/done, `text`). The server's instructions tell Claude to read the list when the user mentions their to-dos, mark items doing/done, and add only follow-ups the user should see. Removing and reordering are the user's.
-- **`cc-mcp`** (installed next to `cc-hook`) is the stdio server Claude Code starts: it POSTs each line to the app (host IP from the default route, found per message) with headers `X-CC-Session` (`CLAUDE_CODE_SESSION_ID`), `X-CC-Pid` (its parent, the session's `claude`) and `X-CC-Cwd`, and writes the reply back. With the app down, requests get a JSON-RPC error and the session carries on. The call's project is that of the session with the id, else the one with the PID, else the tracked project holding the folder; none: a tool error.
-- **Registration** is user-level Claude Code config (`claude mcp add --scope user cc-sidebar -- cc-mcp`), so only with the user's approval; tests use `--mcp-config` in sandbox sessions.
+Shipped 2026-11-02 (a list per project with a panel under its header, and a `cc-sidebar` MCP server with `todo_list`/`todo_add`/`todo_update` for sessions) and removed two weeks later: four items in that time across six projects. Planning lives on a Claude whiteboard instead, and tracker work in `cc-tasks` (§3.12). The user-level MCP registration loaded its instructions and tools into every session on the machine, a cost every session paid for an unused feature. Saved items in `projects.json` are ignored and dropped on the next save.
 
 ## 4. Testing denials
 

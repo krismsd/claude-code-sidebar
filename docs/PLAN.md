@@ -327,7 +327,7 @@ Generic progress for background jobs (SPEC §3.18): the job reports it, the side
 - [x] Fix from live use (a GitHub Actions watcher): its count covered only the jobs GitHub had listed so far (2/3, 3/4, 5/7), so it looked nearly done all along. The SessionStart text now says to take the stages or total from the run's definition. And in Claude Code's Bash sandbox `/run` is read-only, so `cc-progress` printed an error into the output (which became the card's line) and never skipped repeats. It now keeps its state in the first writable of `$TMPDIR`, `$XDG_RUNTIME_DIR` and `/tmp`, keyed by the calling script's command line too (the sandbox restarts PIDs), and keeps its own errors quiet.
 - [x] Fix (2026-11-02): the same session kept reusing its old watcher script (it never got the new text: it compacted before that release), so the bar still looked nearly done. Sandbox test of the new text: a fresh session watching a fake pipeline that lists jobs once they start read the workflow file and reported all 8 stages from the first poll. As a safeguard for scripts that don't, a count whose total grows is marked open-ended and shown as `5/7+` without a bar.
 
-## M33: Project to-do lists (2026-11-02)
+## M33: Project to-do lists (2026-11-02; removed in M34)
 
 A running to-do per project (SPEC §3.19), replacing the notepad the user kept while sessions worked. Chosen over a tracker (statuses, tickets, deployments): those stay with job progress and PRs. Hand-off by copy/paste and by an MCP server; queueing items to a session (a Stop hook continuing the turn) deferred until these have been used.
 
@@ -341,6 +341,13 @@ A running to-do per project (SPEC §3.19), replacing the notepad the user kept w
 - [x] A session ending its turn on a background build showed "ready" for the few seconds Haiku took to label it a job, then "waiting". Before the label, anything that doesn't look like a service now counts as a job.
 - [x] `claude mcp add`/`get` sent a lone SessionEnd (with the calling session's tag and PID), which made a "New session" card. SessionEnd for a session never seen now makes no card.
 - [x] User-level registration (2026-11-02, approved): `claude mcp add --scope user cc-sidebar -- ~/.local/bin/cc-mcp`; connects.
+
+## M34: To-do lists removed (2026-11-16)
+
+Barely used (four items in two weeks), and the user-level MCP server loaded into every session. Planning moves to a Claude whiteboard; whether a project links to its board is to be discussed.
+
+- [x] Removed the panel, `☐ N` and menu item, store items and commands, `/mcp` and `todos.rs`, `cc-mcp`; `install.sh` deletes an installed `cc-mcp`. The waiting pill, Escape and lone-SessionEnd fixes from M33 stay.
+- [x] Unregistered the user-level MCP server (`claude mcp remove --scope user cc-sidebar`, approved 2026-11-16) before the release that dropped `/mcp`.
 
 ## Fixes (2026-10-30)
 

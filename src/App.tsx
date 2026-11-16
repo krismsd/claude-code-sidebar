@@ -325,7 +325,6 @@ function App() {
                     sessions={byRoot.get(t.project.root) ?? []}
                     hasTasks={state.task_projects.includes(t.project.root)}
                     sessionOrder={t.session_order}
-                    todos={t.todos ?? []}
                     {...sectionProps}
                   />
                 ))}
@@ -335,7 +334,6 @@ function App() {
                   sessions={other}
                   hasTasks={false}
                   sessionOrder={[]}
-                  todos={[]}
                   {...sectionProps}
                 />
               )}

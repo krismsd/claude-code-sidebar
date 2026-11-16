@@ -288,6 +288,8 @@ Jobs report their own progress, so it works for anything a job tracks (a deploy,
 
 Shipped 2026-11-02 (a list per project with a panel under its header, and a `cc-sidebar` MCP server with `todo_list`/`todo_add`/`todo_update` for sessions) and removed two weeks later: four items in that time across six projects. Planning lives on a Claude whiteboard instead, and tracker work in `cc-tasks` (§3.12). The user-level MCP registration loaded its instructions and tools into every session on the machine, a cost every session paid for an unused feature. Saved items in `projects.json` are ignored and dropped on the next save.
 
+- **Board link** (2026-11-16): `board = "https://…"` per project in `projects.toml` (Settings → Projects → Board) adds "Open board" to the project menu, which opens it in the browser. The sidebar stores only the link; the board itself (a Claude whiteboard, or anything with a URL) is edited there. Only http(s) links are offered.
+
 ## 4. Testing denials
 
 Prefer a harmless, deterministic trigger: add a test-only auto-mode rule in `dev/hooks.json` (see the "Configure auto mode" docs) that denies any command containing `CC_SIDEBAR_DENY_TEST`, then ask the test session to run `echo CC_SIDEBAR_DENY_TEST`. Verified in S4: the `autoMode.soft_deny` prose rule (read from `--settings`) denies it and emits `PermissionDenied`. It is a classifier judgement, not a regex, but it fired reliably. A plain `permissions.deny` match does not emit `PermissionDenied`.

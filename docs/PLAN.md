@@ -348,6 +348,7 @@ Barely used (four items in two weeks), and the user-level MCP server loaded into
 
 - [x] Removed the panel, `☐ N` and menu item, store items and commands, `/mcp` and `todos.rs`, `cc-mcp`; `install.sh` deletes an installed `cc-mcp`. The waiting pill, Escape and lone-SessionEnd fixes from M33 stay.
 - [x] Unregistered the user-level MCP server (`claude mcp remove --scope user cc-sidebar`, approved 2026-11-16) before the release that dropped `/mcp`.
+- [x] Board link per project: `board` in projects.toml (Settings field), "Open board" in the project menu (SPEC §3.19).
 
 ## Fixes (2026-10-30)
 

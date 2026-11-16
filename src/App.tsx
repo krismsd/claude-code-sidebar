@@ -324,6 +324,7 @@ function App() {
                     project={t.project}
                     sessions={byRoot.get(t.project.root) ?? []}
                     hasTasks={state.task_projects.includes(t.project.root)}
+                    board={state.boards[t.project.root] ?? null}
                     sessionOrder={t.session_order}
                     {...sectionProps}
                   />
@@ -333,6 +334,7 @@ function App() {
                   project={null}
                   sessions={other}
                   hasTasks={false}
+                  board={null}
                   sessionOrder={[]}
                   {...sectionProps}
                 />

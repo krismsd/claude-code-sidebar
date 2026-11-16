@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Project, Session } from "../lib/types";
 import { SessionCard } from "./SessionCard";
 import { TasksPanel } from "./TasksPanel";
@@ -35,6 +36,8 @@ interface Props {
   cards: CardHandlers;
   /** projects.toml has [project.tasks] for this project. */
   hasTasks: boolean;
+  /** Link to the project's planning board (projects.toml `board`). */
+  board: string | null;
   onSetupTasks: () => void;
   onMessage: (msg: string) => void;
   onNewSession: (root: string) => void;
@@ -67,6 +70,7 @@ export function ProjectSection({
   onDeleteSession,
   onMinimizeAll,
   hasTasks,
+  board,
   onSetupTasks,
   onMessage,
 }: Props) {
@@ -173,6 +177,17 @@ export function ProjectSection({
       )}
       {menu?.which === "actions" && root && (
         <Menu anchor={menu.from} className="project-menu" onClose={() => closeMenu()}>
+          {board && (
+            <button
+              title={board}
+              onClick={() => {
+                openUrl(board).catch((e) => onMessage(`Couldn't open the board: ${e}`));
+                closeMenu();
+              }}
+            >
+              Open board
+            </button>
+          )}
           {hasTasks ? (
             <button onClick={() => (setShowTasks(true), closeMenu())}>Tasks…</button>
           ) : (

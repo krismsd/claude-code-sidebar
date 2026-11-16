@@ -153,6 +153,8 @@ export interface UiState {
   sessions: Session[];
   /** Roots of projects with tasks set up in projects.toml. */
   task_projects: string[];
+  /** Project root → its board link (projects.toml `board`). */
+  boards: Record<string, string>;
   collapsed: boolean;
   floating: boolean;
   left_edge: boolean;
@@ -238,6 +240,7 @@ export interface ProjectOverride {
   color?: string | null;
   emoji?: string | null;
   label?: string | null;
+  board?: string | null;
   tasks?: TasksConfig | null;
 }
 

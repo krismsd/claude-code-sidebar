@@ -43,6 +43,9 @@ pub struct Override {
     /// Short label shown next to the name; `client` is accepted too (older files).
     #[serde(alias = "client", skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// Link to the project's planning board, e.g. a Claude whiteboard (SPEC §3.19).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub board: Option<String>,
     /// Where this project's tasks come from (SPEC §3.12).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tasks: Option<TasksConfig>,
@@ -74,6 +77,7 @@ pub const PROJECTS_TEMPLATE: &str = r##"# cc-sidebar per-project settings. Saved
 # color = "#3e63dd"           # default: picked from the path
 # emoji = "🚀"
 # label = "Platform team"  # short label shown next to the name
+# board = "https://claude.ai/artifact/…"   # "Open board" in the project menu
 #
 # [project.tasks]             # "Tasks…" in the project menu
 # connector = "Atlassian"     # a claude.ai connector
@@ -119,6 +123,12 @@ impl Overrides {
             }),
             Err(_) => Overrides::default(),
         }
+    }
+
+    /// The project's board link, if it's a web address.
+    pub fn board_for(&self, root: &str) -> Option<&str> {
+        let b = self.find(root)?.board.as_deref()?.trim();
+        (b.starts_with("https://") || b.starts_with("http://")).then_some(b)
     }
 
     pub fn tasks_for(&self, root: &str) -> Option<&TasksConfig> {
@@ -443,6 +453,24 @@ mod tests {
         assert_eq!(p.color, "#123456");
         assert_eq!(p.emoji.as_deref(), Some("🚀"));
         assert_eq!(p.label.as_deref(), Some("Acme Co"));
+    }
+
+    #[test]
+    fn board_links() {
+        let o = Overrides::parse(
+            r#"
+            [[project]]
+            path = "/p/a/"
+            board = " https://claude.ai/artifact/abc "
+            [[project]]
+            path = "/p/b"
+            board = "javascript:alert(1)"
+            "#,
+        )
+        .unwrap();
+        assert_eq!(o.board_for("/p/a"), Some("https://claude.ai/artifact/abc"));
+        assert_eq!(o.board_for("/p/b"), None);
+        assert_eq!(o.board_for("/p/c"), None);
     }
 
     #[test]

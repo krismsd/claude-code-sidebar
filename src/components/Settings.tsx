@@ -59,10 +59,11 @@ function cleanProjects(projects: ProjectOverride[]): ProjectOverride[] {
         color: blank(p.color),
         emoji: blank(p.emoji),
         label: blank(p.label),
+        board: blank(p.board),
         tasks,
       };
     })
-    .filter((p) => p.name || p.color || p.emoji || p.label || p.tasks);
+    .filter((p) => p.name || p.color || p.emoji || p.label || p.board || p.tasks);
 }
 
 function sourceOf(t: TasksConfig | null | undefined): TaskSource {
@@ -648,7 +649,22 @@ function Projects({
                     onChange={(e) => update({ label: e.target.value })}
                   />
                 </Field>
-                <Field label="Emoji">
+                <Field
+                  label="Board"
+                  hint="Link to its planning board, e.g. a Claude whiteboard. Opens from the project menu."
+                >
+                  <input
+                    type="text"
+                    inputMode="url"
+                    value={p.board ?? ""}
+                    placeholder="https://claude.ai/artifact/…"
+                    onChange={(e) => update({ board: e.target.value })}
+                  />
+                </Field>
+                <Field
+                  label="Emoji"
+                  hint="Shown before the name, and on its drawer tile instead of initials."
+                >
                   <input
                     type="text"
                     className="emoji"

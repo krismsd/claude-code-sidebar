@@ -91,6 +91,14 @@ pub fn validate_projects(projects: &[Override]) -> Result<(), String> {
         {
             return Err(format!("{}: colour must look like #3e63dd", p.path));
         }
+        if let Some(b) = &p.board
+            && !(b.starts_with("https://") || b.starts_with("http://"))
+        {
+            return Err(format!(
+                "{}: board must be a web address (https://…)",
+                p.path
+            ));
+        }
         if p.tasks.as_ref().is_some_and(|t| t.query.trim().is_empty()) {
             return Err(format!("{}: tasks need a query", p.path));
         }

@@ -132,6 +132,7 @@ describe("groupSessions", () => {
       projects: [{ project: a.project!, added_at: 0, shelved: false, session_order: [] }],
       sessions: [a, b, c],
       task_projects: [],
+      boards: {},
       collapsed: false,
       floating: false,
       left_edge: false,

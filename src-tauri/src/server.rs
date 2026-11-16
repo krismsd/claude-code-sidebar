@@ -95,6 +95,8 @@ pub struct UiState {
     pub sessions: Vec<crate::session::Session>,
     /// Roots of projects with `[project.tasks]` set up (show "Tasks…").
     pub task_projects: Vec<String>,
+    /// Project root → its board link (`board` in projects.toml): "Open board".
+    pub boards: std::collections::HashMap<String, String>,
     pub collapsed: bool,
     pub floating: bool,
     pub left_edge: bool,
@@ -112,11 +114,19 @@ pub fn ui_state(ctx: &Ctx) -> UiState {
         .map(|t| t.project.root.clone())
         .filter(|r| overrides.tasks_for(r).is_some())
         .collect();
+    let boards = projects
+        .iter()
+        .filter_map(|t| {
+            let r = &t.project.root;
+            Some((r.clone(), overrides.board_for(r)?.to_string()))
+        })
+        .collect();
     let cfg = ctx.config.read().unwrap();
     UiState {
         projects,
         sessions: store.snapshot(),
         task_projects,
+        boards,
         // A floating window is a normal window: it doesn't collapse to the strip.
         collapsed: ctx.prefs.lock().unwrap().collapsed && !cfg.floating(),
         floating: cfg.floating(),

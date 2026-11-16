@@ -1679,6 +1679,13 @@ button {
   animation: pulse 1s ease-in-out infinite;
 }
 
+/* Ready with an unread turn: the card's green ring (SPEC §3.17). */
+.strip-session.unread {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--green) 70%, transparent),
+    0 0 6px color-mix(in srgb, var(--green) 45%, transparent);
+}
+
 .strip-session.flash {
   animation: card-flash 0.5s ease-in-out 8 alternate;
 }

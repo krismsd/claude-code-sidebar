@@ -39,6 +39,12 @@ export function waiting(s: Session): boolean {
   return s.status === "idle" && s.background.some((b) => b.awaited);
 }
 
+/** Ready (or dormant) with a finished turn the user hasn't looked at (SPEC §3.17). Not while
+ * waiting on background work: Claude isn't done yet (its report-back turn sets it again). */
+export function unread(s: Session): boolean {
+  return s.unread && (s.status === "idle" || dormant(s)) && !waiting(s);
+}
+
 /** Keys of alerts and permission prompts, for the "just appeared" flash. */
 export function freshKeys(s: Session): string[] {
   const keys = s.alerts.map((a) => `${s.session_id}:${a.id}`);

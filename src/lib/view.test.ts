@@ -15,6 +15,7 @@ import {
   todoParts,
   tokens,
   waiting,
+  unread,
 } from "./view";
 import { elapsed, modelLabel, sessionName, usageLevel, usageNow } from "./format";
 
@@ -221,6 +222,20 @@ describe("session order", () => {
     expect(reorder(["a", "b", "c"], "a", "c", "after")).toEqual(["b", "c", "a"]);
     expect(reorder(["a", "b", "c"], "c", "a", "before")).toEqual(["c", "a", "b"]);
     expect(reorder(["a", "b", "c"], "b", "a", "after")).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("unread", () => {
+  it("only on ready (or dormant) sessions, not while waiting on background work", () => {
+    expect(unread(session({ status: "idle", unread: true }))).toBe(true);
+    expect(unread(session({ status: "closed", closed_reason: "idle", unread: true }))).toBe(true);
+    expect(unread(session({ status: "idle", unread: false }))).toBe(false);
+    expect(unread(session({ status: "working", unread: true }))).toBe(false);
+    expect(
+      unread(session({ status: "closed", closed_reason: "other", removed: true, unread: true })),
+    ).toBe(false);
+    const job = { awaited: true } as Session["background"][number];
+    expect(unread(session({ status: "idle", unread: true, background: [job] }))).toBe(false);
   });
 });
 

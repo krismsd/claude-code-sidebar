@@ -2,7 +2,7 @@ import { useRef, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Session, Tracked, Usage } from "../lib/types";
 import { usageLevel, usageNow, sessionName, STATUS_LABEL } from "../lib/format";
-import { arrange, freshKeys, isOpen, waiting } from "../lib/view";
+import { arrange, freshKeys, isOpen, unread, waiting } from "../lib/view";
 
 interface Props {
   projects: Tracked[];
@@ -80,7 +80,7 @@ export function Strip(props: Props) {
         return (
           <button
             key={s.session_id}
-            className={`strip-session ${state}${flashing ? " flash" : ""}`}
+            className={`strip-session ${state}${flashing ? " flash" : ""}${state === "open" && unread(s) ? " unread" : ""}`}
             style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
             aria-label={`${sessionName(s)}: ${STATUS_LABEL[s.status]}`}
             onMouseEnter={(e) => hover(s, e.currentTarget)}

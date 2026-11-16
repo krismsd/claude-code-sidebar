@@ -201,6 +201,8 @@ Decisions (2026-10-17): stable project order with drag to reorder; trackers via 
 
 A footer shows the account's 5-hour and weekly usage (% and reset time), read from the `rate_limit_event` that every `claude -p` stream-json call emits: refreshed by each Haiku recap, plus one tiny call at startup (`cc-usage`). Past a reset time the row dims until the next update.
 
+**Weekly Fable limit** (2026-11-16): a third row, "Fable". It's the `seven_day_overage_included` window (Claude Code labels it "Fable limit"), which only calls *to Fable* report, alongside the other two. So `cc-usage` asks Fable (`--model fable`, about 3k tokens, nearly all cache reads; Haiku if that returns nothing), while the Haiku recaps keep the last Fable window they don't carry. The 5-minute staleness check goes by the older of the two, and the row's tooltip says when the Fable numbers were reported. "Fable limit reached" replaces "Limit reached" when that's the limit hit. The collapsed strip shows it as a third bar after session and week.
+
 ### 3.14 Sessions hosted in tmux (M20, 2026-10-20)
 
 `session_mode` in config.toml, set from Settings → General → "Run sessions in":

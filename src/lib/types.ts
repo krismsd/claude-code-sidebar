@@ -189,8 +189,13 @@ export interface UsageWindow {
 export interface Usage {
   five_hour: UsageWindow | null;
   seven_day: UsageWindow | null;
+  /** The weekly Fable limit (only Fable calls report it: the last one seen). */
+  fable: UsageWindow | null;
+  fable_updated_at: number | null;
   status: string;
   using_overage: boolean;
+  /** The limit `status` is about, e.g. "seven_day_overage_included" (Fable). */
+  limit_type: string | null;
   updated_at: number;
 }
 

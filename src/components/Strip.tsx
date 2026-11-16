@@ -61,7 +61,10 @@ export function Strip(props: Props) {
   });
   const session = usageNow(usage?.five_hour ?? null, now);
   const week = usageNow(usage?.seven_day ?? null, now);
+  const fable = usageNow(usage?.fable ?? null, now);
   const pct = (v: typeof session) => (!v ? "–" : v.reset ? "reset" : `${Math.round(v.percent)}%`);
+  // Session and week, then Fable's weekly limit once a Fable call has reported it.
+  const bars = usage?.fable ? [session, week, fable] : [session, week];
 
   return (
     <main className="strip" {...drag}>
@@ -92,8 +95,11 @@ export function Strip(props: Props) {
         );
       })}
       {usage && (
-        <div className="strip-usage" title={`Session ${pct(session)} · week ${pct(week)}`}>
-          {[session, week].map((v, i) => (
+        <div
+          className="strip-usage"
+          title={`Session ${pct(session)} · week ${pct(week)}${usage.fable ? ` · Fable ${pct(fable)}` : ""}`}
+        >
+          {bars.map((v, i) => (
             <span key={i} className={`strip-usage-bar${v?.reset ? " stale" : ""}`}>
               <span
                 className={`usage-fill ${usageLevel(v?.percent ?? 0)}`}

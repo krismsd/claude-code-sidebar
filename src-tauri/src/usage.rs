@@ -3,6 +3,10 @@
 //! message type): we get them for free with each Haiku recap (`cc-recap`'s `USAGE:` line), plus
 //! one tiny call at startup (`cc-usage`). Field names are camelCase in the CLI's output and
 //! snake_case in the SDK docs, so both are accepted.
+//!
+//! The weekly Fable limit (`seven_day_overage_included`, which Claude Code labels "Fable limit")
+//! only comes with calls to Fable, so `cc-usage` asks Fable; the Haiku recaps don't carry it,
+//! and [`merge`] keeps the last one seen.
 use crate::session::Ms;
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +23,15 @@ pub struct Usage {
     /// The 5-hour session window.
     pub five_hour: Option<Window>,
     pub seven_day: Option<Window>,
+    /// The weekly Fable limit, from the last event that had it.
+    pub fable: Option<Window>,
+    /// When `fable` was reported (epoch ms).
+    pub fable_updated_at: Option<Ms>,
     /// "allowed", "allowed_warning" or "rejected".
     pub status: String,
     pub using_overage: bool,
+    /// The limit `status` is about ("five_hour", "seven_day", "seven_day_overage_included", ...).
+    pub limit_type: Option<String>,
     /// When these numbers were reported (epoch ms).
     pub updated_at: Ms,
 }
@@ -48,6 +58,9 @@ struct RawInfo {
     unified_windows: Option<std::collections::HashMap<String, RawWindow>>,
 }
 
+/// The window Claude Code calls "Fable limit".
+const FABLE: &str = "seven_day_overage_included";
+
 /// Seconds or milliseconds since the epoch → ms.
 fn to_ms(t: f64) -> Ms {
     if t > 1e12 {
@@ -71,10 +84,11 @@ pub fn parse(json: &str, now: Ms) -> Option<Usage> {
             resets_at: w.resets_at.map(to_ms),
         })
     };
-    let (mut five, mut seven) = (None, None);
+    let (mut five, mut seven, mut fable) = (None, None, None);
     if let Some(ws) = &raw.unified_windows {
         five = ws.get("five_hour").and_then(window);
         seven = ws.get("seven_day").and_then(window);
+        fable = ws.get(FABLE).and_then(window);
     }
     // Older/SDK shape: one window per event.
     if let (Some(kind), Some(u)) = (raw.rate_limit_type.as_deref(), raw.utilization) {
@@ -85,19 +99,40 @@ pub fn parse(json: &str, now: Ms) -> Option<Usage> {
         match kind {
             "five_hour" if five.is_none() => five = w,
             "seven_day" if seven.is_none() => seven = w,
+            FABLE if fable.is_none() => fable = w,
             _ => {}
         }
     }
-    if five.is_none() && seven.is_none() {
+    if five.is_none() && seven.is_none() && fable.is_none() {
         return None;
     }
     Some(Usage {
         five_hour: five,
         seven_day: seven,
+        fable_updated_at: fable.as_ref().map(|_| now),
+        fable,
         status: raw.status.unwrap_or_else(|| "allowed".into()),
         using_overage: raw.is_using_overage,
+        limit_type: raw.rate_limit_type,
         updated_at: now,
     })
+}
+
+/// New numbers over old: an event without the Fable window (a Haiku call) keeps the last one.
+pub fn merge(old: Option<&Usage>, mut new: Usage) -> Usage {
+    if new.fable.is_none()
+        && let Some(old) = old
+    {
+        new.fable = old.fable.clone();
+        new.fable_updated_at = old.fable_updated_at;
+    }
+    new
+}
+
+/// When the oldest of the numbers shown was reported: the Fable window can lag the others.
+pub fn oldest_update(u: &Usage) -> Ms {
+    u.fable_updated_at
+        .map_or(u.updated_at, |f| f.min(u.updated_at))
 }
 
 /// Split cc-recap output into (recap text, usage line JSON).
@@ -133,6 +168,38 @@ mod tests {
             (u.status.as_str(), u.using_overage, u.updated_at),
             ("allowed", false, 5)
         );
+    }
+
+    /// From a Fable call (2.1.325): the Fable window comes along with the other two.
+    const LIVE_FABLE: &str = r#"{"status":"allowed_warning","resetsAt":1794877200,"rateLimitType":"seven_day_overage_included","utilization":0.95,"overageStatus":"rejected","overageDisabledReason":"org_level_disabled","isUsingOverage":false,"surpassedThreshold":0.75,"unifiedWindows":{"five_hour":{"utilization":0.09,"resetsAt":1794810000,"status":"allowed"},"seven_day":{"utilization":0.75,"resetsAt":1794877200,"status":"allowed"},"seven_day_overage_included":{"utilization":0.95,"resetsAt":1794877200,"status":"allowed_warning","surpassedThreshold":0.75}},"overageEnabled":false}"#;
+
+    #[test]
+    fn parses_the_fable_window() {
+        let u = parse(LIVE_FABLE, 7).unwrap();
+        let fable = u.fable.clone().unwrap();
+        assert!((fable.percent - 95.0).abs() < 1e-9);
+        assert_eq!(fable.resets_at, Some(1_794_877_200_000));
+        assert_eq!(u.fable_updated_at, Some(7));
+        assert!((u.seven_day.unwrap().percent - 75.0).abs() < 1e-9);
+        assert_eq!(u.limit_type.as_deref(), Some("seven_day_overage_included"));
+        // A Haiku call has no Fable window.
+        let haiku = parse(LIVE, 9).unwrap();
+        assert!(haiku.fable.is_none() && haiku.fable_updated_at.is_none());
+    }
+
+    #[test]
+    fn merge_keeps_the_last_fable_window() {
+        let fable = parse(LIVE_FABLE, 7).unwrap();
+        let merged = merge(Some(&fable), parse(LIVE, 9).unwrap());
+        assert_eq!(merged.fable, fable.fable);
+        assert_eq!(merged.fable_updated_at, Some(7));
+        assert!((merged.five_hour.as_ref().unwrap().percent - 7.0).abs() < 1e-9);
+        assert_eq!((merged.updated_at, oldest_update(&merged)), (9, 7));
+        // A newer Fable window replaces it.
+        let newer = merge(Some(&merged), parse(LIVE_FABLE, 11).unwrap());
+        assert_eq!(newer.fable_updated_at, Some(11));
+        // No Fable window ever: just the event's own time.
+        assert_eq!(oldest_update(&parse(LIVE, 3).unwrap()), 3);
     }
 
     #[test]

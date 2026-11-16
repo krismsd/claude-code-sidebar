@@ -474,7 +474,10 @@ pub fn append_title(file: &std::path::Path, session_id: &str, name: &str) -> std
 pub fn set_usage(ctx: &Ctx, json: &str) {
     match crate::usage::parse(json, now_ms()) {
         Some(u) => {
-            *ctx.usage.lock().unwrap() = Some(u);
+            {
+                let mut usage = ctx.usage.lock().unwrap();
+                *usage = Some(crate::usage::merge(usage.as_ref(), u));
+            }
             publish(ctx);
         }
         None => log::warn!("usage: couldn't read {json}"),
@@ -487,12 +490,10 @@ const USAGE_STALE_MS: Ms = 5 * 60_000;
 fn refresh_usage_if_stale(ctx: &Ctx) {
     use std::sync::atomic::{AtomicBool, Ordering};
     static RUNNING: AtomicBool = AtomicBool::new(false);
-    let fresh = ctx
-        .usage
-        .lock()
-        .unwrap()
-        .as_ref()
-        .is_some_and(|u| now_ms().saturating_sub(u.updated_at) < USAGE_STALE_MS);
+    let fresh =
+        ctx.usage.lock().unwrap().as_ref().is_some_and(|u| {
+            now_ms().saturating_sub(crate::usage::oldest_update(u)) < USAGE_STALE_MS
+        });
     if fresh || RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }

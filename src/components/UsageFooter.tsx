@@ -11,13 +11,23 @@ interface Props {
   drag: { "data-tauri-drag-region"?: boolean };
 }
 
-function Row({ label, w, now }: { label: string; w: UsageWindow | null; now: number }) {
+function Row({
+  label,
+  w,
+  now,
+  title,
+}: {
+  label: string;
+  w: UsageWindow | null;
+  now: number;
+  title?: string;
+}) {
   const v = usageNow(w, now);
   if (!w || !v) return null;
   const done = v.reset;
   const pct = Math.round(w.percent);
   return (
-    <div className={`usage-row${done ? " stale" : ""}`}>
+    <div className={`usage-row${done ? " stale" : ""}`} title={title}>
       <span className="usage-label">{label}</span>
       <span className="usage-bar">
         <span
@@ -51,7 +61,23 @@ export function UsageFooter({ usage, now, children, drag }: Props) {
           <>
             <Row label="Session" w={usage.five_hour} now={now} />
             <Row label="Week" w={usage.seven_day} now={now} />
-            {usage.status === "rejected" && <div className="usage-warn">Limit reached</div>}
+            <Row
+              label="Fable"
+              w={usage.fable}
+              now={now}
+              title={
+                usage.fable_updated_at !== null
+                  ? `Weekly Fable limit, updated ${elapsed(usage.fable_updated_at, now)} ago`
+                  : undefined
+              }
+            />
+            {usage.status === "rejected" && (
+              <div className="usage-warn">
+                {usage.limit_type === "seven_day_overage_included"
+                  ? "Fable limit reached"
+                  : "Limit reached"}
+              </div>
+            )}
             {usage.using_overage && <div className="usage-warn">Using extra usage</div>}
           </>
         ) : (

@@ -2,7 +2,14 @@
 # cc-usage: print the account's usage limits (the numbers /usage shows) as rate_limit_info JSON.
 # Every `claude -p` call reports them in a rate_limit_event; this makes the smallest possible
 # call (Haiku, no tools, no MCP servers, no user settings, nothing saved). The sidebar runs it
-# once at startup; after that the numbers ride along with each Haiku recap (cc-recap).
-CC_SIDEBAR_INTERNAL=1 claude -p "Reply with: ok" --model haiku --no-session-persistence \
-  --tools "" --strict-mcp-config --setting-sources "" --output-format stream-json --verbose \
-  </dev/null 2>/dev/null | jq -c 'select(.type=="rate_limit_event") | .rate_limit_info' | tail -n 1
+# at startup and when the numbers are over 5 minutes old; the Haiku recaps (cc-recap) carry them too.
+# It asks Fable: the weekly Fable limit ("seven_day_overage_included") only comes with Fable calls,
+# along with the other two. About 3k tokens, nearly all cache reads. Haiku if Fable gives nothing.
+probe() {
+  CC_SIDEBAR_INTERNAL=1 claude -p "Reply with: ok" --model "$1" --no-session-persistence \
+    --tools "" --strict-mcp-config --setting-sources "" --output-format stream-json --verbose \
+    </dev/null 2>/dev/null | jq -c 'select(.type=="rate_limit_event") | .rate_limit_info' | tail -n 1
+}
+out=$(probe fable)
+[ -n "$out" ] || out=$(probe haiku)
+printf '%s\n' "$out"

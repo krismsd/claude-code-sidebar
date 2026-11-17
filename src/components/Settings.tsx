@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Config, Monitor, ProjectOverride, Settings, TasksConfig } from "../lib/types";
+import { oneEmoji } from "../lib/view";
 
 type Tab = "general" | "alerts" | "projects" | "advanced";
 type TaskSource = "none" | "connector" | "cli";
@@ -663,14 +664,42 @@ function Projects({
                 </Field>
                 <Field
                   label="Emoji"
-                  hint="Shown before the name, and on its drawer tile instead of initials."
+                  hint="Shown before the name, on its drawer tile instead of initials, and above its sessions in the collapsed strip."
                 >
-                  <input
-                    type="text"
-                    className="emoji"
-                    value={p.emoji ?? ""}
-                    onChange={(e) => update({ emoji: e.target.value })}
-                  />
+                  <span className="emoji-field">
+                    <input
+                      type="text"
+                      className="emoji"
+                      value={p.emoji ?? ""}
+                      onChange={(e) => update({ emoji: oneEmoji(e.target.value) })}
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title="Pick an emoji (Win + .)"
+                      aria-label="Pick an emoji"
+                      onClick={(e) => {
+                        // The picker types into the focused field; select it so the pick replaces it.
+                        const input = e.currentTarget.parentElement!.querySelector("input")!;
+                        input.focus();
+                        input.select();
+                        invoke("emoji_picker").catch((err) => console.warn(err));
+                      }}
+                    >
+                      😀
+                    </button>
+                    {p.emoji && (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Clear the emoji (the drawer shows initials)"
+                        aria-label="Clear the emoji"
+                        onClick={() => update({ emoji: "" })}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
                 </Field>
                 <Field label="Colour">
                   <span className="swatches">

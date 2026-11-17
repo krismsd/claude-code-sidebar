@@ -487,6 +487,42 @@ fn track_project(ctx: State<'_, Ctx>, path: String) -> Result<String, String> {
     Ok(name)
 }
 
+/// Open the Windows emoji picker (Win + .) on the field the settings window just focused.
+#[cfg(windows)]
+#[tauri::command]
+fn emoji_picker() -> Result<(), String> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput,
+        VIRTUAL_KEY, VK_LWIN, VK_OEM_PERIOD,
+    };
+    let key = |vk: VIRTUAL_KEY, up: bool| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: vk,
+                dwFlags: if up {
+                    KEYEVENTF_KEYUP
+                } else {
+                    KEYBD_EVENT_FLAGS(0)
+                },
+                ..Default::default()
+            },
+        },
+    };
+    let keys = [
+        key(VK_LWIN, false),
+        key(VK_OEM_PERIOD, false),
+        key(VK_OEM_PERIOD, true),
+        key(VK_LWIN, true),
+    ];
+    let sent = unsafe { SendInput(&keys, std::mem::size_of::<INPUT>() as i32) };
+    if sent as usize == keys.len() {
+        Ok(())
+    } else {
+        Err("Couldn't open the emoji picker; press Win + . in the box instead".into())
+    }
+}
+
 /// Windows folder picker, returned as a WSL path (None if cancelled or not mappable).
 #[cfg(windows)]
 #[tauri::command]
@@ -655,6 +691,7 @@ pub fn run() {
             open_settings_file,
             open_settings,
             get_settings,
+            emoji_picker,
             save_settings,
             pick_sound,
             #[cfg(windows)]

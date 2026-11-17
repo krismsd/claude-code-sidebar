@@ -52,12 +52,15 @@ export function Strip(props: Props) {
   };
 
   // Projects in the drawer only show sessions that need you.
-  const shown = projects.flatMap(({ project, shelved, session_order }) => {
+  const groups = projects.map(({ project, shelved, session_order }) => {
     const visible = arrange(
       sessions.filter((s) => s.project?.root === project.root),
       session_order,
     ).visible;
-    return shelved ? visible.filter((s) => isOpen(s) && needsYou(s)) : visible;
+    return {
+      project,
+      shown: shelved ? visible.filter((s) => isOpen(s) && needsYou(s)) : visible,
+    };
   });
   const session = usageNow(usage?.five_hour ?? null, now);
   const week = usageNow(usage?.seven_day ?? null, now);
@@ -68,32 +71,42 @@ export function Strip(props: Props) {
 
   return (
     <main className="strip" {...drag}>
-      {shown.map((s) => {
-        const state = needsYou(s)
-          ? "attention"
-          : s.status === "working" || waiting(s)
-            ? "working"
-            : !isOpen(s)
-              ? "closed"
-              : "open";
-        const flashing = freshKeys(s).some((k) => fresh.has(k));
-        return (
-          <button
-            key={s.session_id}
-            className={`strip-session ${state}${flashing ? " flash" : ""}${state === "open" && unread(s) ? " unread" : ""}`}
-            style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
-            aria-label={`${sessionName(s)}: ${STATUS_LABEL[s.status]}`}
-            onMouseEnter={(e) => hover(s, e.currentTarget)}
-            onMouseLeave={() => hover(s, null)}
-            onClick={() => {
-              hover(s, null);
-              onActivate(s);
-            }}
-          >
-            <span className="strip-dot" />
-          </button>
-        );
-      })}
+      {groups.flatMap(({ project, shown }) => [
+        // The project's emoji heads its markers, so a glance tells projects apart.
+        ...(project.emoji && shown.length > 0
+          ? [
+              <span key={`emoji:${project.root}`} className="strip-emoji" title={project.name}>
+                {project.emoji}
+              </span>,
+            ]
+          : []),
+        ...shown.map((s) => {
+          const state = needsYou(s)
+            ? "attention"
+            : s.status === "working" || waiting(s)
+              ? "working"
+              : !isOpen(s)
+                ? "closed"
+                : "open";
+          const flashing = freshKeys(s).some((k) => fresh.has(k));
+          return (
+            <button
+              key={s.session_id}
+              className={`strip-session ${state}${flashing ? " flash" : ""}${state === "open" && unread(s) ? " unread" : ""}`}
+              style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
+              aria-label={`${sessionName(s)}: ${STATUS_LABEL[s.status]}`}
+              onMouseEnter={(e) => hover(s, e.currentTarget)}
+              onMouseLeave={() => hover(s, null)}
+              onClick={() => {
+                hover(s, null);
+                onActivate(s);
+              }}
+            >
+              <span className="strip-dot" />
+            </button>
+          );
+        }),
+      ])}
       {usage && (
         <div
           className="strip-usage"

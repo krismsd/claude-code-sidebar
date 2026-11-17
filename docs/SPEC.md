@@ -105,6 +105,7 @@ Liveness: with `CC_SIDEBAR_PID` known, check every 30 s via a single batched `ws
 - Branch: read `.git/HEAD`, refreshed on Stop and CwdChanged.
 - Colour: stable hash of the root path into a curated palette of 12 colours that are distinct in both light and dark themes. Shown as a thick left band plus a tinted header.
 - Optional overrides in `%APPDATA%\cc-sidebar\projects.toml`: display name, colour, emoji, a short label.
+- **Emoji** (2026-11-16): one character, shown before the project name, as its drawer tile's mark instead of initials, and above its session markers in the collapsed strip (project name on hover). Settings keeps only the last character entered (a joined emoji such as 👨‍💻 or a flag counts as one), has 😀 to open the Windows emoji picker on the box (Win + . sent to the settings window, the old one selected so a pick replaces it) and ✕ to clear it.
 - Cards group by project when several sessions share one (thin group header).
 - Dev config: `launcher = "/mnt/c/dev/cc-sidebar/dev/bin/claudes"` with `CC_SIDEBAR_SETTINGS` in `[launch_env]` so resumed test sessions load the test hooks. At install (M7) this becomes `launcher = "claudes"`.
 

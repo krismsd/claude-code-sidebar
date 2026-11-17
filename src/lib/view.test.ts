@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Background, Progress, Session, UiState } from "./types";
 import {
   answerBody,
+  oneEmoji,
   arrange,
   cacheState,
   dropIndex,
@@ -366,6 +367,16 @@ describe("answerBody", () => {
   });
   it("keeps the answer when the question isn't at its end", () => {
     expect(answerBody("Push now? Done.", "Push now?")).toBe("Push now? Done.");
+  });
+});
+
+describe("oneEmoji", () => {
+  it("keeps only the last character entered, whole", () => {
+    expect(oneEmoji("🚀🐍")).toBe("🐍");
+    expect(oneEmoji("👨‍💻")).toBe("👨‍💻");
+    expect(oneEmoji("🇦🇺")).toBe("🇦🇺");
+    expect(oneEmoji("ACME")).toBe("E");
+    expect(oneEmoji("  ")).toBe("");
   });
 });
 

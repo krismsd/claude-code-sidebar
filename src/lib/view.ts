@@ -238,3 +238,13 @@ export function answerBody(answer: string, question: string | null): string {
   }
   return lines.join("\n");
 }
+
+/** A project's emoji as typed: only the last character the user entered (an emoji built from
+ * several, such as 👨‍💻 or a flag, counts as one), so a second pick or a typed word can't pile
+ * up in a mark drawn in a small tile. */
+export function oneEmoji(text: string): string {
+  const parts = [
+    ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text.trim()),
+  ];
+  return parts.length ? parts[parts.length - 1].segment : "";
+}

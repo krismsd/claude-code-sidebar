@@ -1,5 +1,5 @@
 // Pure view logic, shared by components and unit-tested in view.test.ts.
-import type { Background, Progress, Session, UiState } from "./types";
+import type { Alert, Background, Progress, Session, UiState } from "./types";
 import { elapsed } from "./format";
 
 /** Removed by the user (or `/exit`): in its project's "closed" section. */
@@ -53,9 +53,19 @@ export function freshKeys(s: Session): string[] {
   return keys;
 }
 
-/** Needs the user: a permission prompt, a question, an error, or an alert (not a compaction). */
+/** Alerts that only inform: compaction, a background job reporting back, a PR merged (the
+ * text is `store.rs`'s "PR merged: …"; failing checks and changes requested do need you). */
+export function informational(a: Alert): boolean {
+  return (
+    a.kind === "compact" ||
+    a.kind === "finished" ||
+    (a.kind === "pr" && a.text.startsWith("PR merged"))
+  );
+}
+
+/** Needs the user: a permission prompt, a question, an error, or an alert that isn't just news. */
 export function needsYou(s: Session): boolean {
-  return ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact");
+  return ATTENTION.has(s.status) || s.alerts.some((a) => !informational(a));
 }
 
 /** What a collapsed-strip marker shows (SPEC §3.17). A dot only ever means unread. */

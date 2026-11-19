@@ -105,6 +105,14 @@ describe("marker", () => {
     const denied = session({ alerts: [{ id: 2, kind: "denied", text: "", at: 0 }] });
     expect(marker(denied)).toBe("attention");
   });
+
+  it("doesn't count news (merged PR, job finished) as needing you", () => {
+    const pr = (text: string) => ({ id: 3, kind: "pr" as const, text, at: 0 });
+    expect(marker(session({ alerts: [pr("PR merged: #1 x")] }))).toBe("read");
+    expect(marker(session({ alerts: [pr("PR checks failed: #1 x")] }))).toBe("attention");
+    const finished = { id: 4, kind: "finished" as const, text: "Finished: x", at: 0 };
+    expect(marker(session({ alerts: [finished] }))).toBe("read");
+  });
 });
 
 describe("projectStatus", () => {

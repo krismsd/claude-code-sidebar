@@ -353,6 +353,12 @@ body,
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes pulse {
   50% {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 35%, transparent);
@@ -1391,47 +1397,12 @@ button {
   font-size: 13px;
 }
 
-.strip-project {
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--project) 35%, var(--card));
-  border-left: 3px solid var(--project);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-}
-
 .strip-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--grey);
   opacity: 0.5;
-}
-
-.strip-project.open .strip-dot {
-  background: var(--green);
-  opacity: 1;
-}
-
-.strip-project.working .strip-dot {
-  background: var(--blue);
-  opacity: 1;
-  animation: breathe 1.6s ease-in-out infinite;
-}
-
-.strip-project.attention .strip-dot {
-  background: var(--amber);
-  opacity: 1;
-  animation: pulse 1s ease-in-out infinite;
-}
-
-.strip-project.flash {
-  animation: card-flash 0.5s ease-in-out 8 alternate;
 }
 
 /* ---- M10 ---- */
@@ -1669,29 +1640,40 @@ button {
   opacity: 1;
 }
 
-.strip-session.closed {
-  opacity: 0.55;
+/* Working: a spinning arc. Waiting on background work: the same, dimmer and slower. */
+.strip-spin {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--blue) 25%, transparent);
+  border-top-color: var(--blue);
+  animation: spin 0.9s linear infinite;
 }
 
-.strip-session.closed .strip-dot {
-  background: var(--grey);
+.strip-session.waiting .strip-spin {
+  opacity: 0.6;
+  animation-duration: 2.4s;
 }
 
-.strip-session.working .strip-dot {
-  background: var(--blue);
-  animation: breathe 1.6s ease-in-out infinite;
+/* Needs you (permission, question, denial): an amber !, red for an error. */
+.strip-alert,
+.drawer-alert {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--amber);
+  animation: breathe 1s ease-in-out infinite;
 }
 
-.strip-session.attention .strip-dot {
-  background: var(--amber);
-  animation: pulse 1s ease-in-out infinite;
+.strip-session.error .strip-alert {
+  color: var(--red);
 }
 
-/* Ready with an unread turn: the card's green ring (SPEC §3.17). */
-.strip-session.unread {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--green) 70%, transparent),
-    0 0 6px color-mix(in srgb, var(--green) 45%, transparent);
+.drawer-alert {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 12px;
 }
 
 .strip-session.flash {

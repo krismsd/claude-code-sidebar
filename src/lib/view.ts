@@ -53,25 +53,38 @@ export function freshKeys(s: Session): string[] {
   return keys;
 }
 
+/** Needs the user: a permission prompt, a question, an error, or an alert (not a compaction). */
+export function needsYou(s: Session): boolean {
+  return ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact");
+}
+
+/** What a collapsed-strip marker shows (SPEC §3.17). A dot only ever means unread. */
+export type Marker = "error" | "attention" | "working" | "waiting" | "unread" | "read";
+
+export function marker(s: Session): Marker {
+  if (s.status === "error") return "error";
+  if (needsYou(s)) return "attention";
+  if (s.status === "working") return "working";
+  if (waiting(s)) return "waiting";
+  return unread(s) ? "unread" : "read";
+}
+
 export interface ProjectStatus {
   open: number;
-  /** Dot state: "attention" > "working" > "open" > "" (nothing open). */
-  state: "attention" | "working" | "open" | "";
+  /** Drawer tile mark: "attention" (!) > "unread" (green dot) > "" (nothing). */
+  state: "attention" | "unread" | "";
   flashing: boolean;
 }
 
-/** Summary for a project header or strip dot. */
+/** Summary for a project header or drawer tile. */
 export function projectStatus(sessions: Session[], fresh: Set<string>): ProjectStatus {
-  // Running ones: what "N open" and a drawer tile's dot are about.
+  // Running ones: what "N open" is about.
   const open = sessions.filter((s) => s.status !== "closed");
-  const attention = open.some(
-    (s) => ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact"),
-  );
-  const working = open.some((s) => s.status === "working" || waiting(s));
+  const listed = sessions.filter(isOpen);
   const flashing = sessions.some((s) => freshKeys(s).some((k) => fresh.has(k)));
   return {
     open: open.length,
-    state: attention ? "attention" : working ? "working" : open.length ? "open" : "",
+    state: open.some(needsYou) ? "attention" : listed.some(unread) ? "unread" : "",
     flashing,
   };
 }

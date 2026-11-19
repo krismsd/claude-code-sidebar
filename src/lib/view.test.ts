@@ -12,6 +12,7 @@ import {
   progressLine,
   readyStale,
   projectStatus,
+  marker,
   reorder,
   tokens,
   waiting,
@@ -94,22 +95,36 @@ describe("arrange", () => {
   });
 });
 
+describe("marker", () => {
+  it("shows a dot only for unread, symbols for the rest", () => {
+    expect(marker(session())).toBe("read");
+    expect(marker(session({ unread: true }))).toBe("unread");
+    expect(marker(session({ status: "working", unread: true }))).toBe("working");
+    expect(marker(session({ status: "needs_permission" }))).toBe("attention");
+    expect(marker(session({ status: "error" }))).toBe("error");
+    const denied = session({ alerts: [{ id: 2, kind: "denied", text: "", at: 0 }] });
+    expect(marker(denied)).toBe("attention");
+  });
+});
+
 describe("projectStatus", () => {
-  it("ranks attention over working over open", () => {
+  it("marks attention over unread, and nothing for working or read", () => {
     expect(projectStatus([session({ status: "closed" })], new Set()).state).toBe("");
-    expect(projectStatus([session()], new Set()).state).toBe("open");
-    expect(projectStatus([session(), session({ status: "working" })], new Set()).state).toBe(
-      "working",
+    expect(projectStatus([session()], new Set()).state).toBe("");
+    expect(projectStatus([session({ status: "working" })], new Set()).state).toBe("");
+    const fresh = session({ unread: true });
+    expect(projectStatus([session(), fresh], new Set()).state).toBe("unread");
+    // A dormant (ended, still listed) unread session counts too.
+    expect(projectStatus([session({ status: "closed", unread: true })], new Set()).state).toBe(
+      "unread",
     );
-    const waiting = session({ status: "needs_input" });
-    expect(projectStatus([session({ status: "working" }), waiting], new Set()).state).toBe(
-      "attention",
-    );
+    const asking = session({ status: "needs_input" });
+    expect(projectStatus([fresh, asking], new Set()).state).toBe("attention");
   });
 
   it("treats non-compact alerts as attention, and flashes on fresh keys", () => {
     const compact = session({ alerts: [{ id: 1, kind: "compact", text: "", at: 0 }] });
-    expect(projectStatus([compact], new Set()).state).toBe("open");
+    expect(projectStatus([compact], new Set()).state).toBe("");
     const denied = session({ alerts: [{ id: 2, kind: "denied", text: "", at: 0 }] });
     const st = projectStatus([denied], new Set(freshKeys(denied)));
     expect(st).toEqual({ open: 1, state: "attention", flashing: true });

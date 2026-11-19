@@ -2,7 +2,7 @@ import { useRef, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Session, Tracked, Usage } from "../lib/types";
 import { usageLevel, usageNow, sessionName, STATUS_LABEL } from "../lib/format";
-import { arrange, freshKeys, isOpen, unread, waiting } from "../lib/view";
+import { arrange, freshKeys, isOpen, marker, needsYou, unread } from "../lib/view";
 
 interface Props {
   projects: Tracked[];
@@ -16,11 +16,7 @@ interface Props {
   onActivate: (s: Session) => void;
 }
 
-const ATTENTION = new Set(["needs_permission", "needs_input", "error"]);
 const PEEK_OPEN_MS = 300;
-
-const needsYou = (s: Session) =>
-  ATTENTION.has(s.status) || s.alerts.some((a) => a.kind !== "compact");
 const PEEK_CLOSE_MS = 80;
 
 /** Collapsed sidebar: an expand button, one marker per session in the list (in project
@@ -51,7 +47,7 @@ export function Strip(props: Props) {
     else openTimer.current = setTimeout(show, PEEK_OPEN_MS);
   };
 
-  // Projects in the drawer only show sessions that need you.
+  // Projects in the drawer only show sessions that need you or have news.
   const groups = projects.map(({ project, shelved, session_order }) => {
     const visible = arrange(
       sessions.filter((s) => s.project?.root === project.root),
@@ -59,7 +55,7 @@ export function Strip(props: Props) {
     ).visible;
     return {
       project,
-      shown: shelved ? visible.filter((s) => isOpen(s) && needsYou(s)) : visible,
+      shown: shelved ? visible.filter((s) => isOpen(s) && (needsYou(s) || unread(s))) : visible,
     };
   });
   const session = usageNow(usage?.five_hour ?? null, now);
@@ -81,18 +77,12 @@ export function Strip(props: Props) {
             ]
           : []),
         ...shown.map((s) => {
-          const state = needsYou(s)
-            ? "attention"
-            : s.status === "working" || waiting(s)
-              ? "working"
-              : !isOpen(s)
-                ? "closed"
-                : "open";
+          const state = marker(s);
           const flashing = freshKeys(s).some((k) => fresh.has(k));
           return (
             <button
               key={s.session_id}
-              className={`strip-session ${state}${flashing ? " flash" : ""}${state === "open" && unread(s) ? " unread" : ""}`}
+              className={`strip-session ${state}${flashing ? " flash" : ""}`}
               style={{ "--project": s.project?.color ?? "#888" } as CSSProperties}
               aria-label={`${sessionName(s)}: ${STATUS_LABEL[s.status]}`}
               onMouseEnter={(e) => hover(s, e.currentTarget)}
@@ -102,7 +92,12 @@ export function Strip(props: Props) {
                 onActivate(s);
               }}
             >
-              <span className="strip-dot" />
+              {/* A dot only means unread; other states get a symbol (SPEC §3.17). */}
+              {state === "unread" && <span className="strip-dot" />}
+              {(state === "working" || state === "waiting") && <span className="strip-spin" />}
+              {(state === "attention" || state === "error") && (
+                <span className="strip-alert">!</span>
+              )}
             </button>
           );
         }),

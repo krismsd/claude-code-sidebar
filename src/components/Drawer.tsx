@@ -34,7 +34,8 @@ function initials(name: string): string {
 
 /** The drawer (SPEC §3.12): projects put away as small tiles at the bottom of the sidebar.
  * Drop a project header here (or use its ⋯ menu) to put it away; click a tile, or drag it
- * back into the list, to take it out. A tile's dot still shows its sessions' state. */
+ * back into the list, to take it out. A tile shows ! when a session needs you, else a green dot when one
+ * has an unread turn. */
 export function Drawer({
   shelved,
   byRoot,
@@ -106,7 +107,8 @@ export function Drawer({
           >
             <span className="drawer-mark">{p.emoji ?? initials(p.name)}</span>
             <span className="drawer-name">{p.name}</span>
-            {status.state && <span className={`dot ${status.state}`} />}
+            {status.state === "attention" && <span className="drawer-alert">!</span>}
+            {status.state === "unread" && <span className="dot open" />}
           </div>
         );
       })}

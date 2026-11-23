@@ -383,6 +383,35 @@ impl Store {
             .collect()
     }
 
+    /// Result of a liveness check in one distro: the version each live PID runs, and the one
+    /// `claude` starts now. Returns whether anything changed.
+    pub fn set_versions(
+        &mut self,
+        distro: &str,
+        running: &HashMap<u32, String>,
+        latest: Option<&str>,
+    ) -> bool {
+        use crate::liveness::parse_version;
+        let mut changed = false;
+        for s in self.sessions.values_mut() {
+            if s.distro.as_deref().unwrap_or("Ubuntu") != distro || s.status == Status::Closed {
+                continue;
+            }
+            let Some(v) = s.pid.and_then(|p| running.get(&p)) else {
+                continue;
+            };
+            let update = latest
+                .filter(|l| parse_version(l) > parse_version(v))
+                .map(String::from);
+            if s.version.as_ref() != Some(v) || s.update != update {
+                s.version = Some(v.clone());
+                s.update = update;
+                changed = true;
+            }
+        }
+        changed
+    }
+
     /// Result of a liveness check: these PIDs are gone.
     pub fn pids_dead(&mut self, dead: &[u32], now: Ms) {
         for s in self.sessions.values_mut() {

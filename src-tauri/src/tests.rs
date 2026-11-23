@@ -2078,3 +2078,60 @@ fn finished_turns_are_unread_until_seen_or_prompted() {
     assert_eq!(st.get(SID).unwrap().status, Status::Idle);
     assert!(!st.get(SID).unwrap().unread);
 }
+
+#[test]
+fn liveness_check_reads_versions() {
+    let c = crate::liveness::parse_check(
+        "v 10 2.1.328\nv 11 2.1.326 (deleted)\nv 12 node\nv 13 \nd 14\nl 2.1.330\n",
+    );
+    assert_eq!(c.dead, [14]);
+    assert_eq!(c.versions.get(&10).map(String::as_str), Some("2.1.328"));
+    assert_eq!(c.versions.get(&11).map(String::as_str), Some("2.1.326"));
+    assert_eq!(c.versions.len(), 2, "not a version: nothing");
+    assert_eq!(c.latest.as_deref(), Some("2.1.330"));
+    assert_eq!(crate::liveness::parse_check("l \n").latest, None);
+}
+
+#[test]
+fn older_claude_code_offers_an_update() {
+    use std::collections::HashMap;
+    let mut st = Store::default();
+    st.apply(
+        &fx_with("SessionStart", serde_json::json!({"session_id": "a"})),
+        0,
+    );
+    let pid = st.get("a").unwrap().pid.unwrap();
+    let running = HashMap::from([(pid, "2.1.328".to_string())]);
+    assert!(st.set_versions("Ubuntu", &running, Some("2.1.330")));
+    let a = st.get("a").unwrap();
+    assert_eq!(a.version.as_deref(), Some("2.1.328"));
+    assert_eq!(a.update.as_deref(), Some("2.1.330"));
+    assert!(
+        !st.set_versions("Ubuntu", &running, Some("2.1.330")),
+        "no change"
+    );
+    assert!(!st.set_versions("Other", &running, None), "other distro");
+    // Numeric, not text: 2.1.99 is older than 2.1.330.
+    let old = HashMap::from([(pid, "2.1.99".to_string())]);
+    assert!(st.set_versions("Ubuntu", &old, Some("2.1.330")));
+    assert_eq!(st.get("a").unwrap().update.as_deref(), Some("2.1.330"));
+    // Up to date, or newer than the link (an update mid-install): nothing to offer.
+    let new = HashMap::from([(pid, "2.1.330".to_string())]);
+    assert!(st.set_versions("Ubuntu", &new, Some("2.1.330")));
+    assert_eq!(st.get("a").unwrap().update, None);
+    assert!(st.set_versions("Ubuntu", &running, None));
+    assert_eq!(st.get("a").unwrap().update, None);
+
+    // Resumed in a new process: the old one's version no longer applies.
+    st.set_versions("Ubuntu", &running, Some("2.1.330"));
+    st.apply(
+        &fx_with(
+            "SessionStart",
+            serde_json::json!({"session_id": "a", "_headers": {"x-cc-pid": "999"}}),
+        ),
+        1,
+    );
+    let a = st.get("a").unwrap();
+    assert_eq!(a.pid, Some(999));
+    assert_eq!((a.version.as_ref(), a.update.as_ref()), (None, None));
+}

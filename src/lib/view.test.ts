@@ -70,6 +70,8 @@ function session(over: Partial<Session> = {}): Session {
     background: [],
     tmux: null,
     attached: null,
+    version: null,
+    update: null,
     alerts: [],
     closed_reason: null,
     removed: false,

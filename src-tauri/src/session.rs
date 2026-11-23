@@ -324,6 +324,12 @@ pub struct Session {
     /// For a tmux session: whether any terminal shows it (None until checked).
     #[serde(default)]
     pub attached: Option<bool>,
+    /// The Claude Code version its process runs (from `/proc/<pid>/exe`, at the liveness check).
+    #[serde(default)]
+    pub version: Option<String>,
+    /// A newer Claude Code is installed than the one it runs: the version a restart would run.
+    #[serde(default)]
+    pub update: Option<String>,
     /// Since when no terminal has shown it (not saved).
     #[serde(skip)]
     pub unattached_since: Option<Ms>,
@@ -469,6 +475,15 @@ pub struct Session {
 }
 
 impl Session {
+    /// A new process: what the old one ran says nothing about it.
+    fn set_pid(&mut self, pid: Option<u32>) {
+        if self.pid != pid {
+            self.version = None;
+            self.update = None;
+        }
+        self.pid = pid;
+    }
+
     pub fn new(session_id: &str, now: Ms) -> Session {
         Session {
             session_id: session_id.to_string(),
@@ -478,6 +493,8 @@ impl Session {
             distro: None,
             tmux: None,
             attached: None,
+            version: None,
+            update: None,
             unattached_since: None,
             ending_idle: false,
             view_closed: false,
@@ -756,7 +773,7 @@ impl Session {
         // app may start mid-session).
         if matches!(hook.event, Event::SessionStart { .. }) {
             self.tag = m.tag.clone();
-            self.pid = m.pid;
+            self.set_pid(m.pid);
             self.wt_session = m.wt_session.clone();
             self.tmux = m.tmux.clone();
         } else {
@@ -767,7 +784,7 @@ impl Session {
                 self.tag = m.tag.clone();
             }
             if m.pid.is_some() {
-                self.pid = m.pid;
+                self.set_pid(m.pid);
             }
             if m.wt_session.is_some() {
                 self.wt_session = m.wt_session.clone();

@@ -453,6 +453,19 @@ body,
   white-space: nowrap;
 }
 
+/* A live process (§3.3): ">_", with an amber ↑ when it runs an older Claude Code. */
+.card-status .live {
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  letter-spacing: -0.5px;
+}
+
+.card-status .live .update {
+  margin-left: 1px;
+  color: var(--amber);
+  font-family: inherit;
+  font-weight: 700;
+}
+
 .card-status .cold {
   color: var(--blue);
 }

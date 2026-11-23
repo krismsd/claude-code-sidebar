@@ -49,6 +49,10 @@ export interface Session {
   tmux: string | null;
   /** For a tmux session: a terminal shows it (null until checked). */
   attached: boolean | null;
+  /** The Claude Code version its process runs (null until checked). */
+  version: string | null;
+  /** A newer Claude Code is installed: the version a restart would run. */
+  update: string | null;
   cwd: string | null;
   shell_cwd: string | null;
   project: Project | null;

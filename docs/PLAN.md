@@ -351,6 +351,10 @@ Barely used (four items in two weeks), and the user-level MCP server loaded into
 - [x] Board link per project: `board` in projects.toml (Settings field), "Open board" in the project menu (SPEC §3.19).
 - [x] Emoji field (UX review 2026-11-16): one character kept, 😀 opens the Windows picker, ✕ clears it; the emoji heads its project's markers in the collapsed strip (SPEC §3.4).
 
+## M35: Live process and Claude Code version (2026-11-23)
+
+- [x] Status band starts with `>_` while the session's process is alive (not dormant or closed); whether a view is open is deliberately not shown. An amber ↑ joins it when the process runs an older Claude Code than `claude` now starts (SPEC §3.3, §3.17). Versions come from the 30 s liveness call (`/proc/<pid>/exe`, `~/.local/bin/claude`), so no extra WSL calls and no hook change. No "restart on latest" action (the user's call).
+
 ## Fixes (2026-10-30)
 
 - [x] An Azure DevOps PR created from a repo subfolder without `--org` (the shell had `cd api` earlier) was never looked up: the lookup ran in the session's folder, which has no Azure DevOps remote ("--organization must be specified"). PRs now remember the folder they were created from (transcript `cwd` plus any `cd` in the command, heredocs skipped), and the lookup runs there. PRs saved without one get it from a transcript re-read on load. Verified live: after the release, the PR got its repo subfolder and its lookup succeeded (open, checks passing, review required).

@@ -126,7 +126,8 @@ export function SessionCard({
     agents > 0 ||
     (cache !== null && !cache.warm) ||
     s.compacted !== null ||
-    s.model !== null;
+    s.model !== null ||
+    s.status !== "closed";
   // A turn in progress: the body shows the turn (prompt, progress, steps), not the last answer.
   const turn = ["working", "needs_permission", "needs_input"].includes(s.status);
   const label = [s.project?.worktree && `⑂ ${s.project.worktree}`, s.project?.branch]
@@ -280,6 +281,20 @@ export function SessionCard({
           )}
           {statusBand && (
             <div className="card-status">
+              {s.status !== "closed" && (
+                <span
+                  className="live"
+                  title={[
+                    "Running",
+                    s.version && `Claude Code ${s.version}`,
+                    s.update && `${s.update} is installed: restart the session to update`,
+                  ]
+                    .filter(Boolean)
+                    .join("\n")}
+                >
+                  &gt;_{s.update && <span className="update">↑</span>}
+                </span>
+              )}
               {services.length > 0 && (
                 <span
                   title={[

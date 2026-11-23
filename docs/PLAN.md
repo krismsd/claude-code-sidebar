@@ -351,6 +351,10 @@ Barely used (four items in two weeks), and the user-level MCP server loaded into
 - [x] Board link per project: `board` in projects.toml (Settings field), "Open board" in the project menu (SPEC §3.19).
 - [x] Emoji field (UX review 2026-11-16): one character kept, 😀 opens the Windows picker, ✕ clears it; the emoji heads its project's markers in the collapsed strip (SPEC §3.4).
 
+## Fixes (2026-11-23)
+
+- [x] A permission approved in the terminal kept the card on "needs permission" until the tool finished. Claude Code 2.1.330 no longer kills the PermissionRequest hook on a terminal Yes (it still does on No), so the dropped-connection signal was gone. `cc-hook` now watches for the Bash tool's process while it holds a request and sends `PermissionApproved`; the card goes to working and the hold is released. Tested in a sandbox: Yes → working during a 30 s ping, No → needs input, card answers still returned. Non-Bash tools still wait for `PostToolUse`.
+
 ## M35: Live process and Claude Code version (2026-11-23)
 
 - [x] Status band starts with `>_` while the session's process is alive (not dormant or closed); whether a view is open is deliberately not shown. An amber ↑ joins it when the process runs an older Claude Code than `claude` now starts (SPEC §3.3, §3.17). Versions come from the 30 s liveness call (`/proc/<pid>/exe`, `~/.local/bin/claude`), so no extra WSL calls and no hook change. No "restart on latest" action (the user's call).

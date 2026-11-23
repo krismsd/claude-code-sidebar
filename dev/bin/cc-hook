@@ -22,16 +22,54 @@ fi
 case "${CC_SIDEBAR_HOST:-}" in tmux | terminal | window | none) unset CC_SIDEBAR_HOST ;; esac
 host="${CC_SIDEBAR_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
 [ -n "$host" ] || exit 0
-out=$(curl -s --fail --connect-timeout 0.3 --max-time "$max" \
-  -H 'Content-Type: application/json' \
-  -H "X-CC-Tag: ${CC_SIDEBAR_TAG:-}" \
-  -H "X-CC-Pid: ${CC_SIDEBAR_PID:-}" \
-  -H "X-CC-Tmux: ${CC_SIDEBAR_TMUX:-}" \
-  -H "X-WT-Session: ${WT_SESSION:-}" \
-  -H "X-CC-Internal: ${CC_SIDEBAR_INTERNAL:-}" \
-  -H "X-WSL-Distro: ${WSL_DISTRO_NAME:-}" \
-  --data-binary @- "http://$host:$port/hook")
-rc=$?
+send() {
+  curl -s --fail --connect-timeout 0.3 --max-time "$1" \
+    -H 'Content-Type: application/json' \
+    -H "X-CC-Tag: ${CC_SIDEBAR_TAG:-}" \
+    -H "X-CC-Pid: ${CC_SIDEBAR_PID:-}" \
+    -H "X-CC-Tmux: ${CC_SIDEBAR_TMUX:-}" \
+    -H "X-WT-Session: ${WT_SESSION:-}" \
+    -H "X-CC-Internal: ${CC_SIDEBAR_INTERNAL:-}" \
+    -H "X-WSL-Distro: ${WSL_DISTRO_NAME:-}" \
+    --data-binary @- "http://$host:$port/hook"
+}
+payload=$(cat)
+# Bash tool calls run as `bash -c source …/shell-snapshots/snapshot-…`, children of claude.
+tool_procs() { pgrep -P "$1" -f 'shell-snapshots/snapshot-' 2>/dev/null | sort; }
+case "$payload" in
+*'"hook_event_name":"PermissionRequest"'* | *'"hook_event_name": "PermissionRequest"'*)
+  # The app holds this request so its card can answer it. A terminal "No" kills this hook
+  # (the dropped connection tells the app), but a terminal "Yes" doesn't: watch for the tool's
+  # process to start and tell the app, or the card says "needs permission" while it runs.
+  claude=$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ')
+  [ "$(ps -o comm= -p "$PPID" 2>/dev/null)" = claude ] && claude=$PPID
+  before=$(tool_procs "$claude")
+  tmp=$(mktemp)
+  printf '%s' "$payload" | send "$max" >"$tmp" &
+  cpid=$!
+  trap 'kill "$cpid" 2>/dev/null; rm -f "$tmp"; exit 0' TERM INT HUP
+  watching=1
+  while kill -0 "$cpid" 2>/dev/null; do
+    sleep 0.3
+    [ -n "$watching" ] && [ -n "$claude" ] || continue
+    now=$(tool_procs "$claude")
+    if [ -n "$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$now") | grep .)" ]; then
+      watching=
+      printf '%s' "$payload" \
+        | sed 's/"hook_event_name": *"PermissionRequest"/"hook_event_name":"PermissionApproved"/' \
+        | send 3 >/dev/null
+    fi
+  done
+  wait "$cpid"
+  rc=$?
+  out=$(cat "$tmp")
+  rm -f "$tmp"
+  ;;
+*)
+  out=$(printf '%s' "$payload" | send "$max")
+  rc=$?
+  ;;
+esac
 # 7 = couldn't connect, 28 = connect timed out: the app isn't there.
 if [ $rc -eq 7 ] || { [ $rc -eq 28 ] && [ -z "$out" ]; }; then
   : >"$down"

@@ -310,6 +310,53 @@ fn permission_answered_no_in_terminal() {
 }
 
 #[test]
+fn permission_approved_in_terminal_shows_working_while_the_tool_runs() {
+    let t = th();
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("PermissionRequest"), 1_000, &t);
+    assert_eq!(s.status, Status::NeedsPermission);
+    // The shim saw the tool start: the same payload, renamed.
+    s.apply(
+        &fx_with(
+            "PermissionRequest",
+            serde_json::json!({
+                "session_id": SID, "hook_event_name": "PermissionApproved"
+            }),
+        ),
+        2_000,
+        &t,
+    );
+    assert_eq!(s.status, Status::Working);
+    assert!(s.pending_permission.is_none());
+    // A long tool: no waiting alert, no needs-input after the grace.
+    s.tick(2_000 + t.waiting_ms + 1, &t);
+    assert_eq!(s.status, Status::Working);
+    assert!(!s.has_alert(AlertKind::Waiting));
+}
+
+#[test]
+fn permission_approved_after_the_card_answered_changes_nothing() {
+    let t = th();
+    let mut s = Session::new(SID, 0);
+    s.apply(&ours("PermissionRequest"), 1_000, &t);
+    s.permission_answered(1_500);
+    s.apply(&ours("PostToolUse"), 1_600, &t);
+    s.apply(&ours("Stop"), 1_700, &t);
+    let before = s.status;
+    s.apply(
+        &fx_with(
+            "PermissionRequest",
+            serde_json::json!({
+                "session_id": SID, "hook_event_name": "PermissionApproved"
+            }),
+        ),
+        1_800,
+        &t,
+    );
+    assert_eq!(s.status, before);
+}
+
+#[test]
 fn permission_answered_yes_in_terminal() {
     let t = th();
     let mut s = Session::new(SID, 0);

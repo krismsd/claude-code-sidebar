@@ -117,6 +117,14 @@ pub enum Event {
         #[serde(default)]
         tool_input: Value,
     },
+    /// Not from Claude Code: the shim sends it (the PermissionRequest payload, renamed) when a
+    /// held request was approved in the terminal, seen as the tool's process starting. Claude
+    /// Code kills the hook on a terminal "No" but, since 2.1.330, not on "Yes".
+    PermissionApproved {
+        tool_name: String,
+        #[serde(default)]
+        tool_input: Value,
+    },
     PermissionDenied {
         tool_name: String,
         #[serde(default)]

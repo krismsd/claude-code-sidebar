@@ -261,6 +261,13 @@ async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String
         sync_titles(&ctx, Duration::from_secs(4));
     }
 
+    // Approved in the terminal: let the held request go with no decision (Claude Code stopped
+    // listening to it). Its guard sees it answered, so it isn't taken for a terminal "No".
+    if matches!(hook.event, Event::PermissionApproved { .. }) {
+        ctx.holds.lock().unwrap().remove(&hook.common.session_id);
+        return String::new();
+    }
+
     // Questions for the user aren't allow/deny decisions: answer only in the terminal.
     if let Event::PermissionRequest { tool_name, .. } = &hook.event
         && tool_name != "AskUserQuestion"

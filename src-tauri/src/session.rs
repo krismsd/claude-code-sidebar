@@ -1002,6 +1002,18 @@ impl Session {
                 });
                 self.set_status(Status::NeedsPermission, now);
             }
+            // Approved in the terminal: the tool is running.
+            Event::PermissionApproved {
+                tool_name,
+                tool_input,
+            } => {
+                if self.pending_permission.is_some() || self.status == Status::NeedsPermission {
+                    self.pending_permission = None;
+                    self.permission_released_at = None;
+                    self.current_tool = Some(describe_tool(tool_name, tool_input));
+                    self.set_status(Status::Working, now);
+                }
+            }
             Event::PermissionDenied {
                 tool_name,
                 tool_input,
@@ -1210,7 +1222,8 @@ impl Session {
             // The agent carries on: back to what its request interrupted.
             Event::PreToolUse { .. }
             | Event::PostToolUse { .. }
-            | Event::PostToolUseFailure { .. } => {
+            | Event::PostToolUseFailure { .. }
+            | Event::PermissionApproved { .. } => {
                 if let Some((status, since)) = self.before_agent_permission.take() {
                     self.pending_permission = None;
                     self.permission_released_at = None;

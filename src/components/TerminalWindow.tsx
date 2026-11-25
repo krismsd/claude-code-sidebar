@@ -91,6 +91,25 @@ export function TerminalWindow() {
     const sub = getCurrentWindow().onFocusChanged(({ payload }) => setFocused(payload));
     return () => void sub.then((f) => f());
   }, []);
+  // Where keys go: dimmed unless the window has focus and a terminal has it inside the window
+  // (a click on the tab bar takes it away). Claude Code draws its own cursor, so otherwise the
+  // window looks the same whether typing reaches it or not.
+  const [inTerminal, setInTerminal] = useState(false);
+  useEffect(() => {
+    const check = () =>
+      setInTerminal(!!document.activeElement?.classList.contains("xterm-helper-textarea"));
+    // On focusout the next element isn't focused yet: look once it is.
+    const later = () => requestAnimationFrame(check);
+    check();
+    document.addEventListener("focusin", check);
+    document.addEventListener("focusout", later);
+    return () => {
+      document.removeEventListener("focusin", check);
+      document.removeEventListener("focusout", later);
+    };
+  }, []);
+  const typing = focused && inTerminal;
+
   useEffect(() => {
     if (focused && current?.unread) invoke("session_seen", { sessionId: current.session_id });
   }, [focused, current?.unread, current?.session_id]);
@@ -110,7 +129,7 @@ export function TerminalWindow() {
   };
 
   return (
-    <main className="term-window">
+    <main className={`term-window${typing ? "" : " unfocused"}`}>
       <nav className="term-tabs" data-tauri-drag-region>
         {tabs.map(({ name }) => {
           const s = byName(name);
@@ -119,7 +138,7 @@ export function TerminalWindow() {
               key={name}
               className={`term-tab${name === shown ? " active" : ""}`}
               style={{ "--project": s?.project?.color ?? "#888" } as CSSProperties}
-              onClick={() => setActive(name)}
+              onClick={() => (setActive(name), terminals.get(name)?.focus())}
               onAuxClick={(e) => e.button === 1 && close(name)}
               title={s ? `${s.project?.name ?? ""}\n${sessionName(s)}` : name}
             >

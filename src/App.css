@@ -2341,6 +2341,18 @@ button {
   flex: 1;
   min-height: 0;
   position: relative;
+  transition: opacity 0.12s;
+}
+
+/* Typing doesn't reach a terminal (window or terminal not focused): dim it, as Windows
+   Terminal's unfocused appearance does, and drop the active tab's accent. */
+.term-window.unfocused .term-panes {
+  opacity: 0.5;
+}
+
+.term-window.unfocused .term-tab.active {
+  color: #a0a0a0;
+  box-shadow: none;
 }
 
 .term-pane {

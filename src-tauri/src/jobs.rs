@@ -13,6 +13,9 @@ const TAIL_BYTES: u64 = 16 * 1024;
 /// What `cc-progress` puts before its JSON.
 const PROGRESS_TAG: &str = "##cc-progress ";
 
+/// `cc-progress`'s note to Claude (a call without stages or a count): for Claude, not the card.
+const HINT_TAG: &str = "cc-progress: ";
+
 pub async fn watch(ctx: Ctx) {
     let mut backfilled = std::collections::HashSet::new();
     loop {
@@ -189,7 +192,7 @@ pub fn last_line(text: &str) -> Option<String> {
                 .trim()
                 .to_string()
         })
-        .find(|l| !l.is_empty() && !l.starts_with(PROGRESS_TAG))
+        .find(|l| !l.is_empty() && !l.starts_with(PROGRESS_TAG) && !l.starts_with(HINT_TAG))
         .map(|l| crate::events::truncate(&l, 160))
 }
 
@@ -279,6 +282,8 @@ mod tests {
         assert_eq!(last_line(out).as_deref(), Some("step 2: running"));
         assert_eq!(last_line("10%\r50%\r90%\n").as_deref(), Some("90%"));
         assert_eq!(last_line("\n  \n"), None);
+        let hinted = "deploying\n##cc-progress {\"state\":\"running\"}\ncc-progress: no --steps\n";
+        assert_eq!(last_line(hinted).as_deref(), Some("deploying"));
     }
 
     #[test]

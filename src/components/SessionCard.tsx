@@ -7,6 +7,7 @@ import {
   dormant,
   jobTiming,
   progressLine,
+  jobTitle,
   readyStale,
   waiting,
   tokens,
@@ -96,7 +97,7 @@ export function SessionCard({
   const jobs = s.background.filter((b) => b.awaited);
   const services = s.background.filter((b) => !b.awaited && !b.agent);
   const agents = Math.max(0, s.subagents_running - jobs.filter((b) => b.agent).length);
-  const jobName = (b: (typeof jobs)[number]) => b.description || (b.agent ? "Agent" : "Command");
+  const jobName = jobTitle;
   // Newest first: the alert band shows the first, "+N" for the rest.
   const alerts = [...shown].sort((a, b) => b.at - a.at);
   // A dormant session (ended for sitting idle) looks and acts like a ready one.
@@ -502,7 +503,14 @@ function JobLine({
             {p.item && <span className="card-job-item">{p.item}</span>}
             <span
               className="card-job-steps"
-              title={p.until ? `Expected to finish ${clock(p.until)}` : undefined}
+              title={
+                [
+                  p.steps.length > 0 ? p.steps.join(" ─ ") : null,
+                  p.until ? `Expected to finish ${clock(p.until)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n") || undefined
+              }
             >
               {progressLine(p, now, job.seen_at)}
             </span>

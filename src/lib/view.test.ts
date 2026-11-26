@@ -10,6 +10,8 @@ import {
   groupSessions,
   jobTiming,
   progressLine,
+  stepsLine,
+  jobTitle,
   readyStale,
   projectStatus,
   marker,
@@ -337,6 +339,66 @@ describe("job progress", () => {
     );
     expect(progressLine(p({ steps, at: "Dev", state: "done" }))).toBe("Build ✓ ─ Dev ✓ ─ TST ✓");
     expect(progressLine(p({ steps }))).toBe("Build ○ ─ Dev ○ ─ TST ○");
+  });
+
+  it("shortens a long step list around the current stage", () => {
+    const steps = [
+      "Lint",
+      "Build",
+      "Test",
+      "Package",
+      "Migrate",
+      "Infra",
+      "Image",
+      "Deploy API",
+      "Deploy web",
+      "Smoke",
+      "Release",
+    ];
+    expect(stepsLine(p({ steps, at: "Release", state: "running" }))).toBe("10 ✓ ─ Release ●");
+    expect(stepsLine(p({ steps, at: "Migrate", state: "running" }))).toBe(
+      "4 ✓ ─ Migrate ● ─ Infra ○ +5",
+    );
+    expect(stepsLine(p({ steps, at: "Smoke", state: "failed" }))).toBe("9 ✓ ─ Smoke ✗ ─ Release ○");
+    expect(stepsLine(p({ steps, at: "Lint" }))).toBe("Lint ● ─ Build ○ +9");
+    expect(stepsLine(p({ steps }))).toBe("Lint ○ ─ Build ○ +9");
+    expect(stepsLine(p({ steps, at: "Release", state: "done" }))).toBe("all 11 ✓");
+    // Four or fewer: in full.
+    expect(stepsLine(p({ steps: ["A", "B", "C", "D"], at: "C" }))).toBe("A ✓ ─ B ✓ ─ C ● ─ D ○");
+  });
+
+  it("names a job without a description by what it tracks or the script it runs", () => {
+    const job = (over: Partial<Background>): Background => ({
+      id: "b1",
+      agent: false,
+      description: "",
+      command: "",
+      awaited: true,
+      last_line: null,
+      progress: [],
+      seen_at: null,
+      output_at: null,
+      ...over,
+    });
+    expect(jobTitle(job({ description: "Watch the dev deploy", command: "bash w.sh" }))).toBe(
+      "Watch the dev deploy",
+    );
+    const loop = "R=1; while true; do gh run view $R; sleep 60; done";
+    const run = "https://github.com/acme/web/actions/runs/123456789";
+    expect(jobTitle(job({ description: loop, command: loop, progress: [p({ url: run })] }))).toBe(
+      "GitHub run 123456789 · web",
+    );
+    expect(
+      jobTitle(
+        job({ command: "x", progress: [p({ url: "https://gitlab.com/g/api/-/pipelines/77" })] }),
+      ),
+    ).toBe("GitLab pipeline 77 · api");
+    const script = "bash /tmp/claude-1000/proj/scratchpad/watch-pipeline.sh 123456789";
+    expect(jobTitle(job({ description: script, command: script }))).toBe(
+      "watch-pipeline.sh 123456789",
+    );
+    expect(jobTitle(job({ command: loop }))).toBe(loop);
+    expect(jobTitle(job({ agent: true }))).toBe("Agent");
   });
 
   it("shows a count as a bar, else the state", () => {

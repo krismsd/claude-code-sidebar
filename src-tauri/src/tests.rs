@@ -2182,3 +2182,30 @@ fn older_claude_code_offers_an_update() {
     assert_eq!(a.pid, Some(999));
     assert_eq!((a.version.as_ref(), a.update.as_ref()), (None, None));
 }
+
+#[test]
+fn background_command_needs_a_description() {
+    use crate::server::background_without_description as refused;
+    use serde_json::json;
+    assert!(refused(
+        "Bash",
+        &json!({"command": "bash w.sh 1", "run_in_background": true})
+    ));
+    assert!(refused(
+        "Bash",
+        &json!({"command": "x", "run_in_background": true, "description": "  "})
+    ));
+    assert!(!refused(
+        "Bash",
+        &json!({"command": "x", "run_in_background": true, "description": "Watch deploy"})
+    ));
+    assert!(!refused("Bash", &json!({"command": "ls"})));
+    assert!(!refused(
+        "Bash",
+        &json!({"command": "ls", "run_in_background": false})
+    ));
+    assert!(!refused(
+        "Agent",
+        &json!({"prompt": "x", "run_in_background": true})
+    ));
+}

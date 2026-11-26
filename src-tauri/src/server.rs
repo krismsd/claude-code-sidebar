@@ -207,6 +207,33 @@ impl Drop for HoldGuard {
     }
 }
 
+/// Why a background command needs a description: Claude Code names the task after it, and
+/// without one the card's job line is the whole command (SPEC §3.14, 2026-11-26).
+const NO_DESCRIPTION: &str = "cc-sidebar: a background command needs a `description`. It names \
+the job on the user's sidebar card; without one the card shows the raw command. Run it again with \
+a short description of what it does or watches, e.g. \"Watch the staging deploy\".";
+
+/// A Bash call to run in the background with no description: refused, so Claude retries with
+/// one. Only these: a foreground command's description is never shown as a job name.
+pub fn background_without_description(tool_name: &str, input: &serde_json::Value) -> bool {
+    tool_name == "Bash"
+        && input.get("run_in_background").and_then(|v| v.as_bool()) == Some(true)
+        && input
+            .get("description")
+            .and_then(|v| v.as_str())
+            .is_none_or(|d| d.trim().is_empty())
+}
+
+/// PreToolUse's answer refusing a tool call, with the reason Claude is shown.
+fn refuse(reason: &str) -> String {
+    serde_json::json!({ "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": reason,
+    } })
+    .to_string()
+}
+
 async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String {
     let meta = HookMeta::from_headers(|k| {
         headers
@@ -221,6 +248,17 @@ async fn hook(State(ctx): State<Ctx>, headers: HeaderMap, body: Bytes) -> String
             return String::new();
         }
     };
+    // Refused before it's recorded: the call never runs, so the card mustn't show it as the
+    // current tool (no PostToolUse follows).
+    if let Event::PreToolUse {
+        tool_name,
+        tool_input,
+    } = &hook.event
+        && background_without_description(tool_name, tool_input)
+    {
+        log::info!("refused a background command without a description");
+        return refuse(NO_DESCRIPTION);
+    }
     let applied = ctx.store.lock().unwrap().apply(&hook, now_ms());
     if !applied {
         return String::new();

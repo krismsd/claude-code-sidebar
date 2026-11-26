@@ -203,6 +203,57 @@ const bar = (frac: number) => {
   return `${"▰".repeat(filled)}${"▱".repeat(8 - filled)}`;
 };
 
+/** Stages that fit on a card line in full; longer lists are shortened around the current one. */
+const STEPS_IN_FULL = 4;
+
+/** A step list as a line: "Build ✓ ─ Dev ● ─ TST ○". A long one (a pipeline of 11 stages)
+ * would be cut off at the card's edge, hiding the current stage, so it keeps the current stage
+ * and the next one and counts the rest: "10 ✓ ─ Release ●", "4 ✓ ─ Migrate ● ─ Infra ○ +5",
+ * "all 11 ✓". */
+export function stepsLine(p: Progress): string {
+  const at = p.at === null ? -1 : p.steps.indexOf(p.at);
+  const finished = p.state === "done";
+  const mark = (i: number) =>
+    finished || i < at ? "✓" : i === at ? (STEP_MARK[p.state ?? "running"] ?? "●") : "○";
+  const n = p.steps.length;
+  if (n <= STEPS_IN_FULL) return p.steps.map((name, i) => `${name} ${mark(i)}`).join(" ─ ");
+  if (finished) return `all ${n} ✓`;
+  const cur = Math.max(at, 0);
+  const shown: string[] = [];
+  if (cur > 0) shown.push(`${cur} ✓`);
+  shown.push(`${p.steps[cur]} ${mark(cur)}`);
+  if (cur + 1 < n) shown.push(`${p.steps[cur + 1]} ○`);
+  const rest = n - cur - 2;
+  return shown.join(" ─ ") + (rest > 0 ? ` +${rest}` : "");
+}
+
+/** A job's name on its card line. Claude names most background commands; one started without a
+ * description gets its command as the name, which is unreadable (a whole watcher loop, or
+ * "bash /tmp/…/watch-pipeline.sh 1234…"). Then: what its progress links to (a CI
+ * run), else the command shortened to the script it runs. */
+export function jobTitle(b: Background): string {
+  if (b.agent) return b.description || "Agent";
+  const described = b.description.trim();
+  if (described && described !== b.command.trim()) return described;
+  const url = b.progress.find((p) => p.url)?.url;
+  if (url) {
+    const gh = /github\.com\/[^/]+\/([^/]+)\/actions\/runs\/(\d+)/.exec(url);
+    if (gh) return `GitHub run ${gh[2]} · ${gh[1]}`;
+    const gl = /\/([^/]+)\/-\/pipelines\/(\d+)/.exec(url);
+    if (gl) return `GitLab pipeline ${gl[2]} · ${gl[1]}`;
+    try {
+      return new URL(url).host;
+    } catch {
+      /* not a URL: fall through */
+    }
+  }
+  const words = b.command.trim().split(/\s+/);
+  if (words.length >= 2 && /^(bash|sh|zsh|python3?|node|deno|bun|npx|tsx)$/.test(words[0]))
+    words.shift();
+  if (words[0]?.includes("/")) words[0] = words[0].split("/").pop()!;
+  return words.join(" ") || "Command";
+}
+
 /** One progress item as a line. With an end time (`until`) and `now`, a countdown: a time bar
  * from when `until` was given (else `seen`, when the job was first seen) when there's nothing
  * else to show, otherwise appended. */
@@ -211,17 +262,7 @@ export function progressLine(p: Progress, now?: number, seen?: number | null): s
   const timed = p.until != null && now !== undefined && p.state !== "done";
   const start = p.since ?? seen;
   if (p.steps.length > 0) {
-    const at = p.at === null ? -1 : p.steps.indexOf(p.at);
-    const finished = p.state === "done";
-    parts.push(
-      p.steps
-        .map((name, i) => {
-          const mark =
-            finished || i < at ? "✓" : i === at ? (STEP_MARK[p.state ?? "running"] ?? "●") : "○";
-          return `${name} ${mark}`;
-        })
-        .join(" ─ "),
-    );
+    parts.push(stepsLine(p));
   } else if (p.total !== null && p.total > 0 && p.grew) {
     // A total that grows (later stages listed once they start) would make the bar look nearly
     // full throughout: just the count, open-ended.

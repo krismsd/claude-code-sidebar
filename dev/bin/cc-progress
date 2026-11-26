@@ -76,4 +76,16 @@ last="$dir/cc-progress-$(id -u)-$PPID-$key"
 [ "$(cat "$last" 2>/dev/null)" = "$line" ] && exit 0
 { printf '%s\n' "$line" >"$last"; } 2>/dev/null
 printf '%s\n' "$line"
+# A running job reporting no stages, count or end time shows the card nothing of how far along it
+# is. Remind Claude once per script, in a line it reads when it looks at the output (it filters
+# out `##cc-progress` lines, and copies its last watcher for the next one). The sidebar skips it.
+case "$line" in *'"steps":'* | *'"total":'* | *'"until":'*) ;; *)
+  case "$line" in *'"state":"done"'* | *'"state":"failed"'*) ;; *)
+    hinted="$dir/cc-progress-$(id -u)-$PPID-$({ tr '\0' ' ' </proc/$PPID/cmdline; } 2>/dev/null | cksum | cut -d' ' -f1)-hinted"
+    if [ ! -e "$hinted" ]; then
+      { : >"$hinted"; } 2>/dev/null
+      echo "cc-progress: no --steps, --total or --until. If this job has stages or a count, report them from its definition (the workflow file, the plan), e.g. --steps Build,Dev,TST --at Dev, so the card shows how far along it is."
+    fi
+  ;; esac
+;; esac
 exit 0
